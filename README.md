@@ -1,9 +1,10 @@
 # AdaBelief
 
-## Overview
+**Overview**:
+
 The `AdaBelief` optimizer is a modification of the Adam optimizer designed to adapt the learning rate to the gradient’s variability. This approach makes it particularly effective for handling noisy gradients and improving generalization. It supports advanced features like rectification (inspired by RAdam), weight decay, gradient clipping, and the ability to degenerate into SGD when required.
 
-## Features
+**Features**:
 - **Adaptive Learning Rate**: Learns from the gradient’s variability for more adaptive parameter updates.
 - **Weight Decay**: Supports both decoupled and standard weight decay.
 - **Rectified Updates**: Option to use rectification for variance control (RAdam-inspired).
@@ -14,12 +15,12 @@ The `AdaBelief` optimizer is a modification of the Adam optimizer designed to ad
 
 ---
 
-## Class Definition
+**Class Definition**:
 ```python
 class AdaBelief(optimizer.Optimizer):
 ```
 
-### Parameters
+**Parameters**:
 - **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
 - **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
 - **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
@@ -42,30 +43,30 @@ class AdaBelief(optimizer.Optimizer):
 
 ---
 
-## Methods
+**Methods**:
 
-### `__setstate__(state)`
+**`__setstate__(state)`**
 Restores optimizer state and ensures `amsgrad` is set to `False`.
 
-### `reset()`
+**`reset()`**
 Initializes or resets optimizer variables (`exp_avg`, `exp_avg_var`, etc.).
 
-### `build(var_list)`
+**`build(var_list)`**
 Creates necessary optimizer state variables (`exp_avg`, `exp_avg_var`, etc.) for the given trainable variables.
 
-### `update_step(gradient, variable, learning_rate)`
+**`update_step(gradient, variable, learning_rate)`**
 Performs a single optimization step for the given variable and gradient.
 
 - **`gradient`**: The gradient tensor.
 - **`variable`**: The trainable variable to update.
 - **`learning_rate`**: The learning rate for the current step.
 
-### `get_config()`
+**`get_config()`**
 Returns the configuration of the optimizer as a dictionary.
 
 ---
 
-## Example Usage
+**Example Usage**:
 ```python
 import tensorflow as tf
 from optimizers.adabelief import AdaBelief
@@ -87,11 +88,11 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 
 # AdamP
 
-## Overview
+**Overview**:
 
 The `AdamP` optimizer is a modification of the Adam optimizer that aims to slow down the increase of weight norms in momentum-based optimizers. This is particularly useful for improving generalization and preventing overfitting. The optimizer uses a projection step to decouple sharp and flat components of the gradients, effectively reducing sensitivity to noise.
 
-### Features
+**Features**:
 - **Projection Mechanism**: Decouples flat and sharp components of the gradients to mitigate overfitting.
 - **Weight Decay**: Includes an adjusted weight decay term with a configurable ratio.
 - **Momentum Updates**: Supports standard and Nesterov momentum.
@@ -101,14 +102,14 @@ The `AdamP` optimizer is a modification of the Adam optimizer that aims to slow 
 
 ---
 
-## Class Definition
+**Class Definition**:
 ```python
 class AdamP(optimizer.Optimizer):
 ```
 
 ---
 
-## Parameters
+**Parameters**:
 - **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
 - **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
 - **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
@@ -129,16 +130,16 @@ class AdamP(optimizer.Optimizer):
 
 ---
 
-## Methods
+**Methods**:
 
-### `build(var_list)`
+**`build(var_list)`**
 Initializes optimizer state variables, such as first and second moment estimates (`exp_avg` and `exp_avg_sq`).
 
 - **`var_list`** *(list of variables)*: List of trainable variables.
 
 ---
 
-### `update_step(gradient, variable, learning_rate)`
+**`update_step(gradient, variable, learning_rate)`**
 Performs a single optimization step for a given gradient and variable.
 
 - **`gradient`** *(Tensor)*: The gradient tensor for the variable.
@@ -147,12 +148,12 @@ Performs a single optimization step for a given gradient and variable.
 
 ---
 
-### `get_config()`
+**`get_config()`**
 Returns the optimizer configuration as a dictionary, including all hyperparameters.
 
 ---
 
-## Example Usage
+**Example Usage**:
 ```python
 import tensorflow as tf
 from optimizers.adamp import AdamP
@@ -175,11 +176,11 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 
 # LaProp
 
-## Overview
+**Overview**:
 
 The `LaProp` optimizer is an adaptive gradient optimization algorithm that improves upon Adam by dynamically adjusting learning rates in proportion to the gradients. It includes optional features like centered second moments, AMSGrad stabilization, and weight decay, making it a versatile optimizer for deep learning tasks.
 
-### Features
+**Features**:
 - **Learning Rate Adaptation**: Adjusts learning rates dynamically using gradient-based corrections.
 - **Centered Updates**: Optionally centers second-moment estimates to improve convergence.
 - **AMSGrad**: Stabilizes training by maintaining the maximum second-moment running average.
@@ -189,14 +190,14 @@ The `LaProp` optimizer is an adaptive gradient optimization algorithm that impro
 
 ---
 
-## Class Definition
+**Class Definition**:
 ```python
 class LaProp(optimizer.Optimizer):
 ```
 
 ---
 
-## Parameters
+**Parameters**:
 - **`learning_rate`** *(float, default=4e-4)*: Base step size for parameter updates.
 - **`beta_1`** *(float, default=0.9)*: Coefficient for the moving average of the first moment (mean of gradients).
 - **`beta_2`** *(float, default=0.999)*: Coefficient for the moving average of the second moment (variance of gradients).
@@ -217,9 +218,9 @@ class LaProp(optimizer.Optimizer):
 
 ---
 
-## Methods
+**Methods**:
 
-### `build(var_list)`
+**`build(var_list)`**
 Initializes state variables for the optimizer, including:
 - First and second moment estimates (`exp_avg`, `exp_avg_sq`).
 - Learning rate-based adjustments for first and second moments.
@@ -229,17 +230,17 @@ Initializes state variables for the optimizer, including:
 
 ---
 
-### `update_step(gradient, variable, learning_rate)`
+**`update_step(gradient, variable, learning_rate)`**
 Performs a single optimization step for a variable using its gradient.
 
 ---
 
-### `get_config()`
+**`get_config()`**
 Returns the optimizer configuration as a dictionary, including all hyperparameters for easy reinitialization.
 
 ---
 
-## Example Usage
+**Example Usage**:
 ```python
 import tensorflow as tf
 from optimizers.laprop import LaProp
@@ -264,11 +265,11 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 
 # Lars
 
-## Overview
+**Overview**:
 
 The `Lars` optimizer is an implementation of **Layer-wise Adaptive Rate Scaling (LARS)**, a variant of stochastic gradient descent (SGD) designed for large-batch training. It combines weight decay and trust region-based learning rate adaptation, ensuring effective scaling for deep learning models with high-dimensional parameters. This implementation also includes optional **LARC (Layer-wise Adaptive Rate Clipping)**, momentum, and Nesterov updates.
 
-### Features
+**Features**:
 - **Layer-wise Learning Rate Scaling**: Adapts learning rates based on parameter and gradient norms.
 - **LARC Clipping**: Ensures trust ratio stays within a bounded range.
 - **Momentum and Nesterov Updates**: Enhances optimization convergence speed.
@@ -278,14 +279,14 @@ The `Lars` optimizer is an implementation of **Layer-wise Adaptive Rate Scaling 
 
 ---
 
-## Class Definition
+**Class Definition**:
 ```python
 class Lars(optimizer.Optimizer):
 ```
 
 ---
 
-## Parameters
+**Parameters**:
 - **`learning_rate`** *(float, default=1.0)*: Base learning rate for parameter updates.
 - **`momentum`** *(float, default=0)*: Momentum factor for the optimizer.
 - **`dampening`** *(float, default=0)*: Dampening factor for momentum.
@@ -307,26 +308,26 @@ class Lars(optimizer.Optimizer):
 
 ---
 
-## Methods
+**Methods**:
 
-### `build(var_list)`
+**`build(var_list)`**
 Initializes the optimizer states for all variables. Each variable gets a state dictionary to store momentum buffers if `momentum` is enabled.
 
 - **`var_list`** *(list of variables)*: List of trainable variables to optimize.
 
 ---
 
-### `update_step(gradient, variable, learning_rate)`
+**`update_step(gradient, variable, learning_rate)`**
 Performs a single optimization step for a variable using its gradient.
 
 ---
 
-### `get_config()`
+**`get_config()`**
 Returns the optimizer configuration as a dictionary, including all hyperparameters for easy reinitialization.
 
 ---
 
-## Example Usage
+**Example Usage**:
 ```python
 import tensorflow as tf
 from optimziers.lars import Lars
@@ -350,11 +351,11 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 
 # MADGRAD
 
-## Overview
+**Overview**:
 
 The `MADGRAD` optimizer is an advanced optimization algorithm designed for large-scale machine learning tasks. It is based on the paper [MADGRAD: Stochastic Optimization with Momentum Decay for Training Neural Networks](https://arxiv.org/abs/2101.11075) and provides benefits for sparse and dense gradient updates. This implementation is compatible with TensorFlow and includes support for advanced features like weight decay, momentum, and gradient accumulation.
 
-### Features
+**Features**:
 - **Momentum Acceleration**: Enhances optimization convergence speed.
 - **Second-Moment Accumulation**: Accumulates second-order gradient statistics for stable updates.
 - **Decoupled Weight Decay**: Separates weight decay from gradient updates for improved performance.
@@ -364,14 +365,14 @@ The `MADGRAD` optimizer is an advanced optimization algorithm designed for large
 
 ---
 
-## Class Definition
+**Class Definition**:
 ```python
 class MADGRAD(optimizer.Optimizer):
 ```
 
 ---
 
-## Parameters
+**Parameters**:
 - **`learning_rate`** *(float, default=1e-2)*: Base learning rate for parameter updates.
 - **`epsilon`** *(float, default=1e-6)*: Small constant for numerical stability.
 - **`momentum`** *(float, default=0.9)*: Momentum factor for the optimizer.
@@ -389,9 +390,9 @@ class MADGRAD(optimizer.Optimizer):
 
 ---
 
-## Methods
+**Methods**:
 
-### `build(var_list)`
+**`build(var_list)`**
 Initializes the optimizer states for all variables, creating:
 1. `_grad_sum_sq`: Accumulator for second-order gradient statistics.
 2. `_s`: Accumulator for gradients.
@@ -401,17 +402,17 @@ Initializes the optimizer states for all variables, creating:
 
 ---
 
-### `update_step(gradient, variable, learning_rate)`
+**`update_step(gradient, variable, learning_rate)`**
 Performs a single optimization step for a variable using its gradient.
 
 ---
 
-### `get_config()`
+**`get_config()`**
 Returns the optimizer configuration as a dictionary, including all hyperparameters for easy reinitialization.
 
 ---
 
-## Example Usage
+**Example Usage**:
 ```python
 import tensorflow as tf
 from optimizers.madgrad import MADGRAD
@@ -433,7 +434,7 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 
 # MARS
 
-## Overview
+**Overview**:
 
 The **MARS** optimizer implements a novel optimization algorithm designed for training large-scale models effectively. It leverages variance reduction techniques, adaptive learning rates, and supports both AdamW-style and Lion-style updates for parameter optimization. MARS also incorporates specialized mechanisms to handle 1D and 2D gradients differently, ensuring efficiency and accuracy in various scenarios.
 
@@ -441,7 +442,7 @@ This implementation is based on the paper [MARS: Unleashing the Power of Varianc
 
 ---
 
-## Features
+**Features**:
 - **Variance Reduction**: Minimizes gradient variance to stabilize updates.
 - **Customizable Update Rules**: Supports AdamW and Lion-style parameter updates.
 - **Adaptive Gradient Clipping**: Provides enhanced control over gradient updates.
@@ -452,16 +453,14 @@ This implementation is based on the paper [MARS: Unleashing the Power of Varianc
 
 ---
 
-## Class Definition
-
+**Class Definition**:
 ```python
 class Mars(optimizer.Optimizer)
 ```
 
 ---
 
-## Parameters
-
+**Parameters**:
 - **`learning_rate`** *(float, default=3e-3)*: The learning rate for optimization.
 - **`beta_1`** *(float, default=0.9)*: Coefficient for the first moment estimate.
 - **`beta_2`** *(float, default=0.99)*: Coefficient for the second moment estimate.
@@ -487,9 +486,9 @@ class Mars(optimizer.Optimizer)
 
 ---
 
-## Methods
+**Methods**:
 
-### `build(var_list)`
+**`build(var_list)`**
 Initializes the optimizer's state for the given variables, including:
 - `_exp_avg`: First-moment estimates for each variable.
 - `_exp_avg_sq`: Second-moment estimates for each variable.
@@ -500,17 +499,17 @@ Initializes the optimizer's state for the given variables, including:
 
 ---
 
-### `update_step(gradient, variable, learning_rate)`
+**`update_step(gradient, variable, learning_rate)`**
 Performs a single optimization step for the given variable using its gradient.
 
 ---
 
-### `get_config()`
+**`get_config()`**
 Returns the optimizer configuration as a dictionary for easy reinitialization.
 
 ---
 
-## Example Usage
+**Example Usage**:
 
 ```python
 import tensorflow as tf
@@ -536,7 +535,7 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 
 # NAdam
 
-## Overview
+**Overview**:
 
 The **NAdam** optimizer is an implementation of the Nesterov-accelerated Adaptive Moment Estimation (Nadam) algorithm. Nadam extends the widely-used Adam optimizer by incorporating Nesterov momentum, providing faster convergence in some scenarios. This optimizer is particularly useful for tasks where momentum plays a critical role in overcoming saddle points and improving optimization dynamics.
 
@@ -546,8 +545,7 @@ The algorithm is described in:
 
 ---
 
-## Features
-
+**Features**
 - **Adaptive Learning Rates**: Adjusts learning rates based on gradients and their variance.
 - **Nesterov Momentum**: Combines momentum-based updates with gradient adjustments, offering better convergence in some cases.
 - **Bias Correction**: Corrects bias introduced during the initialization of moment estimates.
@@ -556,16 +554,14 @@ The algorithm is described in:
 
 ---
 
-## Class Definition
-
+**Class Definition**:
 ```python
 class NAdam(optimizer.Optimizer)
 ```
 
 ---
 
-## Parameters
-
+**Parameters**:
 - **`learning_rate`** *(float, default=2e-3)*: Learning rate for the optimizer.
 - **`beta_1`** *(float, default=0.9)*: Coefficient for the first moment estimate (momentum term).
 - **`beta_2`** *(float, default=0.999)*: Coefficient for the second moment estimate (variance term).
@@ -584,9 +580,9 @@ class NAdam(optimizer.Optimizer)
 
 ---
 
-## Methods
+**Methods**
 
-### `build(var_list)`
+**`build(var_list)`**
 Initializes optimizer state for the trainable variables.
 
 - **`var_list`** *(list of variables)*: Trainable variables to optimize.
@@ -599,17 +595,17 @@ Initializations:
 
 ---
 
-### `update_step(gradient, variable, learning_rate)`
+**`update_step(gradient, variable, learning_rate)`**
 Performs a single optimization step for the given variable using the provided gradient.
 
 ---
 
-### `get_config()`
+**`get_config()`**
 Returns the optimizer's configuration as a dictionary for serialization and reinitialization.
 
 ---
 
-## Example Usage
+**Example Usage**:
 
 ```python
 import tensorflow as tf
@@ -633,7 +629,7 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 
 # NvNovoGrad
 
-## Overview
+**Overview**:
 
 The **NvNovoGrad** optimizer is an implementation of NovoGrad, an optimization algorithm designed for deep learning that uses layer-wise adaptive moments for efficient and robust training. NovoGrad is particularly effective for large-scale and resource-constrained deep learning tasks, as it combines the benefits of Adam and L2 regularization while being computationally efficient.
 
@@ -645,8 +641,7 @@ This implementation is inspired by NVIDIA's original implementation in PyTorch, 
 
 ---
 
-## Features
-
+**Features**:
 - **Layer-wise Adaptive Learning Rates**: Adjusts learning rates for each layer, making it suitable for large-scale tasks.
 - **Efficient Memory Usage**: Optimized for memory efficiency, making it ideal for resource-constrained environments.
 - **Support for AMSGrad**: Includes an optional variant of NovoGrad with AMSGrad for improved convergence.
@@ -655,16 +650,14 @@ This implementation is inspired by NVIDIA's original implementation in PyTorch, 
 
 ---
 
-## Class Definition
-
+**Class Definition**:
 ```python
 class NvNovoGrad(optimizer.Optimizer)
 ```
 
 ---
 
-## Parameters
-
+**Parameters**:
 - **`learning_rate`** *(float, default=1e-3)*: Learning rate for the optimizer.
 - **`beta_1`** *(float, default=0.95)*: Exponential decay rate for the first moment estimate (momentum term).
 - **`beta_2`** *(float, default=0.98)*: Exponential decay rate for the second moment estimate (variance term).
@@ -684,9 +677,9 @@ class NvNovoGrad(optimizer.Optimizer)
 
 ---
 
-## Methods
+**Methods**:
 
-### `build(var_list)`
+**`build(var_list)`**
 Initializes optimizer state for the trainable variables.
 
 - **`var_list`** *(list of variables)*: Trainable variables to optimize.
@@ -699,17 +692,17 @@ Initializations:
 
 ---
 
-### `update_step(gradient, variable, learning_rate)`
+**`update_step(gradient, variable, learning_rate)`**
 Performs a single optimization step for the given variable using the provided gradient.
 
 ---
 
-### `get_config()`
+**`get_config()`**
 Returns the optimizer's configuration as a dictionary for serialization and reinitialization.
 
 ---
 
-## Example Usage
+**Example Usage**:
 
 ```python
 import tensorflow as tf
@@ -734,7 +727,7 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 
 # RAdam
 
-## Overview
+**Overview**:
 
 The **RAdam (Rectified Adam)** optimizer is a variant of the Adam optimizer that incorporates a mechanism to rectify the variance of adaptive learning rates. This rectification improves stability and prevents early training instabilities, especially in the initial training phase. RAdam maintains the benefits of Adam while being more robust for a wide range of applications.
 
@@ -746,8 +739,7 @@ This implementation is inspired by the original PyTorch implementation:
 
 ---
 
-## Features
-
+**Features**:
 - **Variance Rectification**: Dynamically adjusts learning rates to mitigate training instabilities during the early stages.
 - **Automatic Transition**: Automatically transitions between SGD-like behavior and Adam-like behavior based on available statistics.
 - **Weight Decay Support**: Includes support for L2 regularization.
@@ -755,16 +747,14 @@ This implementation is inspired by the original PyTorch implementation:
 
 ---
 
-## Class Definition
-
+**Class Definition**:
 ```python
 class RAdam(optimizer.Optimizer)
 ```
 
 ---
 
-## Parameters
-
+**Parameters**:
 - **`learning_rate`** *(float, default=1e-3)*: Base learning rate for the optimizer.
 - **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimate (momentum term).
 - **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimate (variance term).
@@ -782,14 +772,14 @@ class RAdam(optimizer.Optimizer)
 
 ---
 
-## Methods
+**Methods**:
 
-### `build(var_list)`
+**`build(var_list)`**
 Initializes the optimizer state for the trainable variables.
 
 - **`var_list`** *(list of variables)*: List of trainable variables to optimize.
 
-#### State Initialization:
+Initializations:
 - `_exp_avg`: First-moment estimates for each variable.
 - `_exp_avg_sq`: Second-moment estimates for each variable.
 - `step`: Tracks the optimization steps for each variable.
@@ -797,17 +787,17 @@ Initializes the optimizer state for the trainable variables.
 
 ---
 
-### `update_step(gradient, variable, learning_rate)`
+**`update_step(gradient, variable, learning_rate)`**
 Performs a single optimization step for the given variable using the provided gradient.
 
 ---
 
-### `get_config()`
+**`get_config()`**
 Returns a dictionary containing the optimizer's configuration, suitable for serialization or reinitialization.
 
 ---
 
-## Example Usage
+**Example Usage**:
 
 ```python
 import tensorflow as tf
@@ -831,7 +821,7 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 
 # SGDP
 
-## Overview
+**Overview**:
 
 The **SGDP (Stochastic Gradient Descent with Projection and Weight Decay)** optimizer is a variant of SGD that incorporates **decoupled weight decay regularization** and **gradient projection**. These features help control weight norm growth during training, improving convergence and performance. 
 
@@ -843,8 +833,7 @@ The implementation is inspired by the official repository:
 
 ---
 
-## Features
-
+**Features**:
 - **Projection Mechanism**: Projects gradients onto a subspace to reduce ineffective gradient directions and improve optimization efficiency.
 - **Decoupled Weight Decay**: Effectively regularizes the model parameters without interfering with gradient updates.
 - **Momentum and Nesterov Support**: Enhances optimization with momentum or Nesterov acceleration.
@@ -852,16 +841,14 @@ The implementation is inspired by the official repository:
 
 ---
 
-## Class Definition
-
+**Class Definition**:
 ```python
 class SGDP(optimizer.Optimizer)
 ```
 
 ---
 
-## Parameters
-
+**Parameters**:
 - **`learning_rate`** *(float, default=1e-3)*: Learning rate for the optimizer.
 - **`momentum`** *(float, default=0)*: Momentum factor for SGD.
 - **`dampening`** *(float, default=0)*: Dampening factor to control momentum updates.
@@ -882,29 +869,29 @@ class SGDP(optimizer.Optimizer)
 
 ---
 
-## Methods
+**Methods**:
 
-### `build(var_list)`
+**`build(var_list)`**
 Initializes the optimizer state for the trainable variables.
 
 - **`var_list`** *(list of variables)*: List of trainable variables.
 
-#### State Initialization:
+Initialization:
 - `_momentum`: Stores momentum terms for each variable.
 
 ---
 
-### `update_step(gradient, variable, learning_rate)`
+**`update_step(gradient, variable, learning_rate)`**
 Performs a single optimization step for the given variable using the provided gradient.
 
 ---
 
-### `get_config()`
+**`get_config()`**
 Returns a dictionary containing the optimizer's configuration, suitable for serialization or reinitialization.
 
 ---
 
-## Example Usage
+**Example Usage**:
 
 ```python
 import tensorflow as tf
@@ -930,7 +917,7 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 
 # Adan
 
-## Overview
+**Overview**:
 
 The **Adan (Adaptive Nesterov Momentum)** optimizer is a next-generation optimization algorithm designed to accelerate training and improve convergence in deep learning models. It combines **adaptive gradient estimation** and **multi-step momentum** for enhanced performance.
 
@@ -942,8 +929,7 @@ The implementation is inspired by the official repository:
 
 ---
 
-## Features
-
+**Features**:
 - **Adaptive Nesterov Momentum**: Improves gradient estimation using adaptive updates.
 - **Gradient Difference Momentum**: Stabilizes updates by tracking gradient differences.
 - **Decoupled Weight Decay**: Supports weight decay without interfering with gradient updates.
@@ -952,16 +938,14 @@ The implementation is inspired by the official repository:
 
 ---
 
-## Class Definition
-
+**Class Definition**:
 ```python
 class Adan(optimizer.Optimizer)
 ```
 
 ---
 
-## Parameters
-
+**Parameters**:
 - **`learning_rate`** *(float, default=1e-3)*: Learning rate for the optimizer.
 - **`beta_1`** *(float, default=0.98)*: Exponential decay rate for the first moment estimates.
 - **`beta_2`** *(float, default=0.92)*: Exponential decay rate for gradient difference momentum.
@@ -982,14 +966,14 @@ class Adan(optimizer.Optimizer)
 
 ---
 
-## Methods
+**Methods**:
 
-### `build(var_list)`
+**`build(var_list)`**
 Initializes the optimizer state for the trainable variables.
 
 - **`var_list`** *(list of variables)*: List of trainable variables.
 
-#### State Initialization:
+Initialization:
 - `exp_avg`: First moment estimates for each variable.
 - `exp_avg_sq`: Second moment estimates for each variable.
 - `exp_avg_diff`: Gradient difference momentum for each variable.
@@ -997,17 +981,17 @@ Initializes the optimizer state for the trainable variables.
 
 ---
 
-### `update_step(gradient, variable, learning_rate)`
+**`update_step(gradient, variable, learning_rate)`**
 Performs a single optimization step for the given variable using the provided gradient.
 
 ---
 
-### `get_config()`
+**`get_config()`**
 Returns a dictionary containing the optimizer's configuration, suitable for serialization or reinitialization.
 
 ---
 
-## Example Usage
+**Example Usage**:
 
 ```python
 import tensorflow as tf
