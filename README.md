@@ -15,11 +15,6 @@ The `AdaBelief` optimizer is a modification of the Adam optimizer designed to ad
 
 ---
 
-**Class Definition**:
-```python
-class AdaBelief(optimizer.Optimizer):
-```
-
 **Parameters**:
 - **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
 - **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
@@ -102,13 +97,6 @@ The `AdamP` optimizer is a modification of the Adam optimizer that aims to slow 
 
 ---
 
-**Class Definition**:
-```python
-class AdamP(optimizer.Optimizer):
-```
-
----
-
 **Parameters**:
 - **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
 - **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
@@ -187,13 +175,6 @@ The `LaProp` optimizer is an adaptive gradient optimization algorithm that impro
 - **Weight Decay**: Regularizes weights during optimization.
 - **Gradient Clipping**: Compatible with multiple gradient clipping techniques.
 - **Gradient Accumulation**: Supports accumulation for distributed or large-batch training.
-
----
-
-**Class Definition**:
-```python
-class LaProp(optimizer.Optimizer):
-```
 
 ---
 
@@ -279,13 +260,6 @@ The `Lars` optimizer is an implementation of **Layer-wise Adaptive Rate Scaling 
 
 ---
 
-**Class Definition**:
-```python
-class Lars(optimizer.Optimizer):
-```
-
----
-
 **Parameters**:
 - **`learning_rate`** *(float, default=1.0)*: Base learning rate for parameter updates.
 - **`momentum`** *(float, default=0)*: Momentum factor for the optimizer.
@@ -362,13 +336,6 @@ The `MADGRAD` optimizer is an advanced optimization algorithm designed for large
 - **Sparse Tensor Support**: Efficiently handles sparse gradients.
 - **Gradient Clipping**: Compatible with multiple gradient clipping techniques.
 - **Gradient Accumulation**: Supports large-batch training via accumulation.
-
----
-
-**Class Definition**:
-```python
-class MADGRAD(optimizer.Optimizer):
-```
 
 ---
 
@@ -450,13 +417,6 @@ This implementation is based on the paper [MARS: Unleashing the Power of Varianc
 - **Weight Decay**: Integrated weight decay for L2 regularization.
 - **Caution Mechanism**: Ensures robust updates by masking inconsistent gradient directions.
 - **Gradient Accumulation Support**: Compatible with large-batch training.
-
----
-
-**Class Definition**:
-```python
-class Mars(optimizer.Optimizer)
-```
 
 ---
 
@@ -554,13 +514,6 @@ The algorithm is described in:
 
 ---
 
-**Class Definition**:
-```python
-class NAdam(optimizer.Optimizer)
-```
-
----
-
 **Parameters**:
 - **`learning_rate`** *(float, default=2e-3)*: Learning rate for the optimizer.
 - **`beta_1`** *(float, default=0.9)*: Coefficient for the first moment estimate (momentum term).
@@ -647,13 +600,6 @@ This implementation is inspired by NVIDIA's original implementation in PyTorch, 
 - **Support for AMSGrad**: Includes an optional variant of NovoGrad with AMSGrad for improved convergence.
 - **Gradient Averaging**: Option to average gradients for smoother updates.
 - **Weight Decay**: Includes support for L2 regularization.
-
----
-
-**Class Definition**:
-```python
-class NvNovoGrad(optimizer.Optimizer)
-```
 
 ---
 
@@ -747,13 +693,6 @@ This implementation is inspired by the original PyTorch implementation:
 
 ---
 
-**Class Definition**:
-```python
-class RAdam(optimizer.Optimizer)
-```
-
----
-
 **Parameters**:
 - **`learning_rate`** *(float, default=1e-3)*: Base learning rate for the optimizer.
 - **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimate (momentum term).
@@ -838,13 +777,6 @@ The implementation is inspired by the official repository:
 - **Decoupled Weight Decay**: Effectively regularizes the model parameters without interfering with gradient updates.
 - **Momentum and Nesterov Support**: Enhances optimization with momentum or Nesterov acceleration.
 - **Flexibility**: Offers a range of hyperparameters for customization.
-
----
-
-**Class Definition**:
-```python
-class SGDP(optimizer.Optimizer)
-```
 
 ---
 
@@ -938,13 +870,6 @@ The implementation is inspired by the official repository:
 
 ---
 
-**Class Definition**:
-```python
-class Adan(optimizer.Optimizer)
-```
-
----
-
 **Parameters**:
 - **`learning_rate`** *(float, default=1e-3)*: Learning rate for the optimizer.
 - **`beta_1`** *(float, default=0.98)*: Exponential decay rate for the first moment estimates.
@@ -1017,4 +942,201 @@ model.compile(
 
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# Lamb
+
+**Overview**:
+
+The **Lamb (Layer-wise Adaptive Moments)** optimizer is an advanced optimization algorithm designed for large-scale machine learning tasks. It extends the Adam optimizer by incorporating a trust ratio to adjust learning rates across layers, making it particularly effective for training deep neural networks with large batch sizes. This implementation supports features like gradient clipping, bias correction, decoupled weight decay, and compatibility with PyTorch XLA for TPU acceleration.
+
+This implementation is inspired by:
+- **HabanaAI Model References** ([Source](https://github.com/HabanaAI/Model-References/blob/2b435114fe8e31f159b1d3063b8280ae37af7423/PyTorch/nlp/bert/pretraining/lamb.py)).
+- **NVIDIA Deep Learning Examples** ([Source](https://github.com/NVIDIA/DeepLearningExamples/blob/master/PyTorch/LanguageModeling/Transformer-XL/pytorch/lamb.py)).
+- **CybertronAI PyTorch Lamb** ([Source](https://github.com/cybertronai/pytorch-lamb)).
+
+This version is tailored for environments without NVIDIA GPUs or APEX, offering similar behavior to FusedLamb and support for TensorFlow and TPU platforms.
+
+---
+
+**Features**:
+
+- **Layer-wise Adaptive Moments**: Adjusts learning rates across layers based on the trust ratio, enabling better generalization and convergence.
+- **Gradient Clipping**: Supports clipping gradients by norm to enhance stability during training.
+- **Decoupled Weight Decay**: Option to decouple weight decay from gradient updates.
+- **Bias Correction**: Handles bias in first and second moment estimates for improved optimization.
+- **Compatibility**: Tested with TensorFlow and PyTorch XLA for TPU support.
+- **Flexibility**: Offers customization through various hyperparameters.
+
+---
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: Learning rate for the optimizer.
+- **`bias_correction`** *(bool, default=True)*: If `True`, applies bias correction to the moment estimates.
+- **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`epsilon`** *(float, default=1e-6)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0.01)*: L2 regularization coefficient for weight decay.
+- **`grad_averaging`** *(bool, default=True)*: If `True`, averages gradients for more robust updates.
+- **`max_grad_norm`** *(float, default=1.0)*: Maximum norm for gradient clipping. Disabled if `None`.
+- **`trust_clip`** *(bool, default=False)*: If `True`, clips the trust ratio to 1.0.
+- **`always_adapt`** *(bool, default=False)*: Always adapt the learning rate using the trust ratio, even if weight decay is zero.
+- **`caution`** *(bool, default=False)*: If `True`, applies cautious updates as per the "Cautious Optimizers" paper.
+- **`decoupled_decay`** *(bool, default=False)*: If `True`, applies decoupled weight decay.
+- **`clipnorm`** *(float, optional)*: Clips gradients by their norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by their value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by their global norm.
+- **`use_ema`** *(bool, default=False)*: Enables Exponential Moving Average (EMA) for model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting weights with EMA values.
+- **`loss_scale_factor`** *(float, optional)*: Scaling factor for loss values.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for gradient accumulation.
+- **`name`** *(str, default="lamb")*: Name of the optimizer.
+
+---
+
+**Methods**:
+
+**`build(var_list)`**
+Initializes the optimizer state for the trainable variables.
+
+- **`var_list`** *(list of variables)*: List of trainable variables.
+
+Initialization:
+- `_exp_avg`: First moment estimates for each variable.
+- `_exp_avg_sq`: Second moment estimates for each variable.
+- `step`: Tracks the optimization steps.
+
+---
+
+**`update_step(grads, trainable_variables, learning_rate)`**
+Performs a single optimization step for the given variables using the provided gradients.
+
+---
+
+**`get_config()`**
+Returns a dictionary containing the optimizer's configuration for serialization or reinitialization.
+
+---
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.lamb import Lamb
+
+# Initialize the Lamb optimizer
+optimizer = Lamb(
+    learning_rate=1e-3,
+    beta_1=0.9,
+    beta_2=0.999,
+    epsilon=1e-6,
+    weight_decay=0.01,
+    max_grad_norm=1.0,
+    decoupled_decay=True,
+    trust_clip=True,
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# Adahessian
+
+**Overview**:
+
+The **Adahessian Optimizer** is an advanced second-order optimization algorithm that leverages the Hessian trace (approximated using Hutchinson's method) to adaptively scale learning rates for each parameter. Adahessian extends first-order optimization techniques like Adam by incorporating curvature information from the loss surface, which enables better adaptation to the optimization landscape, especially for highly non-convex problems.
+
+---
+
+**Features**:
+
+- **Second-order optimization**: Uses an approximation of the Hessian diagonal to scale parameter updates.
+- **Hutchinson’s approximation**: Efficiently computes the Hessian trace with minimal computational overhead.
+- **Parameter-wise learning rates**: Adapts the step size for each parameter based on curvature information.
+- **Compatible with distributed training**: Uses a deterministic generator to ensure reproducible results across devices.
+- **Hessian smoothing for convolutions**: Optional averaging for convolutional kernels.
+
+---
+
+**Parameters**:
+
+- **`learning_rate`** *(float)*: Initial learning rate (default: `0.1`).
+- **`beta_1`** *(float)*: Exponential decay rate for the first moment estimates (default: `0.9`).
+- **`beta_2`** *(float)*: Exponential decay rate for the Hessian diagonal squared estimates (default: `0.999`).
+- **`epsilon`** *(float)*: Small value to prevent division by zero (default: `1e-8`).
+- **`weight_decay`** *(float)*: L2 regularization factor for weights (default: `0.0`).
+- **`hessian_power`** *(float)*: Scaling factor for the Hessian diagonal (default: `1.0`).
+- **`update_each`** *(int)*: Frequency (in steps) for Hessian trace updates (default: `1`).
+- **`n_samples`** *(int)*: Number of samples for Hutchinson’s approximation (default: `1`).
+- **`avg_conv_kernel`** *(bool)*: Whether to average Hessian diagonals over convolutional kernel dimensions (default: `False`).
+- **`clipnorm`** *(float, optional)*: Clips gradients by their norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by their value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by their global norm.
+- **`use_ema`** *(bool, default=False)*: Enables Exponential Moving Average (EMA) for model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting weights with EMA values.
+- **`loss_scale_factor`** *(float, optional)*: Scaling factor for loss values.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for gradient accumulation.
+- **`name`** *(str, default="lamb")*: Name of the optimizer.
+
+---
+
+**Methods**:
+
+1. **`apply_gradients(grads_and_vars, tape)`**
+   - Computes parameter updates based on gradients and Hessian traces.
+   - Arguments:
+     - `grads_and_vars`: A list of (gradient, variable) pairs.
+     - `tape`: A TensorFlow `GradientTape` used to compute Hessians.
+   - Returns: Current optimizer step count.
+
+2. **`zero_hessian(trainable_variables)`**
+   - Resets the accumulated Hessian traces to zero for each parameter.
+
+3. **`set_hessian(grads, trainable_variables)`**
+   - Computes the Hessian diagonal traces using Hutchinson's approximation.
+
+4. **`update_step(grads, trainable_variables, learning_rate)`**
+   - Executes the optimization step using the accumulated Hessian traces and gradient information.
+
+5. **`get_config()`**
+   - Returns the configuration of the optimizer, including all hyperparameters.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.adahessian import Adahessian
+
+# Define model and loss
+model = tf.keras.Sequential([...])
+loss_fn = tf.keras.losses.MeanSquaredError()
+
+# Initialize optimizer
+optimizer = Adahessian(
+    learning_rate=0.01, 
+    beta_1=0.9, 
+    beta_2=0.999, 
+    weight_decay=0.01
+)
+
+# Training step
+@tf.function
+def train_step(x, y, model, optimizer):
+    with tf.GradientTape(persistent=True) as tape:
+        predictions = model(x, training=True)
+        loss = loss_fn(y, predictions)
+    gradients = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables), tape)
+
+# Training loop
+for epoch in range(epochs):
+    for x_batch, y_batch in dataset:
+        train_step(x_batch, y_batch, model, optimizer)
 ```
