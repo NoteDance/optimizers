@@ -1140,3 +1140,207 @@ for epoch in range(epochs):
     for x_batch, y_batch in dataset:
         train_step(x_batch, y_batch, model, optimizer)
 ```
+
+# Adopt
+
+**Overview**:  
+
+The **ADOPT (Adaptive Optimization with Trust)** optimizer is a novel variant of Adam designed to achieve optimal convergence rates with any value of \(\beta_2\). It introduces enhancements such as adaptive gradient scaling and cautious updates, making it suitable for diverse optimization scenarios, including tasks requiring stability and robustness in gradient updates.  
+
+This TensorFlow implementation is adapted from the PyTorch version available in the [timm library](https://github.com/huggingface/pytorch-image-models/blob/main/timm/optim/adopt.py). The optimizer builds on concepts from Adam while adding innovative features for enhanced convergence and generalization.
+
+---  
+
+**Features**:
+
+- **Adaptive Gradient Scaling**: Scales gradients adaptively for stable updates, especially in the presence of large or small values.  
+- **Cautious Updates**: Optionally applies a "cautious optimizer" mechanism for safer gradient adjustments (see: [Cautious Optimizers](https://arxiv.org/abs/2411.16085)).  
+- **Weight Decay Options**: Supports both standard and decoupled weight decay for improved regularization.  
+- **Gradient Clipping**: Enables gradient clipping by norm or exponent for numerical stability.  
+- **Complex Tensor Compatibility**: Handles complex-valued tensors seamlessly.  
+- **Customization**: Extensive configurability for diverse training requirements.  
+
+---
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: Learning rate for the optimizer.  
+- **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.  
+- **`beta_2`** *(float, default=0.9999)*: Exponential decay rate for the second moment estimates.  
+- **`epsilon`** *(float, default=1e-6)*: Small constant for numerical stability.  
+- **`weight_decay`** *(float, default=0.0)*: Weight decay factor for L2 regularization.  
+- **`clip_exp`** *(float, default=0.333)*: Exponent for gradient clipping.  
+- **`decoupled`** *(bool, default=False)*: Whether to decouple weight decay from gradient updates.  
+- **`caution`** *(bool, default=False)*: Enables cautious updates to prevent overshooting during optimization.  
+- **`foreach`** *(bool, default=False)*: If `True`, processes variables in parallel for efficiency.  
+- **`maximize`** *(bool, default=False)*: Maximizes the objective function instead of minimizing.  
+- **`capturable`** *(bool, default=False)*: Enables capturable state for graph execution.  
+- **`differentiable`** *(bool, default=False)*: Ensures the optimizer remains differentiable for higher-order optimization tasks.  
+- **`clipnorm`** *(float, optional)*: Clips gradients by their norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by their value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by their global norm.
+- **`use_ema`** *(bool, default=False)*: Enables Exponential Moving Average (EMA) for model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting weights with EMA values.
+- **`loss_scale_factor`** *(float, optional)*: Scaling factor for loss values.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for gradient accumulation.
+- **`name`** *(str, default="lamb")*: Name of the optimizer.
+
+---
+
+**Methods**:  
+
+**`build(var_list)`**  
+Initializes the optimizer state for the trainable variables.  
+
+- **`var_list`** *(list of variables)*: List of variables to be optimized.  
+Initialization:  
+- `exp_avg`: Stores the first moment estimates.  
+- `exp_avg_sq`: Stores the second moment estimates.  
+- `step`: Tracks the optimization steps for each variable.  
+
+---  
+
+**`update_step(grads, trainable_variables, learning_rate)`**  
+Performs a single optimization step for the given variables using their gradients.  
+
+---  
+
+**`get_config()`**  
+Returns a dictionary containing the optimizer's configuration for saving or reinitialization.  
+
+---  
+
+**Example Usage**:  
+
+```python
+import tensorflow as tf
+from optimizers.adopt import Adopt
+
+# Initialize the ADOPT optimizer
+optimizer = Adopt(
+    learning_rate=1e-3,
+    beta_1=0.9,
+    beta_2=0.9999,
+    epsilon=1e-6,
+    weight_decay=0.01,
+    clip_exp=0.333,
+    decoupled=True,
+    caution=True,
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# NAdamW
+
+**Overview**:
+
+The **NAdamW** optimizer is a novel optimization algorithm that extends the traditional AdamW optimizer by incorporating Nesterov momentum, improving both convergence speed and generalization performance. It is well-suited for training deep neural networks across various machine learning tasks and offers advanced features such as cautious updates and multi-tensor optimization paths.
+
+This implementation is inspired by the algorithm in the MLCommons algorithmic efficiency repository and includes a multi-tensor path for better performance on large-scale models.
+
+---
+
+**Features**:
+
+- **Nesterov Momentum**: Integrates Nesterov momentum into the AdamW framework for faster convergence.
+- **Multi-Tensor Optimization**: Offers a path for optimizing multiple tensors simultaneously, improving computational efficiency.
+- **Cautious Updates**: Implements cautious optimizations for improved training stability as per the "Cautious Optimizers" paper.
+- **Decoupled Weight Decay**: Decouples weight decay from gradient updates for better control.
+- **Gradient Clipping**: Supports gradient clipping by norm, value, or globally, ensuring numerical stability.
+- **Customizability**: Extensive hyperparameter support for flexible training setups.
+
+---
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: Learning rate for the optimizer.
+- **`beta_1`** *(float, default=0.9)*: Coefficient for computing running averages of gradient moments.
+- **`beta_2`** *(float, default=0.999)*: Coefficient for computing running averages of squared gradients.
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=1e-2)*: Weight decay coefficient for L2 regularization.
+- **`caution`** *(bool, default=False)*: If `True`, applies cautious updates for enhanced training stability.
+- **`maximize`** *(bool, default=False)*: If `True`, maximizes the objective function instead of minimizing it.
+- **`foreach`** *(bool, optional)*: Enables multi-tensor optimization paths if `True`.
+- **`capturable`** *(bool, default=False)*: If `True`, supports CUDA graph capturing for enhanced performance.
+- **`clipnorm`** *(float, optional)*: Clips gradients by their norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by their value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by their global norm.
+- **`use_ema`** *(bool, default=False)*: Enables Exponential Moving Average (EMA) of model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting weights with EMA values.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before an optimization step.
+- **`name`** *(str, default="nadamw")*: Name of the optimizer.
+
+---
+
+**Methods**:
+
+**`build(var_list)`**
+Initializes the optimizer state for the trainable variables.
+
+- **`var_list`** *(list of variables)*: List of trainable variables.
+
+Initialization:
+- **`exp_avg`**: First moment estimates for each variable.
+- **`exp_avg_sq`**: Second moment estimates for each variable.
+- **`step`**: Tracks optimization steps for bias correction.
+
+---
+
+**`update_step(grads, trainable_variables, learning_rate)`**
+Performs a single optimization step using the given gradients.
+
+---
+
+**`get_config()`**
+Returns a dictionary containing the optimizer's configuration for serialization or reinitialization.
+
+---
+
+**Functional API**
+**`nadamw`** performs the core NAdamW computation, supporting single-tensor and multi-tensor paths.
+
+- **Parameters**:
+  - **`params`**: List of model parameters to be updated.
+  - **`grads`**: Corresponding gradients for each parameter.
+  - **`exp_avgs`**: List of first moment estimates.
+  - **`exp_avg_sqs`**: List of second moment estimates.
+  - **`state_steps`**: Optimization steps for bias correction.
+  - Additional hyperparameters for controlling the optimization process.
+
+---
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from nadamw import NAdamW
+
+# Initialize the optimizer
+optimizer = NAdamW(
+    learning_rate=1e-3,
+    beta_1=0.9,
+    beta_2=0.999,
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    caution=True,
+    maximize=False
+)
+
+# Compile a model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(64, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+
+# Train the model
+model.fit(x_train, y_train, epochs=10, batch_size=32)
+```
