@@ -1082,7 +1082,7 @@ The **Adahessian Optimizer** is an advanced second-order optimization algorithm 
 - **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting weights with EMA values.
 - **`loss_scale_factor`** *(float, optional)*: Scaling factor for loss values.
 - **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for gradient accumulation.
-- **`name`** *(str, default="lamb")*: Name of the optimizer.
+- **`name`** *(str, default="adahessian")*: Name of the optimizer.
 
 ---
 
@@ -1184,7 +1184,7 @@ This TensorFlow implementation is adapted from the PyTorch version available in 
 - **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting weights with EMA values.
 - **`loss_scale_factor`** *(float, optional)*: Scaling factor for loss values.
 - **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for gradient accumulation.
-- **`name`** *(str, default="lamb")*: Name of the optimizer.
+- **`name`** *(str, default="adopt")*: Name of the optimizer.
 
 ---
 
@@ -1388,7 +1388,7 @@ Adafactor is designed to reduce memory usage during training by using a factored
 - **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting weights with EMA values.
 - **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss.
 - **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before an optimization step.
-- **`name`** *(str, default="nadamw")*: Name of the optimizer.
+- **`name`** *(str, default="adafactor_bv")*: Name of the optimizer.
 
 ---
 
