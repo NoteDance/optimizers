@@ -1344,3 +1344,99 @@ model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metri
 # Train the model
 model.fit(x_train, y_train, epochs=10, batch_size=32)
 ```
+
+# AdafactorBigVision
+
+**Overview**:
+
+The **AdafactorBigVision** optimizer is an adaptation of the Adafactor optimization algorithm, tailored specifically for scaling large vision transformer models. This implementation is inspired by the algorithm described in the paper ["Scaling Vision Transformers"](https://arxiv.org/abs/2106.04560) and the [Big Vision](https://github.com/google-research/big_vision) codebase. 
+
+Adafactor is designed to reduce memory usage during training by using a factored approximation for the second-moment estimates. It achieves efficiency and scalability while maintaining effective optimization. The **Big Vision variant** introduces several enhancements, including factored second moments for high-dimensional variables, support for momentum, gradient clipping, and cautious updates for improved robustness.
+
+---
+
+**Features**:
+
+- **Factored Second Moments**: Efficient approximation of second-moment estimates for variables with large dimensions.
+- **Gradient Clipping**: Optional clipping of updates to ensure stability during training.
+- **Momentum Updates**: Optional momentum-based updates for better convergence properties.
+- **Cautious Optimizer Support**: Implements the "Cautious Optimizers" approach to mitigate risks during optimization.
+- **Scalability**: Optimized for high-dimensional parameter spaces such as those in vision transformers.
+
+---
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1.0)*: The base learning rate for updates.
+- **`epsilon`** *(float, optional)*: A small constant added for numerical stability.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 regularization (weight decay).
+- **`min_dim_size_to_factor`** *(int, default=16)*: Minimum size of dimensions to apply factored second moments.
+- **`decay_rate`** *(float, default=0.8)*: Exponential decay rate for second-moment estimation.
+- **`decay_offset`** *(int, default=0)*: Offset for the decay schedule.
+- **`beta2_cap`** *(float, default=0.999)*: Maximum cap for the second-moment decay factor.
+- **`momentum`** *(float, optional)*: Momentum factor for updates. If `None`, momentum is not applied.
+- **`momentum_dtype`** *(dtype, default=tf.bfloat16)*: Data type for momentum storage.
+- **`clipping_threshold`** *(float, optional)*: Threshold for gradient clipping. Disabled if `None`.
+- **`unscaled_wd`** *(bool, default=False)*: If `True`, applies unscaled weight decay independent of the learning rate.
+- **`caution`** *(bool, default=False)*: Enables cautious updates as per the "Cautious Optimizers" paper.
+- **`foreach`** *(bool, default=False)*: Enables multi-tensor optimization for enhanced performance (not yet implemented).
+- **`clipnorm`** *(float, optional)*: Clips gradients by their norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by their value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by their global norm.
+- **`use_ema`** *(bool, default=False)*: Enables Exponential Moving Average (EMA) of model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting weights with EMA values.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before an optimization step.
+- **`name`** *(str, default="nadamw")*: Name of the optimizer.
+
+---
+
+**Methods**:
+
+**`build(var_list)`**  
+Initializes the optimizer state for the trainable variables.
+
+- **`var_list`** *(list of variables)*: List of trainable model parameters.
+
+Initialization:
+- `exp_avg`: Momentum storage (if enabled).
+- `exp_avg_sq_r` and `exp_avg_sq_c`: Row and column factored second moments (if applicable).
+- `exp_avg_sq`: Non-factored second moments (if applicable).
+- `step`: Tracks optimization steps.
+
+---
+
+**`update_step(grads, trainable_variables, learning_rate)`**  
+Performs an optimization step using gradients and updates the model parameters.
+
+---
+
+**`get_config()`**  
+Returns a dictionary containing the optimizer's configuration, enabling serialization or reconstruction of the optimizer.
+
+---
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.adafactor_bv import AdafactorBigVision
+
+# Initialize the AdafactorBigVision optimizer
+optimizer = AdafactorBigVision(
+    learning_rate=1.0,
+    weight_decay=0.01,
+    decay_rate=0.8,
+    min_dim_size_to_factor=16,
+    clipping_threshold=1.0,
+    momentum=0.9,
+    caution=True,
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
