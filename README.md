@@ -1440,3 +1440,112 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# SGDW
+
+**Overview**:
+
+The **SGDW (Stochastic Gradient Descent with Weight Decay)** optimizer is a widely used optimization algorithm for deep learning tasks. It extends the traditional SGD by incorporating weight decay for improved regularization and momentum for accelerated convergence. The optimizer also supports advanced features such as Nesterov momentum, cautious updates, and compatibility with TensorFlow's distributed training mechanisms.
+
+This implementation draws inspiration from existing research and optimizers to provide a flexible and robust solution suitable for modern deep learning workflows.
+
+---
+
+**Features**:
+
+- **Weight Decay**: Decouples weight decay from gradient updates for better regularization.
+- **Momentum**: Accelerates convergence by incorporating past gradients.
+- **Nesterov Momentum**: Applies Nesterov momentum for improved optimization.
+- **Cautious Updates**: Implements updates as per the "Cautious Optimizers" paper to enhance stability.
+- **Gradient Clipping**: Supports clipping gradients by norm, value, or global norm.
+- **Exponential Moving Average (EMA)**: Maintains a moving average of model weights for smoother updates.
+- **Distributed Training**: Compatible with TensorFlow’s distributed training strategies.
+- **Customizability**: Offers numerous hyperparameters for fine-tuning.
+
+---
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The learning rate for the optimizer.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 regularization.
+- **`momentum`** *(float, default=0.0)*: Momentum factor for optimization.
+- **`dampening`** *(float, default=0.0)*: Dampening for momentum.
+- **`nesterov`** *(bool, default=False)*: If `True`, enables Nesterov momentum.
+- **`caution`** *(bool, default=False)*: If `True`, applies cautious updates.
+- **`maximize`** *(bool, default=False)*: If `True`, maximizes the objective instead of minimizing it.
+- **`foreach`** *(bool, default=None)*: If `True`, enables multi-tensor updates for improved performance.
+- **`differentiable`** *(bool, default=False)*: If `True`, computes gradients in a differentiable manner.
+- **`clipnorm`** *(float, optional)*: Clips gradients by their norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by their value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by their global norm.
+- **`use_ema`** *(bool, default=False)*: Enables Exponential Moving Average (EMA) for model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting weights with EMA values.
+- **`loss_scale_factor`** *(float, optional)*: Scaling factor for loss values.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for gradient accumulation.
+- **`name`** *(str, default="sgdw")*: Name of the optimizer.
+
+---
+
+**Methods**:
+
+**`build(var_list)`**
+Initializes the optimizer state for the given trainable variables.
+
+- **`var_list`** *(list of variables)*: List of trainable variables.
+
+Initialization:
+- **`momentum_buffer`**: Stores momentum values for each variable.
+- **`momentum_buffer_list`**: A list-based version of the momentum buffers.
+
+---
+
+**`update_step(grads, trainable_variables, learning_rate)`**
+Performs a single optimization step for the provided gradients and variables.
+
+- **`grads`** *(list of gradients)*: Gradients for the trainable variables.
+- **`trainable_variables`** *(list of variables)*: Variables to update.
+- **`learning_rate`** *(float)*: Learning rate for the current step.
+
+---
+
+**`get_config()`**
+Returns a dictionary containing the optimizer’s configuration for serialization or reinitialization.
+
+---
+
+**Functional API**:
+
+**`sgdw(params, grads, momentum_buffer_list, has_sparse_grad, foreach, *, weight_decay, momentum, lr, dampening, nesterov, caution, maximize)`**
+A functional implementation of SGDW for advanced use cases.
+
+- **`params`** *(list of variables)*: Trainable variables.
+- **`grads`** *(list of gradients)*: Gradients for the variables.
+- **`momentum_buffer_list`** *(list)*: List of momentum buffers.
+- **`has_sparse_grad`** *(bool)*: Indicates if sparse gradients are present.
+- **`foreach`** *(bool)*: Enables multi-tensor updates if `True`.
+- Additional parameters include: `weight_decay`, `momentum`, `lr`, `dampening`, `nesterov`, `caution`, and `maximize`.
+
+---
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.sgdw import SGDW
+
+# Initialize the SGDW optimizer
+optimizer = SGDW(
+    learning_rate=1e-3,
+    weight_decay=0.01,
+    momentum=0.9,
+    nesterov=True,
+    caution=True,
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
