@@ -1571,7 +1571,7 @@ This implementation is designed for TensorFlow and integrates seamlessly with th
 
 **Parameters**:
 
-- **`base_optimizer`** *(tf.keras.optimizers.Optimizer)*: The underlying optimizer to be wrapped by Lookahead.
+- **`base_optimizer`**: The underlying optimizer to be wrapped by Lookahead.
 - **`alpha`** *(float, default=0.5)*: The slow update rate for interpolating between the fast and slow weights. Must be in the range `[0, 1]`.
 - **`k`** *(int, default=6)*: Number of steps to take with the fast optimizer before synchronizing with the slow weights.
 - **`name`** *(str, default="lookahead")*: Name of the optimizer.
