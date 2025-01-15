@@ -1549,3 +1549,88 @@ model.compile(optimizer=optimizer, loss="categorical_crossentropy", metrics=["ac
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# Lookahead
+
+**Overview**:
+
+The **Lookahead Optimizer** is a wrapper that enhances the performance of an existing optimizer by implementing the "k steps forward, 1 step back" strategy proposed in the paper [Lookahead Optimizer: k steps forward, 1 step back](https://arxiv.org/abs/1907.08610). This method improves both stability and convergence by periodically aligning the fast-moving weights (inner optimizer) with a slower-moving set of weights (lookahead weights).
+
+This implementation is designed for TensorFlow and integrates seamlessly with the Keras API and the optimizers in this repository, enabling the use of Lookahead with any existing optimizer.
+
+---
+
+**Features**:
+
+- **Optimizer Agnostic**: Can wrap any standard optimizer to improve its stability and convergence.
+- **Periodic Synchronization**: Updates the slower weights after a fixed number of steps (`k`), incorporating progress made by the faster optimizer.
+- **Improved Generalization**: Helps models generalize better by smoothing the optimization trajectory.
+- **Easy Integration**: Fully compatible with TensorFlow and the Keras API.
+
+---
+
+**Parameters**:
+
+- **`base_optimizer`** *(tf.keras.optimizers.Optimizer)*: The underlying optimizer to be wrapped by Lookahead.
+- **`alpha`** *(float, default=0.5)*: The slow update rate for interpolating between the fast and slow weights. Must be in the range `[0, 1]`.
+- **`k`** *(int, default=6)*: Number of steps to take with the fast optimizer before synchronizing with the slow weights.
+- **`name`** *(str, default="lookahead")*: Name of the optimizer.
+
+---
+
+**Methods**:
+
+**`build(var_list)`**  
+Initializes the optimizer state for the trainable variables.
+
+- **`var_list`** *(list of variables)*: List of trainable variables.  
+This method initializes the slow weights for each trainable variable.
+
+---
+
+**`update_step(grads, trainable_variables, learning_rate)`**  
+Performs an optimization step using the base optimizer and synchronizes with the slow weights every `k` steps.
+
+- **`grads`** *(list of tensors)*: Gradients of the loss with respect to the trainable variables.
+- **`trainable_variables`** *(list of variables)*: Variables to be updated.
+- **`learning_rate`** *(float)*: Learning rate for the base optimizer.
+
+---
+
+**`apply_gradients(grads_and_vars, tape=None)`**  
+Applies gradients to the trainable variables using the base optimizer.
+
+- **`grads_and_vars`** *(list of tuples)*: Pairs of gradients and variables.
+- **`tape`** *(tf.GradientTape, optional)*: Gradient tape for recording operations.
+
+---
+
+**`sync_lookahead()`**  
+Synchronizes the fast weights with the slow weights.
+
+---
+
+**`get_config()`**  
+Returns a dictionary containing the optimizer's configuration for serialization or reinitialization.
+
+---
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.lookahead import Lookahead
+from optimizers.adamp import AdamP
+
+# Initialize a base optimizer
+base_optimizer = AdamP(learning_rate=1e-3)
+
+# Wrap the base optimizer with Lookahead
+optimizer = Lookahead(base_optimizer=base_optimizer, alpha=0.5, k=5)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
