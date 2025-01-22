@@ -975,3 +975,52 @@ model.compile(optimizer=optimizer, loss="categorical_crossentropy", metrics=["ac
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# AdaBound
+
+**Overview**:
+
+The `AdaBound` optimizer is an adaptive gradient method that dynamically bounds the learning rate for each parameter, stabilizing training and ensuring better generalization. It combines the benefits of Adam's adaptive learning rate with the bounded nature of SGD. The learning rate smoothly transitions from an adaptive method to a final learning rate, providing a balance between fast convergence and generalization.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+- **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0)*: Coefficient for weight decay, used to regularize weights.
+- **`final_lr`** *(float, default=0.1)*: The final learning rate towards which the optimizer converges.
+- **`gamma`** *(float, default=1e-3)*: Controls the convergence speed of the learning rate towards `final_lr`.
+- **`amsbound`** *(bool, default=False)*: Whether to use the AMSBound variant, which enforces upper bounds on the second moment estimates.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+- **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients.
+- **`name`** *(str, default="adabound")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.adabound import AdaBound
+
+# Instantiate optimizer
+optimizer = AdaBound(
+    learning_rate=1e-3,
+    final_lr=0.1,
+    weight_decay=1e-4,
+    gamma=1e-3,
+    amsbound=True
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
