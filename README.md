@@ -1024,3 +1024,99 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# AdaBoundW
+
+**Overview**:
+
+The `AdaBoundW` optimizer is an adaptive gradient descent method that builds upon Adam with dynamic learning rate bounds, ensuring convergence to a stable final learning rate. It incorporates weight decay regularization and supports the AMSBound variant for improved optimization.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The initial learning rate for parameter updates.
+- **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability in division.
+- **`weight_decay`** *(float, default=0)*: Coefficient for weight decay regularization.
+- **`final_lr`** *(float, default=0.1)*: The final (stable) learning rate to which the optimizer gradually bounds.
+- **`gamma`** *(float, default=1e-3)*: Controls the speed at which the bounds tighten toward the final learning rate.
+- **`amsbound`** *(bool, default=False)*: If `True`, uses the AMSBound variant, which applies bounds to the second moment estimate for stability.
+- **`clipnorm`** *(float, optional)*: Clips gradients by their norm to avoid exploding gradients.
+- **`clipvalue`** *(float, optional)*: Clips gradients by their absolute value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients globally by their norm.
+- **`use_ema`** *(bool, default=False)*: If `True`, applies Exponential Moving Average (EMA) to model weights during training.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum value for EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting model weights with their EMA values.
+- **`loss_scale_factor`** *(float, optional)*: Scale factor for loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before applying updates.
+- **`name`** *(str, default="adaboundw")*: Name of the optimizer instance.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.adaboundw import AdaBoundW
+
+# Instantiate optimizer
+optimizer = AdaBoundW(
+    learning_rate=1e-3,
+    weight_decay=1e-4,
+    final_lr=0.01,
+    gamma=1e-3,
+    amsbound=True
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# AdaMod
+
+**Overview**:
+
+The `AdaMod` optimizer is an extension of the Adam optimizer that incorporates an additional third moment term to modulate learning rates. It is designed to stabilize training by applying momental bounds on learning rates, effectively adapting them to recent updates. This helps to maintain consistent updates and prevents excessive changes in parameter values.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+- **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`beta_3`** *(float, default=0.999)*: Exponential decay rate for the moving average of learning rates.
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0)*: Coefficient for weight decay. Applies regularization to the model weights.
+- **`clipnorm`** *(float, optional)*: Clips gradients by their norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by their value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by their global norm.
+- **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for the Exponential Moving Average.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients before updating parameters.
+- **`name`** *(str, default="adamod")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.adamod import AdaMod
+
+# Instantiate optimizer
+optimizer = AdaMod(
+    learning_rate=1e-3,
+    beta_1=0.9,
+    beta_2=0.999,
+    beta_3=0.999,
+    weight_decay=1e-2
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
