@@ -1120,3 +1120,109 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# AccSGD
+
+**Overview**:
+
+The `AccSGD` optimizer is a provably accelerated stochastic optimization algorithm designed to improve the convergence rate of deep learning models. It builds upon SGD by introducing momentum-based acceleration techniques as detailed in the [AccSGD paper](https://arxiv.org/pdf/1704.08227.pdf). This method is particularly suitable for large-scale deep learning tasks where faster convergence is desired.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The initial learning rate for parameter updates.
+- **`weight_decay`** *(float, default=0)*: Coefficient for weight decay regularization.
+- **`kappa`** *(float, default=1000.0)*: A parameter that controls the large learning rate scaling factor.
+- **`xi`** *(float, default=10.0)*: Parameter that influences the balance between acceleration and stability.
+- **`smallConst`** *(float, default=0.7)*: A constant that determines the step size and contributes to stabilization during updates.
+- **`clipnorm`** *(float, optional)*: Clips gradients by their norm to prevent exploding gradients.
+- **`clipvalue`** *(float, optional)*: Clips gradients by their absolute value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients globally by their norm.
+- **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum value for EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting model weights with their EMA values.
+- **`loss_scale_factor`** *(float, optional)*: Scale factor for loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before applying updates.
+- **`name`** *(str, default="accsgd")*: Name of the optimizer instance.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.accsgd import AccSGD
+
+# Instantiate optimizer
+optimizer = AccSGD(
+    learning_rate=1e-3,
+    weight_decay=1e-4,
+    kappa=500.0,
+    xi=5.0,
+    smallConst=0.8
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# AggMo
+
+**Overview**:
+
+The `AggMo` optimizer (Aggregated Momentum) is a momentum-based optimization method that aggregates multiple momentum terms with varying decay rates (betas). This approach helps to smooth out the optimization process and accelerates convergence by leveraging multiple momentum terms simultaneously. It is particularly useful for training deep learning models where stability and speed are critical.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+- **`betas`** *(tuple of floats, default=(0.0, 0.9, 0.99))*: A tuple of momentum coefficients. Each value represents a different momentum decay rate to aggregate.
+- **`weight_decay`** *(float, default=0)*: Coefficient for weight decay regularization.
+- **`clipnorm`** *(float, optional)*: Clips gradients by their norm to prevent exploding gradients.
+- **`clipvalue`** *(float, optional)*: Clips gradients by their absolute value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients globally by their norm.
+- **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum value for EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting model weights with their EMA values.
+- **`loss_scale_factor`** *(float, optional)*: Scale factor for loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before applying updates.
+- **`name`** *(str, default="aggmo")*: Name of the optimizer instance.
+
+**Alternate Constructor**:
+
+The `AggMo` optimizer also provides a convenient class method, `from_exp_form`, to generate betas using an exponential decay formula:
+
+- **`lr`** *(float, default=1e-3)*: Learning rate for the optimizer.
+- **`a`** *(float, default=0.1)*: Base value for exponential decay.
+- **`k`** *(int, default=3)*: Number of momentum coefficients.
+- **`weight_decay`** *(float, default=0)*: Coefficient for weight decay.
+
+---
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.aggmo import AggMo
+
+# Instantiate optimizer with predefined betas
+optimizer = AggMo(
+    learning_rate=1e-3,
+    betas=(0.0, 0.5, 0.9),
+    weight_decay=1e-4
+)
+
+# Or create using the exponential form
+optimizer = AggMo.from_exp_form(
+    lr=1e-3,
+    a=0.1,
+    k=3,
+    weight_decay=1e-4
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
