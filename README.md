@@ -1277,3 +1277,100 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# DiffGrad
+
+**Overview**:  
+
+The `DiffGrad` optimizer is a variant of the Adam optimizer designed to adapt the learning rate based on the gradient differences between consecutive updates. This mechanism introduces a differential coefficient, which scales the first moment estimate based on the similarity of the current and previous gradients. It has been proposed in the paper [*diffGrad: An Optimization Method for Convolutional Neural Networks*](https://arxiv.org/abs/1909.11015). DiffGrad aims to improve convergence by adjusting the optimization dynamics based on gradient changes.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The initial step size for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates (moving average of gradients).
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates (moving average of squared gradients).
+- **`epsilon`** *(float, default=1e-8)*: A small constant for numerical stability, especially during division.
+- **`weight_decay`** *(float, default=0)*: Coefficient for weight decay, used for regularization. If set to a non-zero value, adds a decay term to the gradients.
+- **`clipnorm`** *(float, optional)*: Clips gradients by their norm to prevent exploding gradients.
+- **`clipvalue`** *(float, optional)*: Clips gradients by their value to control individual gradient magnitudes.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by their global norm, aggregating all gradient norms before clipping.
+- **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average (EMA) to model weights for stabilization.
+- **`ema_momentum`** *(float, default=0.99)*: The momentum for updating the EMA of model weights.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights with model weights.
+- **`loss_scale_factor`** *(float, optional)*: A factor for scaling the loss, useful in mixed precision training.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before applying updates.
+- **`name`** *(str, default="diffgrad")*: The name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.diffgrad import DiffGrad
+
+# Instantiate optimizer
+optimizer = DiffGrad(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    weight_decay=1e-4
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# Ranger2020
+
+**Overview**:
+
+The `Ranger` optimizer combines the techniques of RAdam (Rectified Adam) and LookAhead to achieve faster convergence and better generalization. It also optionally incorporates Gradient Centralization (GC), which re-centers the gradient to improve optimization stability.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+- **`beta1`** *(float, default=0.95)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`epsilon`** *(float, default=1e-5)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0)*: Coefficient for weight decay.
+- **`alpha`** *(float, default=0.5)*: Interpolation factor for the LookAhead mechanism.
+- **`k`** *(int, default=6)*: Number of update steps before LookAhead interpolates weights.
+- **`N_sma_threshhold`** *(int, default=5)*: Threshold for the simple moving average (SMA) in RAdam to apply rectified updates.
+- **`use_gc`** *(bool, default=True)*: Whether to apply Gradient Centralization (GC).
+- **`gc_conv_only`** *(bool, default=False)*: If `True`, GC is only applied to convolutional layers.
+- **`gc_loc`** *(bool, default=True)*: If `True`, GC is applied during the gradient computation step; otherwise, it is applied after.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+- **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients.
+- **`name`** *(str, default="ranger2020")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.ranger2020 import Ranger
+
+# Instantiate optimizer
+optimizer = Ranger(
+    learning_rate=1e-3,
+    alpha=0.5,
+    k=6,
+    use_gc=True,
+    gc_conv_only=False
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
