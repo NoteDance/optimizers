@@ -7,8 +7,8 @@ The `AdaBelief` optimizer is a modification of the Adam optimizer designed to ad
 **Parameters**:
 
 - **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
-- **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
-- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
 - **`epsilon`** *(float, default=1e-16)*: Small constant for numerical stability.
 - **`weight_decay`** *(float, default=0)*: Coefficient for weight decay. Applies either decoupled or standard decay based on `decoupled_decay`.
 - **`amsgrad`** *(bool, default=False)*: Whether to use the AMSGrad variant.
@@ -57,8 +57,8 @@ The `AdamP` optimizer is a modification of the Adam optimizer that aims to slow 
 **Parameters**:
 
 - **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
-- **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
-- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
 - **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
 - **`weight_decay`** *(float, default=0)*: Weight decay coefficient.
 - **`delta`** *(float, default=0.1)*: Threshold for decoupling sharp and flat gradient components.
@@ -106,8 +106,8 @@ The `LaProp` optimizer is an adaptive gradient optimization algorithm that impro
 **Parameters**:
 
 - **`learning_rate`** *(float, default=4e-4)*: Base step size for parameter updates.
-- **`beta_1`** *(float, default=0.9)*: Coefficient for the moving average of the first moment (mean of gradients).
-- **`beta_2`** *(float, default=0.999)*: Coefficient for the moving average of the second moment (variance of gradients).
+- **`beta1`** *(float, default=0.9)*: Coefficient for the moving average of the first moment (mean of gradients).
+- **`beta2`** *(float, default=0.999)*: Coefficient for the moving average of the second moment (variance of gradients).
 - **`epsilon`** *(float, default=1e-15)*: Small constant for numerical stability.
 - **`amsgrad`** *(bool, default=False)*: If `True`, uses the AMSGrad variant of the optimizer.
 - **`centered`** *(bool, default=False)*: If `True`, centers the second-moment estimate for better stability.
@@ -133,8 +133,8 @@ from optimizers.laprop import LaProp
 # Define the optimizer
 optimizer = LaProp(
     learning_rate=4e-4,
-    beta_1=0.9,
-    beta_2=0.999,
+    beta1=0.9,
+    beta2=0.999,
     epsilon=1e-15,
     amsgrad=True,
     centered=True,
@@ -255,8 +255,8 @@ This implementation is based on the paper [MARS: Unleashing the Power of Varianc
 **Parameters**:
 
 - **`learning_rate`** *(float, default=3e-3)*: The learning rate for optimization.
-- **`beta_1`** *(float, default=0.9)*: Coefficient for the first moment estimate.
-- **`beta_2`** *(float, default=0.99)*: Coefficient for the second moment estimate.
+- **`beta1`** *(float, default=0.9)*: Coefficient for the first moment estimate.
+- **`beta2`** *(float, default=0.99)*: Coefficient for the second moment estimate.
 - **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
 - **`weight_decay`** *(float, default=0)*: Coefficient for weight decay (L2 regularization).
 - **`gamma`** *(float, default=0.025)*: Coefficient controlling the variance reduction term.
@@ -265,7 +265,7 @@ This implementation is based on the paper [MARS: Unleashing the Power of Varianc
   - `"lion"`: Lion-style updates.
 - **`optimize_1d`** *(bool, default=False)*: If `True`, applies MARS-specific updates to 1D parameters.
 - **`lr_1d_factor`** *(float, default=1.0)*: Scaling factor for learning rate for 1D parameter updates.
-- **`betas_1d`** *(tuple, optional)*: Separate `(beta_1, beta_2)` values for 1D parameters.
+- **`betas_1d`** *(tuple, optional)*: Separate `(beta1, beta2)` values for 1D parameters.
 - **`caution`** *(bool, default=False)*: If `True`, applies a masking mechanism to stabilize updates.
 - **`clipnorm`** *(float, optional)*: Clips gradients by their norm.
 - **`clipvalue`** *(float, optional)*: Clips gradients by their value.
@@ -288,8 +288,8 @@ from optimizers.mars import Mars
 # Initialize the MARS optimizer
 optimizer = Mars(
     learning_rate=3e-3,
-    beta_1=0.9,
-    beta_2=0.99,
+    beta1=0.9,
+    beta2=0.99,
     gamma=0.025,
     mars_type="adamw",
     optimize_1d=True,
@@ -316,8 +316,8 @@ The algorithm is described in:
 **Parameters**:
 
 - **`learning_rate`** *(float, default=2e-3)*: Learning rate for the optimizer.
-- **`beta_1`** *(float, default=0.9)*: Coefficient for the first moment estimate (momentum term).
-- **`beta_2`** *(float, default=0.999)*: Coefficient for the second moment estimate (variance term).
+- **`beta1`** *(float, default=0.9)*: Coefficient for the first moment estimate (momentum term).
+- **`beta2`** *(float, default=0.999)*: Coefficient for the second moment estimate (variance term).
 - **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability in divisions.
 - **`weight_decay`** *(float, default=0)*: Weight decay coefficient for L2 regularization.
 - **`schedule_decay`** *(float, default=4e-3)*: Decay factor for momentum scheduling.
@@ -342,8 +342,8 @@ from optimizers.nadam import NAdam
 # Initialize the NAdam optimizer
 optimizer = NAdam(
     learning_rate=2e-3,
-    beta_1=0.9,
-    beta_2=0.999,
+    beta1=0.9,
+    beta2=0.999,
     schedule_decay=4e-3,
     weight_decay=1e-4,
 )
@@ -370,8 +370,8 @@ This implementation is inspired by NVIDIA's original implementation in PyTorch, 
 **Parameters**:
 
 - **`learning_rate`** *(float, default=1e-3)*: Learning rate for the optimizer.
-- **`beta_1`** *(float, default=0.95)*: Exponential decay rate for the first moment estimate (momentum term).
-- **`beta_2`** *(float, default=0.98)*: Exponential decay rate for the second moment estimate (variance term).
+- **`beta1`** *(float, default=0.95)*: Exponential decay rate for the first moment estimate (momentum term).
+- **`beta2`** *(float, default=0.98)*: Exponential decay rate for the second moment estimate (variance term).
 - **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability in divisions.
 - **`weight_decay`** *(float, default=0)*: Weight decay coefficient for L2 regularization.
 - **`grad_averaging`** *(bool, default=False)*: Enables gradient averaging for smoother updates.
@@ -397,8 +397,8 @@ from optimizers.nvnovograd import NvNovoGrad
 # Initialize the NvNovoGrad optimizer
 optimizer = NvNovoGrad(
     learning_rate=1e-3,
-    beta_1=0.95,
-    beta_2=0.98,
+    beta1=0.95,
+    beta2=0.98,
     weight_decay=1e-4,
     grad_averaging=True,
     amsgrad=True,
@@ -426,8 +426,8 @@ This implementation is inspired by the original PyTorch implementation:
 **Parameters**:
 
 - **`learning_rate`** *(float, default=1e-3)*: Base learning rate for the optimizer.
-- **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimate (momentum term).
-- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimate (variance term).
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimate (momentum term).
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimate (variance term).
 - **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability in divisions.
 - **`weight_decay`** *(float, default=0)*: Weight decay coefficient for L2 regularization.
 - **`clipnorm`** *(float, optional)*: Clips gradients by their norm.
@@ -451,8 +451,8 @@ from optimizers.radam import RAdam
 # Initialize the RAdam optimizer
 optimizer = RAdam(
     learning_rate=1e-3,
-    beta_1=0.9,
-    beta_2=0.999,
+    beta1=0.9,
+    beta2=0.999,
     epsilon=1e-8,
     weight_decay=1e-4,
 )
@@ -537,9 +537,9 @@ The implementation is inspired by the official repository:
 **Parameters**:
 
 - **`learning_rate`** *(float, default=1e-3)*: Learning rate for the optimizer.
-- **`beta_1`** *(float, default=0.98)*: Exponential decay rate for the first moment estimates.
-- **`beta_2`** *(float, default=0.92)*: Exponential decay rate for gradient difference momentum.
-- **`beta_3`** *(float, default=0.99)*: Exponential decay rate for the second moment estimates.
+- **`beta1`** *(float, default=0.98)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.92)*: Exponential decay rate for gradient difference momentum.
+- **`beta3`** *(float, default=0.99)*: Exponential decay rate for the second moment estimates.
 - **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
 - **`weight_decay`** *(float, default=0.0)*: Strength of weight decay regularization.
 - **`no_prox`** *(bool, default=False)*: If `True`, disables proximal updates during weight decay.
@@ -565,9 +565,9 @@ from optimizers.adan import Adan
 # Initialize the Adan optimizer
 optimizer = Adan(
     learning_rate=1e-3,
-    beta_1=0.98,
-    beta_2=0.92,
-    beta_3=0.99,
+    beta1=0.98,
+    beta2=0.92,
+    beta3=0.99,
     weight_decay=0.01,
     use_ema=True,
     ema_momentum=0.999
@@ -601,8 +601,8 @@ This version is tailored for environments without NVIDIA GPUs or APEX, offering 
 
 - **`learning_rate`** *(float, default=1e-3)*: Learning rate for the optimizer.
 - **`bias_correction`** *(bool, default=True)*: If `True`, applies bias correction to the moment estimates.
-- **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
-- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
 - **`epsilon`** *(float, default=1e-6)*: Small constant for numerical stability.
 - **`weight_decay`** *(float, default=0.01)*: L2 regularization coefficient for weight decay.
 - **`grad_averaging`** *(bool, default=True)*: If `True`, averages gradients for more robust updates.
@@ -632,8 +632,8 @@ from optimizers.lamb import Lamb
 # Initialize the Lamb optimizer
 optimizer = Lamb(
     learning_rate=1e-3,
-    beta_1=0.9,
-    beta_2=0.999,
+    beta1=0.9,
+    beta2=0.999,
     epsilon=1e-6,
     weight_decay=0.01,
     max_grad_norm=1.0,
@@ -657,8 +657,8 @@ The **Adahessian Optimizer** is an advanced second-order optimization algorithm 
 **Parameters**:
 
 - **`learning_rate`** *(float)*: Initial learning rate (default: `0.1`).
-- **`beta_1`** *(float)*: Exponential decay rate for the first moment estimates (default: `0.9`).
-- **`beta_2`** *(float)*: Exponential decay rate for the Hessian diagonal squared estimates (default: `0.999`).
+- **`beta1`** *(float)*: Exponential decay rate for the first moment estimates (default: `0.9`).
+- **`beta2`** *(float)*: Exponential decay rate for the Hessian diagonal squared estimates (default: `0.999`).
 - **`epsilon`** *(float)*: Small value to prevent division by zero (default: `1e-8`).
 - **`weight_decay`** *(float)*: L2 regularization factor for weights (default: `0.0`).
 - **`hessian_power`** *(float)*: Scaling factor for the Hessian diagonal (default: `1.0`).
@@ -689,8 +689,8 @@ loss_fn = tf.keras.losses.MeanSquaredError()
 # Initialize optimizer
 optimizer = Adahessian(
     learning_rate=0.01, 
-    beta_1=0.9, 
-    beta_2=0.999, 
+    beta1=0.9, 
+    beta2=0.999, 
     weight_decay=0.01
 )
 
@@ -713,15 +713,15 @@ for epoch in range(epochs):
 
 **Overview**:  
 
-The **ADOPT (Adaptive Optimization with Trust)** optimizer is a novel variant of Adam designed to achieve optimal convergence rates with any value of \(\beta_2\). It introduces enhancements such as adaptive gradient scaling and cautious updates, making it suitable for diverse optimization scenarios, including tasks requiring stability and robustness in gradient updates.  
+The **ADOPT (Adaptive Optimization with Trust)** optimizer is a novel variant of Adam designed to achieve optimal convergence rates with any value of \(\beta2\). It introduces enhancements such as adaptive gradient scaling and cautious updates, making it suitable for diverse optimization scenarios, including tasks requiring stability and robustness in gradient updates.  
 
 This TensorFlow implementation is adapted from the PyTorch version available in the [timm library](https://github.com/huggingface/pytorch-image-models/blob/main/timm/optim/adopt.py). The optimizer builds on concepts from Adam while adding innovative features for enhanced convergence and generalization.
 
 **Parameters**:
 
 - **`learning_rate`** *(float, default=1e-3)*: Learning rate for the optimizer.  
-- **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.  
-- **`beta_2`** *(float, default=0.9999)*: Exponential decay rate for the second moment estimates.  
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.  
+- **`beta2`** *(float, default=0.9999)*: Exponential decay rate for the second moment estimates.  
 - **`epsilon`** *(float, default=1e-6)*: Small constant for numerical stability.  
 - **`weight_decay`** *(float, default=0.0)*: Weight decay factor for L2 regularization.  
 - **`clip_exp`** *(float, default=0.333)*: Exponent for gradient clipping.  
@@ -752,8 +752,8 @@ from optimizers.adopt import Adopt
 # Initialize the ADOPT optimizer
 optimizer = Adopt(
     learning_rate=1e-3,
-    beta_1=0.9,
-    beta_2=0.9999,
+    beta1=0.9,
+    beta2=0.9999,
     epsilon=1e-6,
     weight_decay=0.01,
     clip_exp=0.333,
@@ -779,8 +779,8 @@ This implementation is inspired by the algorithm in the MLCommons algorithmic ef
 **Parameters**:
 
 - **`learning_rate`** *(float, default=1e-3)*: Learning rate for the optimizer.
-- **`beta_1`** *(float, default=0.9)*: Coefficient for computing running averages of gradient moments.
-- **`beta_2`** *(float, default=0.999)*: Coefficient for computing running averages of squared gradients.
+- **`beta1`** *(float, default=0.9)*: Coefficient for computing running averages of gradient moments.
+- **`beta2`** *(float, default=0.999)*: Coefficient for computing running averages of squared gradients.
 - **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
 - **`weight_decay`** *(float, default=1e-2)*: Weight decay coefficient for L2 regularization.
 - **`caution`** *(bool, default=False)*: If `True`, applies cautious updates for enhanced training stability.
@@ -808,8 +808,8 @@ from nadamw import NAdamW
 # Initialize the optimizer
 optimizer = NAdamW(
     learning_rate=1e-3,
-    beta_1=0.9,
-    beta_2=0.999,
+    beta1=0.9,
+    beta2=0.999,
     epsilon=1e-8,
     weight_decay=1e-2,
     caution=True,
@@ -985,8 +985,8 @@ The `AdaBound` optimizer is an adaptive gradient method that dynamically bounds 
 **Parameters**:
 
 - **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
-- **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
-- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
 - **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
 - **`weight_decay`** *(float, default=0)*: Coefficient for weight decay, used to regularize weights.
 - **`final_lr`** *(float, default=0.1)*: The final learning rate towards which the optimizer converges.
@@ -1034,8 +1034,8 @@ The `AdaBoundW` optimizer is an adaptive gradient descent method that builds upo
 **Parameters**:
 
 - **`learning_rate`** *(float, default=1e-3)*: The initial learning rate for parameter updates.
-- **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
-- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
 - **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability in division.
 - **`weight_decay`** *(float, default=0)*: Coefficient for weight decay regularization.
 - **`final_lr`** *(float, default=0.1)*: The final (stable) learning rate to which the optimizer gradually bounds.
@@ -1083,9 +1083,9 @@ The `AdaMod` optimizer is an extension of the Adam optimizer that incorporates a
 **Parameters**:
 
 - **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
-- **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
-- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
-- **`beta_3`** *(float, default=0.999)*: Exponential decay rate for the moving average of learning rates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`beta3`** *(float, default=0.999)*: Exponential decay rate for the moving average of learning rates.
 - **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
 - **`weight_decay`** *(float, default=0)*: Coefficient for weight decay. Applies regularization to the model weights.
 - **`clipnorm`** *(float, optional)*: Clips gradients by their norm.
@@ -1108,9 +1108,9 @@ from optimizers.adamod import AdaMod
 # Instantiate optimizer
 optimizer = AdaMod(
     learning_rate=1e-3,
-    beta_1=0.9,
-    beta_2=0.999,
-    beta_3=0.999,
+    beta1=0.9,
+    beta2=0.999,
+    beta3=0.999,
     weight_decay=1e-2
 )
 
@@ -1236,8 +1236,8 @@ The `Ranger` optimizer combines the benefits of RAdam (Rectified Adam) and LookA
 **Parameters**:
 
 - **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
-- **`beta_1`** *(float, default=0.95)*: Exponential decay rate for the first moment estimates.
-- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`beta1`** *(float, default=0.95)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
 - **`epsilon`** *(float, default=1e-5)*: Small constant for numerical stability.
 - **`weight_decay`** *(float, default=0)*: Coefficient for weight decay. Applies standard weight decay during updates.
 - **`alpha`** *(float, default=0.5)*: LookAhead interpolation factor, determining how much to interpolate between fast and slow weights.
@@ -1287,8 +1287,8 @@ The `DiffGrad` optimizer is a variant of the Adam optimizer designed to adapt th
 **Parameters**:
 
 - **`learning_rate`** *(float, default=1e-3)*: The initial step size for parameter updates.
-- **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates (moving average of gradients).
-- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates (moving average of squared gradients).
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates (moving average of gradients).
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates (moving average of squared gradients).
 - **`epsilon`** *(float, default=1e-8)*: A small constant for numerical stability, especially during division.
 - **`weight_decay`** *(float, default=0)*: Coefficient for weight decay, used for regularization. If set to a non-zero value, adds a decay term to the gradients.
 - **`clipnorm`** *(float, optional)*: Clips gradients by their norm to prevent exploding gradients.
@@ -1311,8 +1311,8 @@ from optimizers.diffgrad import DiffGrad
 # Instantiate optimizer
 optimizer = DiffGrad(
     learning_rate=1e-3,
-    beta_1=0.9,
-    beta_2=0.999,
+    beta1=0.9,
+    beta2=0.999,
     weight_decay=1e-4
 )
 
@@ -1332,8 +1332,8 @@ The `Ranger` optimizer combines the techniques of RAdam (Rectified Adam) and Loo
 **Parameters**:
 
 - **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
-- **`beta_1`** *(float, default=0.95)*: Exponential decay rate for the first moment estimates.
-- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`beta1`** *(float, default=0.95)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
 - **`epsilon`** *(float, default=1e-5)*: Small constant for numerical stability.
 - **`weight_decay`** *(float, default=0)*: Coefficient for weight decay.
 - **`alpha`** *(float, default=0.5)*: Interpolation factor for the LookAhead mechanism.
@@ -1384,8 +1384,8 @@ The `RangerVA` optimizer is a hybrid optimizer that combines the techniques of R
 **Parameters**:
 
 - **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
-- **`beta_1`** *(float, default=0.95)*: Exponential decay rate for the first moment estimates.
-- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`beta1`** *(float, default=0.95)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
 - **`epsilon`** *(float, default=1e-5)*: Small constant for numerical stability.
 - **`weight_decay`** *(float, default=0)*: Coefficient for weight decay.
 - **`alpha`** *(float, default=0.5)*: Lookahead interpolation factor controlling the update between fast and slow weights.
