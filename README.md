@@ -265,7 +265,7 @@ This implementation is based on the paper [MARS: Unleashing the Power of Varianc
   - `"lion"`: Lion-style updates.
 - **`optimize_1d`** *(bool, default=False)*: If `True`, applies MARS-specific updates to 1D parameters.
 - **`lr_1d_factor`** *(float, default=1.0)*: Scaling factor for learning rate for 1D parameter updates.
-- **`betas_1d`** *(tuple, optional)*: Separate `(beta1, beta2)` values for 1D parameters.
+- **`betas_1d`** *(tuple, optional)*: Separate `(beta_1, beta_2)` values for 1D parameters.
 - **`caution`** *(bool, default=False)*: If `True`, applies a masking mechanism to stabilize updates.
 - **`clipnorm`** *(float, optional)*: Clips gradients by their norm.
 - **`clipvalue`** *(float, optional)*: Clips gradients by their value.
@@ -1236,8 +1236,8 @@ The `Ranger` optimizer combines the benefits of RAdam (Rectified Adam) and LookA
 **Parameters**:
 
 - **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
-- **`beta1`** *(float, default=0.95)*: Exponential decay rate for the first moment estimates.
-- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`beta_1`** *(float, default=0.95)*: Exponential decay rate for the first moment estimates.
+- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
 - **`epsilon`** *(float, default=1e-5)*: Small constant for numerical stability.
 - **`weight_decay`** *(float, default=0)*: Coefficient for weight decay. Applies standard weight decay during updates.
 - **`alpha`** *(float, default=0.5)*: LookAhead interpolation factor, determining how much to interpolate between fast and slow weights.
@@ -1287,8 +1287,8 @@ The `DiffGrad` optimizer is a variant of the Adam optimizer designed to adapt th
 **Parameters**:
 
 - **`learning_rate`** *(float, default=1e-3)*: The initial step size for parameter updates.
-- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates (moving average of gradients).
-- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates (moving average of squared gradients).
+- **`beta_1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates (moving average of gradients).
+- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates (moving average of squared gradients).
 - **`epsilon`** *(float, default=1e-8)*: A small constant for numerical stability, especially during division.
 - **`weight_decay`** *(float, default=0)*: Coefficient for weight decay, used for regularization. If set to a non-zero value, adds a decay term to the gradients.
 - **`clipnorm`** *(float, optional)*: Clips gradients by their norm to prevent exploding gradients.
@@ -1311,8 +1311,8 @@ from optimizers.diffgrad import DiffGrad
 # Instantiate optimizer
 optimizer = DiffGrad(
     learning_rate=1e-3,
-    beta1=0.9,
-    beta2=0.999,
+    beta_1=0.9,
+    beta_2=0.999,
     weight_decay=1e-4
 )
 
@@ -1332,8 +1332,8 @@ The `Ranger` optimizer combines the techniques of RAdam (Rectified Adam) and Loo
 **Parameters**:
 
 - **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
-- **`beta1`** *(float, default=0.95)*: Exponential decay rate for the first moment estimates.
-- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`beta_1`** *(float, default=0.95)*: Exponential decay rate for the first moment estimates.
+- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
 - **`epsilon`** *(float, default=1e-5)*: Small constant for numerical stability.
 - **`weight_decay`** *(float, default=0)*: Coefficient for weight decay.
 - **`alpha`** *(float, default=0.5)*: Interpolation factor for the LookAhead mechanism.
@@ -1384,8 +1384,8 @@ The `RangerVA` optimizer is a hybrid optimizer that combines the techniques of R
 **Parameters**:
 
 - **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
-- **`beta1`** *(float, default=0.95)*: Exponential decay rate for the first moment estimates.
-- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`beta_1`** *(float, default=0.95)*: Exponential decay rate for the first moment estimates.
+- **`beta_2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
 - **`epsilon`** *(float, default=1e-5)*: Small constant for numerical stability.
 - **`weight_decay`** *(float, default=0)*: Coefficient for weight decay.
 - **`alpha`** *(float, default=0.5)*: Lookahead interpolation factor controlling the update between fast and slow weights.
