@@ -1429,3 +1429,101 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# PID
+
+**Overview**:
+
+The `PID` optimizer is inspired by Proportional-Integral-Derivative (PID) control theory and implements stochastic gradient descent (SGD) with momentum and optional Nesterov momentum. It introduces integral (`I`) and derivative (`D`) components to enhance learning dynamics and provide better control of gradient updates.
+
+**Parameters**:
+
+- **`learning_rate`** *(float)*: The step size for parameter updates.
+- **`weight_decay`** *(float, default=0)*: Coefficient for weight decay, used for regularization.
+- **`momentum`** *(float, default=0)*: Momentum factor to accelerate gradient updates.
+- **`dampening`** *(float, default=0)*: Dampening for momentum to reduce its influence on updates.
+- **`nesterov`** *(bool, default=False)*: Enables Nesterov momentum for accelerated convergence.
+- **`I`** *(float, default=5.0)*: Integral factor for accumulating gradients over time to improve stability.
+- **`D`** *(float, default=10.0)*: Derivative factor for incorporating the rate of gradient change.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+- **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients before applying updates.
+- **`name`** *(str, default="pid")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.pid import PID
+
+# Instantiate optimizer
+optimizer = PID(
+    learning_rate=1e-3,
+    weight_decay=1e-4,
+    momentum=0.9,
+    I=5.0,
+    D=10.0,
+    nesterov=True
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# QHAdam
+
+**Overview**:
+
+The `QHAdam` optimizer is an extension of the Adam optimizer designed to improve adaptability in non-convex optimization scenarios. It incorporates additional parameters, `nu1` and `nu2`, to allow fine-grained control over the combination of gradient and root mean square (RMS) terms. This optimizer is particularly effective in handling challenging optimization landscapes.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay. Regularizes model parameters.
+- **`Nus2`** *(tuple of floats, default=(1.0, 1.0))*: Controls the mixing of the first moment (`nu1`) and second moment (`nu2`) estimates.
+- **`decouple_weight_decay`** *(bool, default=False)*: If `True`, applies decoupled weight decay as described in AdamW.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+- **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients before applying updates.
+- **`name`** *(str, default="qhadam")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.qhadam import QHAdam
+
+# Instantiate optimizer
+optimizer = QHAdam(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    Nus2=(0.7, 1.0),
+    weight_decay=1e-4,
+    decouple_weight_decay=True
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
