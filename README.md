@@ -1527,3 +1527,54 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# RangerQH
+
+**Overview**:
+
+The `RangerQH` optimizer combines the QHAdam optimization algorithm with the Lookahead mechanism. QHAdam, introduced by Ma and Yarats (2019), balances the contributions of gradients and gradient variances with tunable parameters `nu1` and `nu2`. The Lookahead mechanism, developed by Hinton and Zhang, enhances convergence by interpolating between "fast" and "slow" weights over multiple steps. This combination provides a powerful optimization approach for deep learning tasks, offering improved convergence and generalization.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay. Supports both standard and decoupled decay.
+- **`nus`** *(tuple, default=(0.7, 1.0))*: The `nu1` and `nu2` parameters controlling the blending of gradient and variance components.
+- **`k`** *(int, default=6)*: Number of optimization steps before updating "slow" weights in the Lookahead mechanism.
+- **`alpha`** *(float, default=0.5)*: Interpolation factor for Lookahead updates.
+- **`decouple_weight_decay`** *(bool, default=False)*: Enables decoupled weight decay as described in AdamW.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+- **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients.
+- **`name`** *(str, default="rangerqh")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.ranger_qh import RangerQH
+
+# Instantiate optimizer
+optimizer = RangerQH(
+    learning_rate=1e-3,
+    nus=(0.8, 1.0),
+    k=5,
+    alpha=0.6,
+    weight_decay=1e-2,
+    decouple_weight_decay=True
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
