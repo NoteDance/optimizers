@@ -1578,3 +1578,99 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# QHM
+
+**Overview**:
+
+The `QHM` optimizer implements the quasi-hyperbolic momentum (QHM) optimization algorithm. QHM blends the benefits of momentum-based updates with those of standard stochastic gradient descent (SGD) by introducing a hyperparameter `nu` that balances the contribution of the momentum term with the immediate gradient. This approach offers more flexible control over the optimization dynamics, which can lead to improved convergence and generalization in deep learning models.
+
+---
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay. Depending on the value of `weight_decay_type`, weight decay is applied either by adding a decay term to the gradient (`"grad"`) or by directly scaling the model parameters (`"direct"`).
+- **`momentum`** *(float, default=0.0)*: Momentum factor used to accumulate past gradients.
+- **`nu`** *(float, default=0.7)*: A hyperparameter that controls the balance between the momentum term and the immediate gradient update.
+- **`weight_decay_type`** *(str, default="grad")*: Specifies how weight decay is applied. Use `"grad"` to add weight decay to the gradient or `"direct"` to directly scale the parameters.
+- **`clipnorm`** *(float, optional)*: Clips gradients by their norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by their value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by their global norm.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum factor for the EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for updating the EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients before applying updates.
+- **`name`** *(str, default="qhm")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.qhm import QHM
+
+# Instantiate optimizer
+optimizer = QHM(
+    learning_rate=1e-3,
+    weight_decay=1e-2,
+    momentum=0.9,
+    nu=0.7,
+    weight_decay_type="grad"
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# Shampoo
+
+**Overview**:
+
+The `Shampoo` optimizer implements the Shampoo optimization algorithm, which leverages second-order information by maintaining and updating preconditioners for each tensor dimension. By computing and applying matrix powers (inverses) of these preconditioners, Shampoo effectively preconditions gradients to accelerate convergence, especially in large-scale deep learning tasks. This approach was introduced in [*Shampoo: Preconditioned Stochastic Tensor Optimization*](https://arxiv.org/abs/1802.09568).
+
+---
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-1)*: The step size for parameter updates.
+- **`epsilon`** *(float, default=1e-4)*: A small constant added for numerical stability when computing the preconditioners.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay regularization.
+- **`momentum`** *(float, default=0.0)*: Momentum factor used to smooth gradient updates by accumulating past gradients.
+- **`update_freq`** *(int, default=1)*: Frequency (in steps) at which to update the inverse preconditioners.
+- **`clipnorm`** *(float, optional)*: Clips gradients by their norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by their value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by their global norm.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum factor for the EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients before applying updates.
+- **`name`** *(str, default="shampoo")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.shampoo import Shampoo
+
+# Instantiate optimizer
+optimizer = Shampoo(
+    learning_rate=1e-1,
+    epsilon=1e-4,
+    weight_decay=1e-4,
+    momentum=0.9,
+    update_freq=1
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
