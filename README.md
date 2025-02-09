@@ -1674,3 +1674,111 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# SWATS
+
+**Overview**:
+
+The `SWATS` optimizer implements the SWATS algorithm, which dynamically switches from an adaptive method (Adam) to SGD during training. By initially leveraging the fast convergence of Adam and later transitioning to SGD, SWATS aims to improve generalization performance. It maintains first and second moment estimates (with optional AMSGrad and Nesterov momentum) and monitors a non-orthogonal scaling criterion to determine the appropriate moment to switch phases.
+
+---
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`epsilon`** *(float, default=1e-3)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0)*: Coefficient for weight decay regularization.
+- **`amsgrad`** *(bool, default=False)*: Whether to use the AMSGrad variant.
+- **`nesterov`** *(bool, default=False)*: Whether to apply Nesterov momentum.
+- **`phase`** *(str, default="ADAM")*: Indicates the current phase of optimization. The optimizer starts in the "ADAM" phase and switches to "SGD" once the scaling criterion is met.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients before applying updates.
+- **`name`** *(str, default="swats")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.swats import SWATS
+
+# Instantiate optimizer
+optimizer = SWATS(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-3,
+    weight_decay=1e-4,
+    amsgrad=False,
+    nesterov=False,
+    phase="ADAM"
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# Yogi
+
+**Overview**:
+
+The `Yogi` optimizer is an adaptive gradient method that modifies the Adam update rule to control the growth of the second moment estimate. By using an update based on the sign of the difference between the current second moment and the square of the gradient, Yogi aims to adjust the effective learning rate in a more controlled fashion, thereby addressing some of Adam’s convergence issues—especially in nonconvex settings. This approach makes Yogi particularly effective for tasks where careful regulation of adaptivity leads to improved generalization and stable training.
+
+---
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-2)*: The step size for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment (mean) estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment (variance) estimates.
+- **`epsilon`** *(float, default=1e-3)*: Small constant for numerical stability to prevent division by zero.
+- **`weight_decay`** *(float, default=0)*: Coefficient for weight decay regularization; if non-zero, adds a decay term to the gradient.
+- **`initial_accumulator`** *(float, default=1e-6)*: Initial value used to fill the first and second moment accumulators.
+- **`clipnorm`** *(float, optional)*: Maximum norm for clipping gradients.
+- **`clipvalue`** *(float, optional)*: Maximum absolute value for clipping gradients.
+- **`global_clipnorm`** *(float, optional)*: Maximum norm for global gradient clipping.
+- **`use_ema`** *(bool, default=False)*: Whether to use an Exponential Moving Average (EMA) of the model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum used in the EMA computation.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency at which the EMA weights are overwritten.
+- **`loss_scale_factor`** *(float, optional)*: Factor to scale the loss during gradient computation (useful in mixed precision training).
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an update.
+- **`name`** *(str, default="yogi")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.yogi import Yogi
+
+# Instantiate the optimizer
+optimizer = Yogi(
+    learning_rate=1e-2,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-3,
+    weight_decay=0,
+    initial_accumulator=1e-6
+)
+
+# Compile a Keras model
+model.compile(
+    optimizer=optimizer,
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
