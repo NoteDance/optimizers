@@ -1782,3 +1782,113 @@ model.compile(
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# Adai
+
+**Overview**:
+
+The `Adai` optimizer implements the Adaptive Inertia Estimation (Adai) algorithm, proposed in the ICML 2022 Oral paper [Adaptive Inertia: Disentangling the Effects of Adaptive Learning Rate and Momentum](https://arxiv.org/abs/2006.15815). Adai disentangles the contributions of adaptive learning rate and momentum by dynamically estimating an inertia term for each parameter. This controlled adjustment of momentum improves convergence and generalization, especially in settings with noisy gradients.
+
+---
+
+**Parameters**:
+
+- **`learning_rate`** *(float)*: The step size for parameter updates.
+- **`beta0`** *(float, default=0.1)*: Scaling factor that modulates the adaptive momentum coefficient.
+- **`beta2`** *(float, default=0.99)*: Exponential decay rate for the second moment (variance) estimates.
+- **`epsilon`** *(float, default=1e-3)*: Small constant added for numerical stability to prevent division by zero.
+- **`weight_decay`** *(float, default=0)*: Coefficient for weight decay regularization. When nonzero, weight decay is applied either additively to the gradients or directly to the parameters depending on the `decoupled` flag.
+- **`decoupled`** *(bool, default=False)*: Determines the application of weight decay. If `True`, weight decay is applied in a decoupled manner (i.e., directly scaling the parameters); otherwise, it is added to the gradients.
+- **`clipnorm`** *(float, optional)*: Clips gradients by their norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by their value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by the global norm.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to the model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum factor for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for overwriting EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor to scale the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before applying an update.
+- **`name`** *(str, default="adai")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.adai import Adai
+
+# Instantiate the optimizer
+optimizer = Adai(
+    learning_rate=1e-3,
+    beta0=0.1,
+    beta2=0.99,
+    epsilon=1e-3,
+    weight_decay=1e-4,
+    decoupled=True
+)
+
+# Compile a Keras model
+model.compile(
+    optimizer=optimizer,
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# AdaiV2
+
+**Overview**:
+
+The `AdaiV2` optimizer is a generalized variant of the Adai algorithm based on the work presented in [Adaptive Inertia: Disentangling the Effects of Adaptive Learning Rate and Momentum](https://arxiv.org/abs/2006.15815). AdaiV2 extends the original Adai approach by incorporating a dampening parameter to further modulate the adaptive momentum update. By dynamically estimating inertia via adaptive per-parameter momentum (through a generalized clipping mechanism) and coupling it with controlled weight decay (either coupled or decoupled), AdaiV2 aims to improve convergence and generalization—especially in settings with noisy gradients.
+
+---
+
+**Parameters**:
+
+- **`learning_rate`** *(float)*: The step size used for updating parameters.
+- **`beta0`** *(float, default=0.1)*: A scaling parameter that influences the computation of the adaptive momentum coefficient.
+- **`beta2`** *(float, default=0.99)*: Exponential decay rate for the second moment (variance) estimates.
+- **`epsilon`** *(float, default=1e-3)*: A small constant for numerical stability to prevent division by zero.
+- **`weight_decay`** *(float, default=0)*: Coefficient for weight decay regularization. When non-zero, weight decay is applied either additively to the gradients (if `decoupled` is False) or directly to the parameters (if `decoupled` is True).
+- **`dampening`** *(float, default=1.0)*: Controls the nonlinearity in the adaptive momentum update. This parameter adjusts the effective inertia by modulating the computed momentum coefficient.
+- **`decoupled`** *(bool, default=False)*: Determines how weight decay is applied. If `True`, weight decay is decoupled (applied directly to the parameters); otherwise, it is coupled by adding the decay term to the gradients.
+- **`clipnorm`** *(float, optional)*: Maximum norm for clipping gradients.
+- **`clipvalue`** *(float, optional)*: Maximum absolute value for clipping gradients.
+- **`global_clipnorm`** *(float, optional)*: Maximum norm for clipping gradients globally.
+- **`use_ema`** *(bool, default=False)*: Whether to maintain an Exponential Moving Average (EMA) of the model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum factor used for the EMA of the model weights.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency at which the EMA weights are overwritten.
+- **`loss_scale_factor`** *(float, optional)*: A factor to scale the loss during gradient computation (useful in mixed precision training).
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before performing an update.
+- **`name`** *(str, default="adaiv2")*: The name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.adaiv2 import AdaiV2
+
+# Instantiate the AdaiV2 optimizer
+optimizer = AdaiV2(
+    learning_rate=1e-3,
+    beta0=0.1,
+    beta2=0.99,
+    epsilon=1e-3,
+    weight_decay=1e-4,
+    dampening=1.0,
+    decoupled=True
+)
+
+# Compile a model using the optimizer
+model.compile(
+    optimizer=optimizer,
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
