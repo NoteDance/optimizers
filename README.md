@@ -1958,3 +1958,67 @@ model.compile(
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# Adalite
+
+**Overview**:
+
+The `Adalite` optimizer is an adaptive optimization algorithm that extends ideas from adaptive methods (such as Adam) by integrating trust ratio scaling and specialized handling for both low- and high-dimensional parameters. It computes per-parameter moving averages and normalizes gradient updates based on the ratio between the parameter norm and the gradient norm. Additionally, Adalite supports both coupled and decoupled weight decay, along with gradient clipping and other stabilization techniques, making it well-suited for training deep neural networks with diverse parameter scales.
+
+---
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment (mean) estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment (variance) estimates.
+- **`weight_decay`** *(float, default=1e-2)*: Coefficient for weight decay regularization.
+- **`weight_decouple`** *(bool, default=False)*: If set to True, weight decay is applied in a decoupled manner (directly scaling parameters) rather than added to the gradients.
+- **`fixed_decay`** *(bool, default=False)*: If True, uses a fixed weight decay rather than scaling it by the learning rate.
+- **`g_norm_min`** *(float, default=1e-10)*: Minimum threshold for the gradient norm to prevent division by very small values.
+- **`ratio_min`** *(float, default=1e-4)*: Minimum allowed trust ratio used for scaling the gradient.
+- **`tau`** *(float, default=1.0)*: Temperature parameter used in computing importance weights when handling high-dimensional parameters.
+- **`eps1`** *(float, default=1e-6)*: Small constant for numerical stability in normalization during update computation.
+- **`eps2`** *(float, default=1e-10)*: Additional small constant to ensure stability in aggregate computations.
+- **`clipnorm`** *(float, optional)*: If provided, gradients are clipped to this maximum norm.
+- **`clipvalue`** *(float, optional)*: If provided, gradients are clipped element-wise to this maximum value.
+- **`global_clipnorm`** *(float, optional)*: If set, clips the global norm of all gradients to this value.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to the model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum factor used for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting the EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation (useful in mixed precision training).
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before updating parameters.
+- **`name`** *(str, default="adalite")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.adalite import Adalite
+
+# Instantiate optimizer
+optimizer = Adalite(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    weight_decay=1e-2,
+    weight_decouple=False,
+    fixed_decay=False,
+    g_norm_min=1e-10,
+    ratio_min=1e-4,
+    tau=1.0,
+    eps1=1e-6,
+    eps2=1e-10
+)
+
+# Compile a model
+model.compile(
+    optimizer=optimizer,
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
