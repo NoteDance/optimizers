@@ -2022,3 +2022,58 @@ model.compile(
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# AdaNorm
+
+**Overview**:
+
+The `AdaNorm` optimizer is an extension of the Adam optimizer that introduces an adaptive normalization of gradients. By maintaining an exponential moving average of the gradient norms, AdaNorm scales updates based on the relative magnitude of current and past gradients. This approach helps stabilize training and can improve convergence in scenarios where gradient scales vary over time.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size used for updating parameters.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the moving average of gradients.
+- **`beta2`** *(float, default=0.99)*: Exponential decay rate for the moving average of squared gradients.
+- **`epsilon`** *(float, default=1e-8)*: A small constant to prevent division by zero and ensure numerical stability.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay. When enabled, this can be applied decoupled from the gradient update.
+- **`r`** *(float, default=0.95)*: Smoothing factor for the exponential moving average of the gradient norms.
+- **`weight_decouple`** *(bool, default=True)*: Determines if weight decay should be decoupled from the gradient-based update.
+- **`fixed_decay`** *(bool, default=False)*: When set to True, applies a fixed weight decay rather than scaling it with the learning rate.
+- **`ams_bound`** *(bool, default=False)*: If True, uses the AMS-bound variant to ensure more stable convergence.
+- **`adam_debias`** *(bool, default=False)*: Chooses whether to apply Adam-style debiasing to the learning rate.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm to mitigate exploding gradients.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients based on the global norm across all variables.
+- **`use_ema`** *(bool, default=False)*: If True, applies an Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum coefficient for the EMA of model weights.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) at which the EMA weights are updated.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation, useful in mixed precision training.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps over which gradients are accumulated before performing an update.
+- **`name`** *(str, default="adanorm")*: Identifier name for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.adanorm import AdaNorm
+
+# Instantiate the AdaNorm optimizer
+optimizer = AdaNorm(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.99,
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    r=0.95,
+    weight_decouple=True,
+    ams_bound=False,
+    adam_debias=False
+)
+
+# Compile a TensorFlow/Keras model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
