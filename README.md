@@ -2077,3 +2077,58 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# AdaPNM
+
+**Overview**:
+
+The `AdaPNM` optimizer is a variant of adaptive gradient methods that integrates a predictive negative momentum mechanism. It leverages two momentum accumulators—a positive and a negative moving average—to dynamically adjust the update direction, aiming to counteract the overshooting typical in momentum methods. Additionally, it optionally incorporates gradient normalization (akin to AdaNorm) and supports features like decoupled weight decay and AMS-bound adjustments, making it well-suited for tasks with noisy gradients and complex optimization landscapes.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size used for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the primary (positive) momentum estimate.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment (variance) estimate.
+- **`beta3`** *(float, default=1.0)*: Factor controlling the influence of the negative momentum component.
+- **`epsilon`** *(float, default=1e-8)*: A small constant to maintain numerical stability.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay regularization.
+- **`weight_decouple`** *(bool, default=True)*: If True, applies weight decay independently of the gradient-based update.
+- **`fixed_decay`** *(bool, default=False)*: Uses a fixed weight decay value rather than scaling it by the learning rate.
+- **`ams_bound`** *(bool, default=True)*: Whether to use the AMS-bound variant to cap the second moment, improving stability.
+- **`r`** *(float, default=0.95)*: Smoothing factor for the exponential moving average of gradient norms (active when `adanorm` is enabled).
+- **`adanorm`** *(bool, default=False)*: When enabled, applies adaptive gradient normalization to adjust the gradient scale.
+- **`adam_debias`** *(bool, default=False)*: Determines whether to apply Adam-style bias correction to the learning rate.
+- **`clipnorm`** *(float, optional)*: Maximum norm for clipping gradients.
+- **`clipvalue`** *(float, optional)*: Maximum value for clipping gradients.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients based on a global norm across all model parameters.
+- **`use_ema`** *(bool, default=False)*: Enables the use of an Exponential Moving Average (EMA) on model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum coefficient for computing the EMA of model weights.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) at which the EMA weights are updated.
+- **`loss_scale_factor`** *(float, optional)*: Factor to scale the loss during gradient computation, useful in mixed-precision training.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before updating the model.
+- **`name`** *(str, default="adapnm")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.adapnm import AdaPNM
+
+# Instantiate the AdaPNM optimizer
+optimizer = AdaPNM(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    beta3=1.0,
+    weight_decay=1e-2,
+    adanorm=True,      # Enable adaptive gradient normalization if needed
+    ams_bound=True     # Use AMS-bound variant for additional stability
+)
+
+# Compile a TensorFlow/Keras model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
