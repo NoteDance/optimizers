@@ -2132,3 +2132,53 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# AdaShift
+
+**Overview**:
+
+The `AdaShift` optimizer is an adaptive optimization algorithm that leverages a shifting window of historical gradients to compute more robust update statistics. By maintaining a fixed-size deque of past gradients (controlled by `keep_num`), it shifts and aggregates gradient information, which can lead to more stable estimates of the first and second moments. An optional cautious mode further refines updates by masking inconsistent directions between the gradient and the update, potentially reducing harmful parameter oscillations. This design is particularly effective in settings with noisy or non-stationary gradients.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the moving average of gradients.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`epsilon`** *(float, default=1e-10)*: Small constant for numerical stability.
+- **`keep_num`** *(int, default=10)*: Number of past gradients to maintain in the shifting window.
+- **`reduce_func`** *(function, default=`tf.reduce_max`)*: Function used to aggregate squared gradients from the shifted window.
+- **`cautious`** *(bool, default=False)*: When enabled, applies a masking strategy to filter the update, ensuring that only consistent gradient directions contribute.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by the global norm across all model parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to the model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for updating the EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation, useful for mixed precision training.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before updating the model.
+- **`name`** *(str, default="adashift")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.adashift import AdaShift
+
+# Instantiate the AdaShift optimizer
+optimizer = AdaShift(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-10,
+    keep_num=10,
+    reduce_func=tf.reduce_max,
+    cautious=True  # Enable cautious update mode for additional stability
+)
+
+# Compile a TensorFlow/Keras model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
