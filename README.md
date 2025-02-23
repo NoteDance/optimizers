@@ -2182,3 +2182,104 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# AdaSmooth
+
+**Overview**:
+
+The `AdaSmooth` optimizer is an adaptive optimization algorithm that adjusts the update steps by leveraging the smoothness of parameter transitions. By comparing the current parameters to their previous states, it computes a smoothing coefficient that modulates the effective learning rate. This approach helps reduce oscillations during training and can promote more stable convergence, particularly in settings with rapidly changing gradients.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+- **`beta1`** *(float, default=0.5)*: Coefficient for accumulating the difference between current and previous parameters, influencing the smoothing effect.
+- **`beta2`** *(float, default=0.99)*: Coefficient for updating the exponential moving average of squared gradients.
+- **`epsilon`** *(float, default=1e-6)*: Small constant added for numerical stability.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay regularization.
+- **`weight_decouple`** *(bool, default=False)*: If True, decouples weight decay from the gradient update.
+- **`fixed_decay`** *(bool, default=False)*: If True, applies a fixed weight decay rather than scaling it with the learning rate.
+- **`clipnorm`** *(float, optional)*: Clips gradients by their norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by their value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by the global norm across all parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for computing the EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for updating the EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation, useful in mixed-precision training.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps over which gradients are accumulated before updating the model.
+- **`name`** *(str, default="adasmooth")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.adasmooth import AdaSmooth
+
+# Instantiate the AdaSmooth optimizer
+optimizer = AdaSmooth(
+    learning_rate=1e-3,
+    beta1=0.5,
+    beta2=0.99,
+    epsilon=1e-6,
+    weight_decay=1e-2,
+    weight_decouple=False,
+    fixed_decay=False
+)
+
+# Compile a TensorFlow/Keras model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# AdEMAMix
+
+**Overview**:
+
+The `AdEMAMix` optimizer is an advanced adaptive optimization algorithm that extends traditional Adam methods by incorporating a slow-moving average of gradients. By mixing the fast (standard) exponential moving average with a slower one—weighted by an adaptively scheduled mixing coefficient—the optimizer is designed to capture both short-term fluctuations and long-term trends in the gradient. This dynamic balance can lead to more robust convergence and improved generalization, particularly in challenging training scenarios.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment (fast moving average) estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`beta3`** *(float, default=0.9999)*: Base decay rate for the slow moving average component.
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0)*: Coefficient for weight decay. When non-zero, weight decay is applied directly to the parameters.
+- **`alpha`** *(float, default=5.0)*: Mixing coefficient that scales the contribution of the slow moving average.
+- **`T_alpha_beta3`** *(float, optional)*: If provided, defines a scheduling horizon over which both the effective mixing coefficient (`alpha_t`) and the slow decay rate (`beta3_t`) are adaptively annealed.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients based on the global norm across all parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to the model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum coefficient for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) at which EMA weights are updated.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation, useful in mixed precision training.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before updating the model.
+- **`name`** *(str, default="ademamix")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.ademamix import AdEMAMix
+
+# Instantiate the AdEMAMix optimizer
+optimizer = AdEMAMix(
+    learning_rate=1e-3,
+    weight_decay=1e-2,
+    beta1=0.9,
+    beta2=0.999,
+    beta3=0.9999,
+    alpha=5.0,
+    T_alpha_beta3=10000  # Optional scheduling parameter for adaptive mixing
+)
+
+# Compile a TensorFlow/Keras model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+``` 
