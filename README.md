@@ -2283,3 +2283,66 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ``` 
+
+# Aida
+
+**Overview**:
+
+The `Aida` optimizer is an advanced adaptive optimization algorithm that builds on Adam by integrating gradient projection and optional rectification mechanisms. It refines momentum estimation through iterative projection steps—controlled by parameters `k` and `xi`—which help align the gradient and momentum directions. Additionally, Aida offers flexibility with decoupled weight decay, adaptive gradient normalization (akin to AdaNorm), and a dynamic switch to SGD-like updates when gradient variance is low. These features make it effective in handling noisy gradients and improving convergence stability across a variety of tasks.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment (momentum) estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay regularization. When non-zero, weight decay can be applied in a decoupled manner if `weight_decouple` is True.
+- **`k`** *(int, default=2)*: Number of iterations for the gradient projection process used to refine momentum alignment.
+- **`xi`** *(float, default=1e-20)*: Small constant added during projection to avoid division by zero.
+- **`weight_decouple`** *(bool, default=False)*: If True, applies weight decay decoupled from the gradient update.
+- **`fixed_decay`** *(bool, default=False)*: When enabled, uses a fixed weight decay instead of scaling it by the learning rate.
+- **`rectify`** *(bool, default=False)*: Enables rectified updates inspired by RAdam, adjusting the update based on the variance of gradients.
+- **`n_sma_threshold`** *(int, default=5)*: Threshold for the number of stochastic moving average steps used to decide whether to apply rectification or switch to an SGD-like update.
+- **`degenerated_to_sgd`** *(bool, default=True)*: If True, the optimizer degenerates into SGD when gradient variance is too low.
+- **`ams_bound`** *(bool, default=False)*: If True, employs the AMS-bound variant to maintain a maximum of second moment estimates for added stability.
+- **`r`** *(float, default=0.95)*: Smoothing factor for the exponential moving average of gradient norms when `adanorm` is enabled.
+- **`adanorm`** *(bool, default=False)*: If True, applies adaptive gradient normalization to scale the gradients based on their historical norms.
+- **`adam_debias`** *(bool, default=False)*: Determines whether to apply Adam-style bias correction to the updates.
+- **`clipnorm`** *(float, optional)*: Clips gradients by their norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by their value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by the global norm across all model parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to the model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for updating the EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation, useful in mixed precision training.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps over which gradients are accumulated before an update.
+- **`name`** *(str, default="aida")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.aida import Aida
+
+# Instantiate the Aida optimizer
+optimizer = Aida(
+    learning_rate=1e-3,
+    weight_decay=1e-2,
+    rectify=True,
+    weight_decouple=True,
+    k=2,
+    xi=1e-20,
+    n_sma_threshold=5,
+    degenerated_to_sgd=True,
+    ams_bound=False,
+    adanorm=True,
+    adam_debias=False
+)
+
+# Compile a TensorFlow/Keras model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
