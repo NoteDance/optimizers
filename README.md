@@ -2346,3 +2346,62 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# AliG
+
+**Overview**:
+
+The `AliG` optimizer is an adaptive optimization algorithm that dynamically scales its update step by leveraging the ratio of the current loss to the global gradient norm. In addition to this adaptive step sizing, AliG optionally integrates momentum and projection operations to enforce constraints (such as l2-norm projection) on the parameters. This design helps stabilize training by balancing the update magnitude across parameters and can be particularly useful when the scale of the loss and gradients varies significantly.
+
+**Parameters**:
+
+- **`max_lr`** *(float, optional)*: Maximum allowable learning rate; the computed step size is capped at this value if provided.
+- **`projection_fn`** *(function, optional)*: A projection function that is applied after each update to enforce constraints (e.g., l2-norm projection).
+- **`momentum`** *(float, default=0.0)*: Momentum factor for smoothing updates. When set above 0, a momentum buffer is maintained for each parameter.
+- **`adjusted_momentum`** *(bool, default=False)*: If True, uses an adjusted momentum update scheme that scales the momentum buffer differently.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by the global norm across all parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum coefficient for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for updating EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps over which gradients are accumulated before updating the model.
+- **`name`** *(str, default="alig")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.alig import AliG, l2_projection
+
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(64, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+def my_projection():
+    l2_projection(model.trainable_variables, max_norm=1e2)
+
+optimizer = AliG(
+    max_lr=1e-2,
+    projection_fn=my_projection,
+    momentum=0.9,
+    adjusted_momentum=True
+)
+
+loss_fn = tf.keras.losses.SparseCategoricalCrossentropy()
+
+train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train)).batch(32)
+
+for epoch in range(10):
+    for x_batch, y_batch in train_dataset:
+        with tf.GradientTape() as tape:
+            predictions = model(x_batch, training=True)
+            loss = loss_fn(y_batch, predictions)
+        grads = tape.gradient(loss, model.trainable_variables)
+        grads_and_vars = list(zip(grads, model.trainable_variables))
+        optimizer.apply_gradients(grads_and_vars, loss)
+    print(f"Epoch {epoch + 1} completed.")
+```
