@@ -2401,7 +2401,56 @@ for epoch in range(10):
             predictions = model(x_batch, training=True)
             loss = loss_fn(y_batch, predictions)
         grads = tape.gradient(loss, model.trainable_variables)
-        grads_and_vars = list(zip(grads, model.trainable_variables))
-        optimizer.apply_gradients(grads_and_vars, loss)
+        optimizer.apply_gradients(zip(grads, model.trainable_variables), loss)
     print(f"Epoch {epoch + 1} completed.")
+```
+
+# Amos
+
+**Overview**:
+
+The `Amos` optimizer is an advanced optimization algorithm that extends adaptive gradient methods by incorporating additional regularization and decay mechanisms. By maintaining a running average of squared gradients with a high decay rate and combining it with explicit decay factors (`c_coef` and `d_coef`), Amos dynamically scales updates based on both gradient statistics and the inherent scale of the model parameters. Optionally, a momentum term can be applied to further smooth updates. This design makes Amos particularly effective for training models with complex loss landscapes and noisy gradients.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+- **`beta`** *(float, default=0.999)*: Exponential decay rate for the running average of squared gradients.
+- **`epsilon`** *(float, default=1e-18)*: Small constant for numerical stability to avoid division by zero.
+- **`momentum`** *(float, default=0.0)*: Momentum factor for smoothing the parameter updates.
+- **`extra_l2`** *(float, default=0.0)*: Additional L2 regularization coefficient applied in the update computation.
+- **`c_coef`** *(float, default=0.25)*: Coefficient used to compute a decay factor based on the squared gradient statistics.
+- **`d_coef`** *(float, default=0.25)*: Coefficient used to further adjust the update magnitude via an additional decay factor.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by the global norm across all parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients before updating the parameters.
+- **`name`** *(str, default="amos")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.amos import Amos
+
+# Instantiate the Amos optimizer
+optimizer = Amos(
+    learning_rate=1e-3,
+    beta=0.999,
+    epsilon=1e-18,
+    momentum=0.9,
+    extra_l2=1e-4,
+    c_coef=0.25,
+    d_coef=0.25
+)
+
+# Compile a model with the Amos optimizer
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
