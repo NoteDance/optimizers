@@ -2454,3 +2454,113 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# AvaGrad
+
+**Overview**:
+
+The `AvaGrad` optimizer is an adaptive optimization algorithm that adjusts parameter updates based on both the variance of the gradients and a dynamically computed scaling factor. By maintaining running averages of gradients and squared gradients with decay rates (`beta1` and `beta2`), AvaGrad computes a global scaling factor (γ) that modulates the learning rate. Additionally, it supports decoupled weight decay and optional Adam-style bias correction. This design makes AvaGrad particularly suitable for settings where the gradient scales vary significantly, promoting more stable convergence in training deep neural networks.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-1)*: The base learning rate for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`epsilon`** *(float, default=1e-1)*: A small constant added for numerical stability.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay. When non-zero, weight decay is applied either in a decoupled manner or directly to the gradients.
+- **`weight_decouple`** *(bool, default=True)*: Determines whether to decouple weight decay from the gradient update.
+- **`fixed_decay`** *(bool, default=False)*: If True, applies a fixed weight decay rather than scaling it by the learning rate.
+- **`adam_debias`** *(bool, default=False)*: If True, applies Adam-style bias correction to the learning rate.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by the global norm across all parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for updating EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before updating parameters.
+- **`name`** *(str, default="avagrad")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.avagrad import AvaGrad
+
+# Instantiate the AvaGrad optimizer
+optimizer = AvaGrad(
+    learning_rate=1e-1,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-1,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    fixed_decay=False,
+    adam_debias=False
+)
+
+# Compile a model with the AvaGrad optimizer
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# CAME
+
+**Overview**:
+
+The `CAME` optimizer is an advanced adaptive optimization algorithm that leverages factored second-moment estimation to better capture the structure of multi-dimensional parameters. It maintains separate exponential moving averages for the rows and columns of the gradient (when applicable), which allows it to approximate the squared gradients more efficiently for tensors with two or more dimensions. In addition, CAME employs dynamic update clipping based on the root mean square (RMS) of the parameters, decoupled weight decay, and an optional AMS-bound mechanism. These features combine to improve stability and generalization, especially when training large-scale deep neural networks with complex parameter structures.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=2e-4)*: The step size used for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment (mean) estimate.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the factored second moment estimate.
+- **`beta3`** *(float, default=0.9999)*: Exponential decay rate for the residual squared gradient estimate.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay. When non-zero, weight decay is applied either decoupled from the gradient update or directly, depending on `weight_decouple`.
+- **`weight_decouple`** *(bool, default=True)*: Determines whether to decouple weight decay from the gradient update.
+- **`fixed_decay`** *(bool, default=False)*: If True, applies a fixed weight decay rather than scaling it by the learning rate.
+- **`clip_threshold`** *(float, default=1.0)*: Threshold for clipping the update based on its RMS value.
+- **`ams_bound`** *(bool, default=False)*: Whether to use the AMS-bound variant, which maintains a maximum of the squared gradient estimates for added stability.
+- **`eps1`** *(float, default=1e-30)*: Small constant for numerical stability in the squared gradient computation.
+- **`eps2`** *(float, default=1e-16)*: Small constant for numerical stability in the residual computation.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by the global norm across all parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for updating EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients before updating parameters.
+- **`name`** *(str, default="came")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.came import CAME
+
+# Instantiate the CAME optimizer
+optimizer = CAME(
+    learning_rate=2e-4,
+    beta1=0.9,
+    beta2=0.999,
+    beta3=0.9999,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    fixed_decay=False,
+    clip_threshold=1.0,
+    ams_bound=False,
+    eps1=1e-30,
+    eps2=1e-16
+)
+
+# Compile a model with the CAME optimizer
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
