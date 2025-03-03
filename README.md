@@ -2564,3 +2564,59 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# DAdaptAdam
+
+**Overview**:
+
+The `DAdaptAdam` optimizer is an adaptive optimization algorithm that dynamically adjusts its update scaling based on observed gradient statistics. It extends the Adam framework by introducing a separate scaling accumulator and an adaptive scaling factor (d₀) that evolves during training. This dynamic adaptation enables DAdaptAdam to automatically calibrate the effective learning rate based on the structure and variability of gradients. Additional features such as optional bias correction, decoupled weight decay, and fixed decay further enhance its robustness in diverse training scenarios.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1.0)*: Base learning rate for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment (mean) estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment (variance) estimates.
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay. Applied either in a decoupled fashion or directly, depending on `weight_decouple`.
+- **`d0`** *(float, default=1e-6)*: Initial scaling factor that adapts the update magnitude based on gradient statistics.
+- **`growth_rate`** *(float, default=`inf`)*: Upper bound on the allowed growth of the scaling factor.
+- **`weight_decouple`** *(bool, default=True)*: Whether to decouple weight decay from the gradient update.
+- **`fixed_decay`** *(bool, default=False)*: Uses a fixed weight decay value instead of scaling it by the learning rate.
+- **`bias_correction`** *(bool, default=False)*: If enabled, applies bias correction when computing the adaptive scaling factor.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by the global norm across all parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum coefficient for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for updating EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before an update.
+- **`name`** *(str, default="dadaptadam")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.dadaptadam import DAdaptAdam
+
+# Instantiate the DAdaptAdam optimizer
+optimizer = DAdaptAdam(
+    learning_rate=1.0,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-8,
+    weight_decay=0.0,
+    d0=1e-6,
+    growth_rate=float('inf'),
+    weight_decouple=True,
+    fixed_decay=False,
+    bias_correction=False
+)
+
+# Compile a model with the DAdaptAdam optimizer
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
