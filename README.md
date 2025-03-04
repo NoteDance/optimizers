@@ -2620,3 +2620,53 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# DAdaptSGD
+
+**Overview**:
+
+The `DAdaptSGD` optimizer is an adaptive variant of stochastic gradient descent that automatically calibrates its effective learning rate based on the observed gradient statistics. By maintaining an accumulated statistic of gradients and leveraging a dynamic scaling factor (d₀), it adjusts updates to better match the curvature of the loss landscape. Additionally, the optimizer supports momentum and decoupled weight decay, making it a robust choice for training deep neural networks with varying gradient scales.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1.0)*: The base learning rate for parameter updates.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay regularization. When non-zero, weight decay is applied either decoupled from the gradient update or directly, based on `weight_decouple`.
+- **`momentum`** *(float, default=0.9)*: Momentum factor for smoothing updates.
+- **`d0`** *(float, default=1e-6)*: Initial scaling factor that adapts the effective learning rate based on accumulated gradient information.
+- **`growth_rate`** *(float, default=`inf`)*: Maximum factor by which the scaling factor is allowed to grow during training.
+- **`weight_decouple`** *(bool, default=True)*: Determines whether weight decay is applied decoupled from the gradient update.
+- **`fixed_decay`** *(bool, default=False)*: If enabled, applies a fixed weight decay rather than scaling it by the learning rate.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by the global norm across all parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients before performing an update.
+- **`name`** *(str, default="dadaptsgd")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.dadaptsgd import DAdaptSGD
+
+# Instantiate the DAdaptSGD optimizer
+optimizer = DAdaptSGD(
+    learning_rate=1.0,
+    weight_decay=1e-2,
+    momentum=0.9,
+    d0=1e-6,
+    growth_rate=float('inf'),
+    weight_decouple=True,
+    fixed_decay=False
+)
+
+# Compile a model with the DAdaptSGD optimizer
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
