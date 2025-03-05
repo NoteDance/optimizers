@@ -2670,3 +2670,53 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# DAdaptLion
+
+**Overview**:
+
+The `DAdaptLion` optimizer is an adaptive variant of the Lion optimizer that dynamically adjusts its scaling factor based on accumulated gradient statistics. It uses a sign-based update rule combined with an exponential moving average and a secondary accumulator to compute a dynamic scaling parameter (d₀). This mechanism allows the optimizer to automatically calibrate its effective learning rate in response to the observed gradient structure while optionally applying decoupled weight decay.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1.0)*: The base learning rate for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimate used in the sign update.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for accumulating gradient statistics.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay. When non-zero, weight decay is applied either decoupled from the update or directly, depending on `weight_decouple`.
+- **`d0`** *(float, default=1e-6)*: Initial adaptive scaling factor that adjusts the effective step size based on gradient statistics.
+- **`weight_decouple`** *(bool, default=True)*: If True, applies weight decay decoupled from the gradient update.
+- **`fixed_decay`** *(bool, default=False)*: Uses a fixed weight decay value instead of scaling it by the learning rate.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by the global norm across all parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum coefficient for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for updating EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before performing an update.
+- **`name`** *(str, default="dadaptlion")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.dadaptlion import DAdaptLion
+
+# Instantiate the DAdaptLion optimizer
+optimizer = DAdaptLion(
+    learning_rate=1.0,
+    beta1=0.9,
+    beta2=0.999,
+    weight_decay=1e-2,
+    d0=1e-6,
+    weight_decouple=True,
+    fixed_decay=False
+)
+
+# Compile a TensorFlow/Keras model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
