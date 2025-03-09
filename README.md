@@ -2720,3 +2720,59 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# DAdaptAdan
+
+**Overview**:
+
+The `DAdaptAdan` optimizer is an adaptive optimization algorithm that extends the Adam family by dynamically adjusting its effective learning rate based on observed gradient differences and higher-order statistics. By maintaining separate exponential moving averages for the gradients, their squared values, and their differences, it computes an adaptive scaling factor (d₀) that automatically calibrates the update magnitude during training. This approach aims to improve convergence and robustness, especially in scenarios with varying gradient dynamics. Additionally, the optimizer supports decoupled weight decay and flexible decay scaling.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1.0)*: The base learning rate for parameter updates.
+- **`beta1`** *(float, default=0.98)*: Exponential decay rate for the first moment (mean) estimates.
+- **`beta2`** *(float, default=0.92)*: Exponential decay rate for the moving average of gradient differences.
+- **`beta3`** *(float, default=0.99)*: Exponential decay rate for the second moment (variance) estimates of the gradient differences.
+- **`epsilon`** *(float, default=1e-8)*: Small constant added for numerical stability.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay. When non-zero, weight decay is applied either in a decoupled manner or directly to the gradients.
+- **`d0`** *(float, default=1e-6)*: Initial adaptive scaling factor that governs the effective update magnitude.
+- **`growth_rate`** *(float, default=`inf`)*: Upper bound for the allowed growth of the scaling factor during training.
+- **`weight_decouple`** *(bool, default=True)*: If True, decouples weight decay from the gradient update.
+- **`fixed_decay`** *(bool, default=False)*: Uses fixed weight decay instead of scaling it by the learning rate.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by the global norm across all parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for updating EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before performing an update.
+- **`name`** *(str, default="dadaptadan")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.dadaptadan import DAdaptAdan
+
+# Instantiate the DAdaptAdan optimizer
+optimizer = DAdaptAdan(
+    learning_rate=1.0,
+    beta1=0.98,
+    beta2=0.92,
+    beta3=0.99,
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    d0=1e-6,
+    growth_rate=float('inf'),
+    weight_decouple=True,
+    fixed_decay=False
+)
+
+# Compile a model using the DAdaptAdan optimizer
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
