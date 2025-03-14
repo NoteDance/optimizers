@@ -2776,3 +2776,59 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# DAdaptAdaGrad
+
+**Overview**:
+
+The `DAdaptAdaGrad` optimizer is an adaptive optimization algorithm that builds upon the AdaGrad method by dynamically adjusting its effective update scaling. It maintains per-parameter accumulators for squared gradients (stored in `alpha_k`), an auxiliary accumulator `sk` for gradient updates, and the initial parameter values `x0`. These accumulators are used to compute a dynamic scaling factor (d₀) that is adjusted during training based on the difference between the weighted squared norm of the accumulated updates and the accumulated squared gradients. The optimizer also supports momentum, decoupled weight decay, and bias correction, and is capable of handling sparse gradients via specialized masking functions.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1.0)*: The base step size for parameter updates.
+- **`epsilon`** *(float, default=0.0)*: A small constant for numerical stability, added to denominators to avoid division by zero.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay regularization. When non-zero, weight decay is applied either in a decoupled manner or directly, depending on `weight_decouple`.
+- **`momentum`** *(float, default=0.0)*: Momentum factor for smoothing the updates. When set above 0, a momentum update is applied to the parameters.
+- **`d0`** *(float, default=1e-6)*: Initial adaptive scaling factor that controls the magnitude of the updates.
+- **`growth_rate`** *(float, default=`inf`)*: The maximum factor by which the adaptive scaling factor is allowed to grow.
+- **`weight_decouple`** *(bool, default=True)*: Determines whether weight decay is decoupled from the gradient update.
+- **`fixed_decay`** *(bool, default=False)*: Uses a fixed weight decay value rather than scaling it by the learning rate.
+- **`bias_correction`** *(bool, default=False)*: If enabled, applies bias correction during the computation of the adaptive scaling factor.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by the global norm across all parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for updating EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before performing an update.
+- **`name`** *(str, default="dadaptadagrad")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.dadaptadagrad import DAdaptAdaGrad
+
+# Instantiate the DAdaptAdaGrad optimizer
+optimizer = DAdaptAdaGrad(
+    learning_rate=1.0,
+    epsilon=0.0,
+    weight_decay=1e-2,
+    momentum=0.9,
+    d0=1e-6,
+    growth_rate=float('inf'),
+    weight_decouple=True,
+    fixed_decay=False,
+    bias_correction=False
+)
+
+# Compile a model using the DAdaptAdaGrad optimizer
+model.compile(optimizer=optimizer,
+              loss="sparse_categorical_crossentropy",
+              metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
