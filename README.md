@@ -2832,3 +2832,52 @@ model.compile(optimizer=optimizer,
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# EXAdam
+
+**Overview**:
+
+The `EXAdam` optimizer extends the Adam framework by integrating a logarithmically scaled step size along with adaptive adjustments derived from the exponential moving averages of the gradients and their squares. In particular, it computes additional scaling factors (d1 and d2) based on bias-corrected moment estimates to modulate the effective learning rate. This design makes EXAdam especially effective in environments with noisy or non-stationary gradients, promoting more stable convergence and improved generalization.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The base step size for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay. Applied either decoupled from the gradient update or directly based on `weight_decouple`.
+- **`weight_decouple`** *(bool, default=True)*: Whether to decouple weight decay from the gradient update.
+- **`fixed_decay`** *(bool, default=False)*: Uses fixed weight decay instead of scaling it by the learning rate.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum coefficient for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for updating EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients before performing an update.
+- **`name`** *(str, default="exadam")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.exadam import EXAdam
+
+# Instantiate the EXAdam optimizer
+optimizer = EXAdam(
+    learning_rate=1e-3,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    fixed_decay=False
+)
+
+# Compile a model using the EXAdam optimizer
+model.compile(optimizer=optimizer, 
+              loss="sparse_categorical_crossentropy", 
+              metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
