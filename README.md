@@ -2881,3 +2881,59 @@ model.compile(optimizer=optimizer,
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# FAdam
+
+**Overview**:
+
+The `FAdam` optimizer is a variant of the Adam optimizer that incorporates Fisher Information Matrix (FIM) based scaling into the update rule. By maintaining both a momentum term and a FIM estimate for each parameter, FAdam adjusts the gradient updates using an exponentiation factor (p) and a clipping mechanism to enhance stability. This approach aims to improve convergence, especially in settings with noisy gradients, while also supporting decoupled weight decay.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment (momentum) estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the FIM (second moment) estimates.
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0.1)*: Coefficient for weight decay. Applied either decoupled from the gradient update or directly based on `weight_decouple`.
+- **`clip`** *(float, default=1.0)*: Clipping threshold applied to normalized gradients to ensure stability.
+- **`p`** *(float, default=0.5)*: Exponent factor applied to the FIM estimate, modulating its effect on the update.
+- **`momentum_dtype`** *(tf.dtype, default=tf.float32)*: Data type used for the momentum accumulator.
+- **`fim_dtype`** *(tf.dtype, default=tf.float32)*: Data type used for the FIM accumulator.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by the global norm across all parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for updating EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before an update.
+- **`name`** *(str, default="fadam")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.fadam import FAdam
+
+# Instantiate the FAdam optimizer
+optimizer = FAdam(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-8,
+    weight_decay=0.1,
+    clip=1.0,
+    p=0.5,
+    momentum_dtype=tf.float32,
+    fim_dtype=tf.float32
+)
+
+# Compile a model with the FAdam optimizer
+model.compile(optimizer=optimizer, 
+              loss="sparse_categorical_crossentropy", 
+              metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
