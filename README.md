@@ -2937,3 +2937,51 @@ model.compile(optimizer=optimizer,
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# FOCUS
+
+**Overview**:
+
+The `FOCUS` optimizer is an adaptive gradient method that combines momentum-based updates with parameter tracking to enhance training stability. It maintains exponential moving averages of both the gradients and the parameters to form a predictive term (p̄) representing a smoothed estimate of the model’s parameters. The update is computed based on the sign differences between the current parameters and this prediction, with an additional term derived from the gradient’s moving average. The hyperparameter `gamma` scales the influence of these components. This design helps improve convergence, particularly in scenarios with noisy or shifting gradient landscapes.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-2)*: The step size for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment (gradient) estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for tracking the parameters (p̄).
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay. Applied directly to the parameters if non-zero.
+- **`gamma`** *(float, default=0.1)*: Scaling factor that modulates the combined influence of the momentum and parameter tracking signals.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by the global norm across all parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum coefficient for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for updating EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before performing an update.
+- **`name`** *(str, default="focus")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.focus import FOCUS
+
+# Instantiate the FOCUS optimizer
+optimizer = FOCUS(
+    learning_rate=1e-2,
+    beta1=0.9,
+    beta2=0.999,
+    weight_decay=0.0,
+    gamma=0.1
+)
+
+# Compile a model using the FOCUS optimizer
+model.compile(optimizer=optimizer, 
+              loss="sparse_categorical_crossentropy", 
+              metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
