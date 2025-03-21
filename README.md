@@ -2985,3 +2985,151 @@ model.compile(optimizer=optimizer,
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# Fromage
+
+**Overview**:
+
+The `Fromage` optimizer is a novel optimization method that departs from traditional gradient descent by incorporating geometric scaling based on parameter and gradient norms. Instead of relying solely on the raw gradient, Fromage rescales the update direction by the ratio of the parameter norm to the gradient norm and then normalizes the updated parameters to control the effective step length. An optional bound (`p_bound`) can be specified to limit the growth of parameter norms, helping to maintain stability during training. This approach is particularly useful when preserving the scale of the parameters is critical for convergence and generalization.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-2)*: The base step size for parameter updates.
+- **`p_bound`** *(float, optional)*: A factor used to bound the norm of parameters after the update. If provided, parameters are clipped so that their norm does not exceed the initial norm multiplied by this value.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by the global norm across all parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for updating EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before performing an update.
+- **`name`** *(str, default="fromage")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.fromage import Fromage
+
+# Instantiate the Fromage optimizer with an optional p_bound parameter
+optimizer = Fromage(
+    learning_rate=1e-2,
+    p_bound=0.1  # Optional: limits the parameter norm to 0.1 times the initial norm
+)
+
+# Compile a model using the Fromage optimizer
+model.compile(optimizer=optimizer,
+              loss="sparse_categorical_crossentropy",
+              metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# GaLore
+
+**Overview**:
+
+The `GaLore` optimizer extends the Adam framework by incorporating low-rank projection techniques into the gradient update process. For parameters with two or more dimensions, it leverages a dedicated projector (via `GaLoreProjector`) to project the gradient into a lower-dimensional subspace before applying the adaptive update. This extra projection step is intended to better capture and exploit the low-rank structure of weight matrices, potentially leading to more robust convergence. Along with standard exponential moving averages for gradients and their squares, GaLore supports decoupled weight decay and bias correction via learning rate scaling.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The base step size for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`epsilon`** *(float, default=1e-6)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay. Applied in a decoupled manner if enabled.
+- **`rank`** *(int, optional)*: The target rank for low-rank projection. When provided and the parameter is multi-dimensional, the projector is activated.
+- **`update_proj_gap`** *(int, optional)*: Frequency gap for updating the projection; governs how often the low-rank projection is recalculated.
+- **`scale`** *(float, optional)*: Scaling factor applied within the projector.
+- **`projection_type`** *(str, optional)*: Specifies the type of projection to perform (e.g., symmetric or asymmetric).
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by the global norm across all parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum coefficient for EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for updating EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients.
+- **`name`** *(str, default="galore")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.galore import GaLore
+
+# Instantiate the GaLore optimizer with low-rank projection enabled
+optimizer = GaLore(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-6,
+    weight_decay=1e-4,
+    rank=10,  # Enable low-rank projection for parameters with rank ≥ 2
+    update_proj_gap=50,
+    scale=0.5,
+    projection_type="symmetric"
+)
+
+# Compile a model using the GaLore optimizer
+model.compile(optimizer=optimizer,
+              loss="sparse_categorical_crossentropy",
+              metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# Grams
+
+**Overview**:
+
+The `Grams` optimizer is a novel adaptive optimization algorithm that modifies the traditional Adam update by leveraging gradient normalization based on the absolute gradient sign. Instead of directly using the raw gradient, Grams computes an adaptive update by scaling the moving average of gradients with bias correction and then re-normalizing it using the square root of the second moment. The final update is further adjusted by taking the absolute value and reintroducing the original gradient's sign, thereby aiming to stabilize updates in the presence of noisy gradients. This approach can improve convergence and generalization, especially in scenarios where gradient variability is a concern.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`epsilon`** *(float, default=1e-6)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay. Applies either decoupled or standard decay based on `weight_decouple`.
+- **`weight_decouple`** *(bool, default=True)*: Determines whether weight decay is applied decoupled from the gradient update.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+- **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients.
+- **`name`** *(str, default="grams")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.grams import Grams
+
+# Instantiate the Grams optimizer
+optimizer = Grams(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-6,
+    weight_decay=0.0,
+    weight_decouple=True
+)
+
+# Compile a model with the Grams optimizer
+model.compile(optimizer=optimizer, 
+              loss="sparse_categorical_crossentropy", 
+              metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
