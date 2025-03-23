@@ -3133,3 +3133,47 @@ model.compile(optimizer=optimizer,
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# Gravity
+
+**Overview**:
+
+The `Gravity` optimizer is a novel optimization algorithm inspired by gravitational dynamics. Instead of directly applying raw gradients, Gravity first computes a modified gradient by scaling the update direction based on the relative magnitude of the gradient. Specifically, it calculates a scaling factor from the inverse of the maximum absolute value of the gradient and then uses this factor to modulate the gradient through a nonlinear transformation. A velocity vector is maintained for each parameter—initialized with random noise scaled by the ratio of `alpha` to the learning rate—and updated as a weighted average using a dynamic coefficient derived from the current update step and the hyperparameter `beta`. The final parameter update is then performed using this velocity, which helps stabilize training and improves convergence, especially in the presence of large gradient variations.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-2)*: The base step size for parameter updates.
+- **`alpha`** *(float, default=0.01)*: Scaling factor for initializing the velocity vector; it sets the standard deviation of the initial noise relative to the learning rate.
+- **`beta`** *(float, default=0.9)*: Smoothing coefficient that influences the update weighting; a dynamic value `beta_t` is computed at each step to balance the contribution of the previous velocity and the new modified gradient.
+- **`clipnorm`** *(float, optional)*: Clips gradients by their norm to mitigate exploding gradients.
+- **`clipvalue`** *(float, optional)*: Clips gradients by a specified value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients based on the global norm across all parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to the model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for the EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before updating parameters.
+- **`name`** *(str, default="gravity")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.gravity import Gravity
+
+# Instantiate the Gravity optimizer
+optimizer = Gravity(
+    learning_rate=1e-2,
+    alpha=0.01,
+    beta=0.9
+)
+
+# Compile a model using the Gravity optimizer
+model.compile(optimizer=optimizer, 
+              loss="sparse_categorical_crossentropy", 
+              metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
