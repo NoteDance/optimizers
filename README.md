@@ -3177,3 +3177,227 @@ model.compile(optimizer=optimizer,
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# GrokFastAdamW
+
+**Overview**:
+
+The `GrokFastAdamW` optimizer extends the AdamW algorithm by incorporating a "grokfast" mechanism and optional gradient filtering to accelerate convergence and improve stability. When enabled, the grokfast mechanism maintains an exponential moving average of gradients and, after a specified number of steps, augments the current gradient with a scaled version of this average. In addition, the optimizer supports configurable gradient filtering methods—either a moving-average (MA) filter or an exponential moving average (EMA) filter—through which gradients are preprocessed before the standard AdamW update. It also provides options for decoupled weight decay and learning rate normalization, making it particularly effective in training scenarios with noisy or rapidly changing gradients.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-4)*: The base step size for parameter updates. If both `grokfast` and `normalize_lr` are enabled, the learning rate is normalized by dividing by (1 + grokfast_lamb).
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment (mean) estimates.
+- **`beta2`** *(float, default=0.99)*: Exponential decay rate for the second moment (variance) estimates.
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay. Applied decoupled from the gradient update if `weight_decouple` is True.
+- **`grokfast`** *(bool, default=True)*: Whether to enable the grokfast mechanism that augments the gradient using its exponential moving average.
+- **`grokfast_alpha`** *(float, default=0.98)*: Smoothing coefficient for the grokfast exponential moving average.
+- **`grokfast_lamb`** *(float, default=2.0)*: Scaling factor for the additional gradient correction introduced by the grokfast mechanism.
+- **`grokfast_after_step`** *(int, default=0)*: The number of steps after which the grokfast mechanism becomes active.
+- **`weight_decouple`** *(bool, default=True)*: If True, applies weight decay in a decoupled fashion from the gradient update.
+- **`fixed_decay`** *(bool, default=False)*: Uses fixed weight decay instead of scaling it by the learning rate.
+- **`normalize_lr`** *(bool, default=True)*: Whether to normalize the learning rate when grokfast is enabled.
+- **`filter`** *(str, default="ma")*: Specifies the gradient filtering method to apply before the update. Supported values are `"ma"` for moving average filtering and `"eam"` for EMA filtering.
+- **`filter_params`** *(dict, optional)*: A dictionary containing parameters for the gradient filtering functions. For example, if using `"ma"`, it should include keys such as `window_size`, `lamb`, `filter_type` (e.g., "mean" or "sum"), and `warmup`; if using `"eam"`, it should contain keys like `alpha` and `lamb`.
+- **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(float, optional)*: Options to clip gradients by norm, value, or global norm respectively.
+- **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for updating EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before updating parameters.
+- **`name`** *(str, default="grokfastadamw")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.grokfastadamw import GrokFastAdamW
+
+# Define filter parameters for the moving-average filter
+filter_params = {
+    "window_size": 100,
+    "lamb": 5.0,
+    "filter_type": "mean",
+    "warmup": True
+}
+
+# Instantiate the GrokFastAdamW optimizer with gradient filtering enabled
+optimizer = GrokFastAdamW(
+    learning_rate=1e-4,
+    beta1=0.9,
+    beta2=0.99,
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    grokfast=True,
+    grokfast_alpha=0.98,
+    grokfast_lamb=2.0,
+    grokfast_after_step=100,
+    weight_decouple=True,
+    fixed_decay=False,
+    normalize_lr=True,
+    filter='ma',            # Choose 'ma' for moving-average filter or 'eam' for EMA filter
+    filter_params=filter_params
+)
+
+# Build a simple model
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(64, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Compile the model with GrokFastAdamW
+model.compile(optimizer=optimizer,
+              loss="sparse_categorical_crossentropy",
+              metrics=["accuracy"])
+
+# Assume train_dataset and val_dataset are predefined tf.data.Datasets
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# Kate
+
+**Overview**:
+
+The `Kate` optimizer introduces a novel approach to adaptive gradient updating by incorporating an additional term that modulates the momentum update. Instead of relying solely on conventional moment estimates, Kate computes a modified momentum `m` and a scaling factor `b` based on the squared gradients and an extra hyperparameter `delta`. This design helps to adjust the update magnitude more responsively, which can improve training stability and convergence, particularly in the presence of noisy gradients. Kate also supports decoupled weight decay for more flexible regularization.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay. When non-zero, weight decay is applied either in a decoupled manner if `weight_decouple` is True, or directly added to the gradients.
+- **`delta`** *(float, default=0.0)*: A hyperparameter that modulates the update of the momentum term by incorporating additional gradient information.
+- **`weight_decouple`** *(bool, default=True)*: If True, applies weight decay independently of the gradient update.
+- **`fixed_decay`** *(bool, default=False)*: Uses a fixed weight decay instead of scaling it by the learning rate.
+- **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(float, optional)*: Options to clip gradients to prevent explosion.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to the model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for updating EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before updating parameters.
+- **`name`** *(str, default="kate")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.kate import Kate
+
+# Instantiate the Kate optimizer
+optimizer = Kate(
+    learning_rate=1e-3,
+    epsilon=1e-8,
+    weight_decay=0.0,
+    delta=0.1,
+    weight_decouple=True,
+    fixed_decay=False
+)
+
+# Compile a model with the Kate optimizer
+model.compile(optimizer=optimizer, 
+              loss="sparse_categorical_crossentropy", 
+              metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# MSVAG
+
+**Overview**:
+
+The `MSVAG` optimizer implements a variant of adaptive gradient methods that adjusts the effective update by accounting for the variance of the gradients. It maintains exponential moving averages of the gradients and their squares to estimate both the mean (m) and variance (v) of the gradients. Using a derived statistic, ρ, it computes a scaling factor that balances the squared mean against the variance. This factor is then used to modulate the gradient update, potentially improving convergence and stability when training neural networks with noisy or high-variance gradients.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-2)*: The base step size for parameter updates.
+- **`beta`** *(float, default=0.9)*: Exponential decay rate used for both the first moment (moving average of gradients) and the second moment (moving average of squared gradients).
+- **`epsilon`** *(float, default not explicitly set in code, but used internally as 1e-?; here default=1e-6)*: Small constant for numerical stability.
+- **`weight_decay`**: Not applicable in MSVAG (set to None).
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum factor for EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for updating EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before an update.
+- **`name`** *(str, default="msvag")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.msvag import MSVAG
+
+# Instantiate the MSVAG optimizer
+optimizer = MSVAG(
+    learning_rate=1e-2,
+    beta=0.9
+)
+
+# Compile a model using the MSVAG optimizer
+model.compile(optimizer=optimizer,
+              loss="sparse_categorical_crossentropy",
+              metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# Muon
+
+**Overview**:
+
+The `Muon` optimizer is a novel optimization algorithm designed for deep learning, leveraging Newton-Schulz iterations for orthogonalization and integrating momentum-based updates with adaptive learning rate strategies. It supports weight decay, Nesterov momentum, and an optional AdamW-based update step for enhanced performance and stability in training deep neural networks.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=2e-2)*: The primary learning rate used for updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimate.
+- **`beta2`** *(float, default=0.95)*: Exponential decay rate for the second moment estimate.
+- **`weight_decay`** *(float, default=1e-2)*: Weight decay coefficient for regularization.
+- **`momentum`** *(float, default=0.95)*: Momentum factor for gradient updates.
+- **`weight_decouple`** *(bool, default=True)*: Whether to use decoupled weight decay as in AdamW.
+- **`nesterov`** *(bool, default=True)*: Whether to apply Nesterov momentum.
+- **`ns_steps`** *(int, default=5)*: Number of Newton-Schulz iterations for orthogonalization.
+- **`use_adjusted_lr`** *(bool, default=False)*: Whether to adjust the learning rate dynamically based on parameter shape.
+- **`adamw_params`** *(list, optional)*: Parameters for AdamW-based updates.
+- **`adamw_lr`** *(float, default=3e-4)*: Learning rate for the AdamW update step.
+- **`adamw_wd`** *(float, default=0.0)*: Weight decay for AdamW.
+- **`adamw_eps`** *(float, default=1e-8)*: Small constant for numerical stability in AdamW.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+- **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients.
+- **`name`** *(str, default="muon")*: Name of the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.muon import Muon
+
+# Instantiate optimizer
+optimizer = Muon(
+    learning_rate=2e-2,
+    weight_decay=1e-2,
+    momentum=0.95,
+    nesterov=True,
+    ns_steps=5
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
