@@ -3401,3 +3401,148 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# Nero
+
+**Overview**:
+
+The `Nero` optimizer is an adaptive gradient method that operates on a per-neuron basis by normalizing parameters and gradients across each neuron. It maintains a running average of squared neuron-wise gradient norms and scales updates according to these statistics, ensuring that each neuron’s update is adjusted relative to its historical gradient magnitude. Optional per-layer constraints re-center and re-normalize weights after each update, promoting stable training dynamics and mitigating internal covariate shift.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=0.01)*: The base step size for parameter updates.
+- **`beta`** *(float, default=0.999)*: Exponential decay rate for the moving average of squared neuron gradient norms.
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability in denominator computations.
+- **`constraints`** *(bool, default=True)*: If True, applies per-layer re-centering and re-normalization constraints to weight tensors after each update.
+- **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(float, optional)*: Options for gradient clipping by norm, value, or global norm.
+- **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for overwriting EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before updating.
+- **`name`** *(str, default="nero")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.nero import Nero
+
+# Instantiate the Nero optimizer
+optimizer = Nero(
+    learning_rate=0.01,
+    beta=0.999,
+    epsilon=1e-8,
+    constraints=True
+)
+
+# Build a simple model\ nmodel = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(128, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Compile the model with Nero optimizer
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# OrthoGrad
+
+**Overview**:
+
+The `OrthoGrad` optimizer is a wrapper around any existing optimizer that enforces gradient orthogonality to the current parameter vectors before applying updates. Based on the method introduced in "Grokking at the Edge of Numerical Stability," OrthoGrad projects each gradient onto the subspace orthogonal to its corresponding weight vector, and then rescales it to preserve the original norm. This orthogonalization helps prevent updates that reinforce the current weight direction, which can improve generalization and reduce overfitting in deep networks.
+
+**Parameters**:
+
+- **`base_optimizer`** *(Optimizer, required)*: The underlying optimizer instance (e.g., `Adam`, `SGD`, `AdamW`) that will apply the orthogonalized gradient updates.
+- **`name`** *(str, default="orthograd")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.orthograd import OrthoGrad
+
+# Define a base optimizer
+base_opt = tf.keras.optimizers.Adam(learning_rate=1e-3)
+
+# Wrap it with OrthoGrad
+optimizer = OrthoGrad(base_optimizer=base_opt)
+
+# Build and compile a model
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(64, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# PAdam
+
+**Overview**:
+
+The `PAdam` (Partially Adaptive Momentum Estimation) optimizer is a modification of Adam that interpolates between SGD and Adam updates by applying a partial exponent to the adaptive denominator. Specifically, PAdam raises the second moment term to the power of `p * 2` (where `p` is a hyperparameter in [0,1]), allowing control over the degree of adaptivity. This partial adaptation can improve generalization by avoiding the extreme per-parameter learning rate variance sometimes seen in fully adaptive methods.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-1)*: Base step size for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment (mean) estimate.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment (variance) estimate.
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+- **`partial`** *(float, default=0.25)*: Exponent applied to the denominator’s square root term (i.e., uses `denom^(2*p)`), controlling the adaptivity.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 regularization; when non-zero, decay is applied to the parameters.
+- **`weight_decouple`** *(bool, default=False)*: If True, applies weight decay in a decoupled manner (as in AdamW).
+- **`fixed_decay`** *(bool, default=False)*: If True, uses a fixed decay rate rather than scaling by the learning rate.
+- **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(float, optional)*: Options for gradient clipping by norm or value.
+- **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for updating EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Steps over which gradients are accumulated before updating.
+- **`name`** *(str, default="padam")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.padam import PAdam
+
+# Instantiate the PAdam optimizer\ noptimizer = PAdam(
+    learning_rate=0.1,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-8,
+    partial=0.25,
+    weight_decay=1e-4,
+    weight_decouple=True
+)
+
+# Build and compile a model\ nmodel = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(128, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
