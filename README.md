@@ -3651,7 +3651,7 @@ The `PPCGrad` (Parallel Projected Conflicting Gradients) optimizer extends the P
 **Example Usage**:
 ```python
 import tensorflow as tf
-from optimizers.ppcgrad import PPCGrad
+from optimizers.pcgrad import PPCGrad
 
 # Define model and tasks\ nmodel = tf.keras.Sequential([
     tf.keras.layers.Dense(64, activation='relu', input_shape=(784,)),
