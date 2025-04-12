@@ -61,13 +61,16 @@ class SAM(optimizer.Optimizer):
         for p, g in zip(trainable_variables, grads):
             p.assign(self.old_p[self._get_variable_index(p)])
 
-        if self.tape is None:
+        if self.tape is None and self.loss is None:
             self.base_optimizer.apply_gradients(zip(grads, trainable_variables))
-        else:
+        elif self.tape is not None:
             self.base_optimizer.apply_gradients(zip(grads, trainable_variables), self.tape)
+        else:
+            self.base_optimizer.apply_gradients(zip(grads, trainable_variables), self.loss)
     
-    def apply_gradients(self, grads_and_vars, tape=None):
+    def apply_gradients(self, grads_and_vars, tape=None, loss=None):
         self.tape = tape
+        self.loss = loss
         grads, trainable_variables = zip(*grads_and_vars)
         self.apply(grads, trainable_variables)
         # Return iterations for compat with tf.keras.
@@ -223,8 +226,9 @@ class GSAM(optimizer.Optimizer):
             self.e_w.append(tf.Variable(var))
             self._track_variable(self.e_w[-1])
     
-    def apply_gradients(self, grads_and_vars, tape=None):
+    def apply_gradients(self, grads_and_vars, tape=None, loss=None):
         self.tape = tape
+        self.loss = loss
         grads, trainable_variables = zip(*grads_and_vars)
         self.apply(grads, trainable_variables)
         # Return iterations for compat with tf.keras.
@@ -258,10 +262,12 @@ class GSAM(optimizer.Optimizer):
 
         self.sync_grad()
 
-        if self.tape is None:
+        if self.tape is None and self.loss is None:
             self.base_optimizer.apply_gradients(zip(grads, trainable_variables))
-        else:
+        elif self.tape is not None:
             self.base_optimizer.apply_gradients(zip(grads, trainable_variables), self.tape)
+        else:
+            self.base_optimizer.apply_gradients(zip(grads, trainable_variables), self.loss)
 
         for layer in self.model.layers:
             if isinstance(layer, tf.keras.layers.BatchNormalization):
@@ -397,18 +403,21 @@ class WSAM(optimizer.Optimizer):
                 self.sharpness[self._get_variable_index(p)].assign(g - self.grad[self._get_variable_index(p)])
                 grads[self._get_variable_index(p)] = g * 0.0 + self.grad[self._get_variable_index(p)] * 1.0
 
-        if self.tape is None:
+        if self.tape is None and self.loss is None:
             self.base_optimizer.apply_gradients(zip(grads, trainable_variables))
-        else:
+        elif self.tape is not None:
             self.base_optimizer.apply_gradients(zip(grads, trainable_variables), self.tape)
+        else:
+            self.base_optimizer.apply_gradients(zip(grads, trainable_variables), self.loss)
 
         if self.decouple:
             for p in zip(trainable_variables):
                 lr = tf.cast(self.base_optimizer._learning_rate, p.dtype)
                 p.assign_add(self.sharpness[self._get_variable_index(p)] * -lr * self.alpha)
     
-    def apply_gradients(self, grads_and_vars, tape=None):
+    def apply_gradients(self, grads_and_vars, tape=None, loss=None):
         self.tape = tape
+        self.loss = loss
         grads, trainable_variables = zip(*grads_and_vars)
         self.apply(grads, trainable_variables)
         # Return iterations for compat with tf.keras.
@@ -701,13 +710,16 @@ class LookSAM(optimizer.Optimizer):
 
             p.assign(self.old_p[self._get_variable_index(p)])
 
-        if self.tape is None:
+        if self.tape is None and self.loss is None:
             self.base_optimizer.apply_gradients(zip(grads, trainable_variables))
-        else:
+        elif self.tape is not None:
             self.base_optimizer.apply_gradients(zip(grads, trainable_variables), self.tape)
+        else:
+            self.base_optimizer.apply_gradients(zip(grads, trainable_variables), self.loss)
     
-    def apply_gradients(self, grads_and_vars, tape=None):
+    def apply_gradients(self, grads_and_vars, tape=None, loss=None):
         self.tape = tape
+        self.loss = loss
         grads, trainable_variables = zip(*grads_and_vars)
         self.apply(grads, trainable_variables)
         # Return iterations for compat with tf.keras.
