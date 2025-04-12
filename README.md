@@ -3679,3 +3679,380 @@ def train_step(x_batch, y_batch_tasks):
     for x_batch, y_batch_tasks in train_dataset:
         train_step(x_batch, y_batch_tasks)
 ```
+
+# PNM
+
+**Overview**:
+
+The `PNM` optimizer implements a predictive negative momentum strategy tailored for deep learning optimization. It extends the conventional momentum approach by maintaining two momentum accumulators—one for positive and one for negative momentum—and alternating their roles every update. At each step, the optimizer computes a noise norm (based on the beta2 parameter) and combines the two momentum estimates to generate a predictive update. This mechanism aims to counteract overshooting and stabilize training, especially in noisy gradient environments. Additionally, PNM supports decoupled weight decay, which can be applied independently of the gradient update.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The base step size for updating parameters.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate applied to momentum; used for the positive momentum update.
+- **`beta2`** *(float, default=1.0)*: Hyperparameter influencing the noise normalization in the update; used to compute a noise norm that scales the negative momentum contribution.
+- **`epsilon`** *(float, default=1e-8)*: A small constant added for numerical stability to prevent division by zero.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay regularization, applied to parameters.
+- **`weight_decouple`** *(bool, default=True)*: If True, applies weight decay in a decoupled manner, similar to AdamW.
+- **`fixed_decay`** *(bool, default=False)*: Whether to use a fixed weight decay rate instead of scaling it by the learning rate.
+- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clips gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm across all parameters.
+- **`use_ema`** *(bool, default=False)*: Whether to maintain an Exponential Moving Average (EMA) of the model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum factor for EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for updating EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation (useful in mixed precision training).
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps over which gradients are accumulated before performing an update.
+- **`name`** *(str, default="pnm")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.pnm import PNM
+
+# Instantiate the PNM optimizer
+optimizer = PNM(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=1.0,
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    fixed_decay=False
+)
+
+# Build a simple model
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(128, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Compile the model using the PNM optimizer
+model.compile(
+    optimizer=optimizer,
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# Prodigy
+
+**Overview**:
+
+The `Prodigy` optimizer is an adaptive optimization algorithm that extends traditional adaptive methods by dynamically recalibrating its effective learning rate through an additional scaling mechanism. It maintains extra state variables—such as d (current scaling factor), d0 (initial scaling factor), d_max (maximum observed scaling), and d_hat (a temporary estimate)—to adaptively adjust the update magnitude based on the relationship between parameter changes and gradients. This dynamic scaling, combined with options for decoupled weight decay and bias correction, aims to improve training stability and generalization, especially in the presence of noisy or complex gradients.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1.0)*: The base learning rate for updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`beta3`** *(float, optional)*: Exponential decay rate for additional momentum in scaling; if not provided, it defaults to √(beta2).
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay regularization.
+- **`d0`** *(float, default=1e-6)*: Initial scaling factor; used to initialize the dynamic scaling variables.
+- **`d_coef`** *(float, default=1.0)*: Multiplier applied to the computed scaling factor.
+- **`growth_rate`** *(float, default=`inf`)*: Upper bound on the allowed growth of the scaling factor.
+- **`weight_decouple`** *(bool, default=True)*: If True, applies weight decay decoupled from the gradient update (as in AdamW).
+- **`fixed_decay`** *(bool, default=False)*: Uses fixed weight decay instead of scaling it by the learning rate.
+- **`bias_correction`** *(bool, default=False)*: Whether to apply bias correction when computing the adaptive scaling factor.
+- **`safeguard_warmup`** *(bool, default=False)*: If True, enables safeguard mechanisms during initial training steps.
+- **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(float, optional)*: Options for clipping gradients by norm, by value, or by global norm.
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for overwriting EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients before an update.
+- **`name`** *(str, default="prodigy")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.prodigy import Prodigy
+
+# Instantiate the Prodigy optimizer
+optimizer = Prodigy(
+    learning_rate=1.0,
+    beta1=0.9,
+    beta2=0.999,
+    beta3=None,             # If None, beta3 defaults to sqrt(beta2)
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    d0=1e-6,
+    d_coef=1.0,
+    growth_rate=float('inf'),
+    weight_decouple=True,
+    fixed_decay=False,
+    bias_correction=False,
+    safeguard_warmup=False
+)
+
+# Build a simple model
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(128, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Compile the model using the Prodigy optimizer
+model.compile(
+    optimizer=optimizer,
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# SAM
+
+**Overview**:
+
+The `SAM` optimizer (Sharpness-Aware Minimization) is designed to improve model generalization by seeking parameters that lie in neighborhoods with uniformly low loss. SAM works by first perturbing the model weights in the direction of the gradients (scaled by a hyperparameter ρ) to explore the sharpness of the loss landscape. It then computes the gradients at these perturbed parameters and finally applies the update using an underlying base optimizer. Optional modifications include adaptive scaling of the perturbation and gradient centralization to further stabilize the update. This two-step process (perturb then update) helps to avoid sharp minima and improves robustness against noise.
+
+**Parameters**:
+
+- **`base_optimizer`** *(Optimizer, required)*: The underlying optimizer (e.g., SGD, Adam, AdamW) that performs the parameter updates after the SAM perturbation step.
+- **`rho`** *(float, default=0.05)*: The radius defining the neighborhood around the current parameters where the loss is evaluated; it controls the magnitude of the weight perturbation.
+- **`adaptive`** *(bool, default=False)*: If True, scales the perturbation by the element-wise absolute value of the weights, leading to adaptive perturbations that account for parameter scale.
+- **`use_gc`** *(bool, default=False)*: If True, applies gradient centralization to the gradients (by subtracting the mean) before computing the perturbation.
+- **`perturb_eps`** *(float, default=1e-12)*: A small constant added to avoid division by zero when computing the gradient norm for the perturbation step.
+- **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(float, optional)*: Options to clip gradients by norm or by value to control gradient explosion.
+- **`use_ema`** *(bool, default=False)*: Whether to maintain an Exponential Moving Average (EMA) of model weights, which can help improve stability.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for the EMA computation.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in training steps) at which the EMA weights are updated.
+- **`loss_scale_factor`** *(float, optional)*: A factor for scaling the loss during gradient computation, useful in mixed precision training.
+- **`gradient_accumulation_steps`** *(int, optional)*: The number of steps for which gradients are accumulated before performing an update.
+- **`name`** *(str, default="sam")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.sam import SAM
+
+# Define a base optimizer (e.g., Adam)
+base_opt = tf.keras.optimizers.Adam(learning_rate=1e-3)
+
+# Wrap the base optimizer with SAM
+optimizer = SAM(
+    base_optimizer=base_opt,
+    rho=0.05,
+    adaptive=False,
+    use_gc=False,
+    perturb_eps=1e-12
+)
+
+# Build and compile a model
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(64, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+```
+
+# GSAM
+
+**Overview**:
+
+The `GSAM` optimizer extends the Sharpness-Aware Minimization (SAM) framework by incorporating gradient decomposition into the weight perturbation process. GSAM perturbs the model weights by temporarily zeroing out certain dynamics (e.g., reducing BatchNormalization momentum) and decomposing the gradients into components that are then recombined. This surgery reduces harmful gradient conflicts and encourages convergence toward flatter minima, thereby improving model generalization.
+
+**Parameters**:
+
+- **`model`** *(tf.keras.Model, required)*: The model being optimized. Used for accessing layers (e.g., BatchNormalization) during perturbation.
+- **`base_optimizer`** *(Optimizer, required)*: The underlying optimizer (e.g., Adam, SGD) that performs the actual weight updates after SAM perturbation.
+- **`rho_scheduler`** *(object, required)*: A scheduler that provides the current perturbation radius (rho) at each update.
+- **`alpha`** *(float, default=0.4)*: A weighting factor controlling the contribution of gradient decomposition in the SAM update.
+- **`adaptive`** *(bool, default=False)*: If True, scales the perturbation adaptively based on weight magnitudes.
+- **`perturb_eps`** *(float, default=1e-12)*: A small constant added to avoid division by zero in the perturbation computation.
+- **Standard parameters** such as `clipnorm`, `clipvalue`, `global_clipnorm`, `use_ema`, `ema_momentum`, `ema_overwrite_frequency`, `loss_scale_factor`, and `gradient_accumulation_steps` are also available.
+- **`name`** *(str, default="gsam")*: Name of the optimizer.
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.sam import GSAM
+
+# Instantiate a base optimizer
+base_opt = tf.keras.optimizers.Adam(learning_rate=1e-3)
+
+# Define a rho scheduler (example: exponential decay)
+rho_scheduler = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=0.05, decay_steps=1000, decay_rate=0.95)
+
+# Instantiate GSAM optimizer
+optimizer = GSAM(
+    model=model,
+    base_optimizer=base_opt,
+    rho_scheduler=rho_scheduler,
+    alpha=0.4,
+    adaptive=False,
+    perturb_eps=1e-12
+)
+
+# Compile and train the model
+model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+---
+
+# WSAM
+
+**Overview**:
+
+The `WSAM` (Weighted SAM) optimizer is a variant of SAM that refines the sharpness-aware update by incorporating a corrective term derived from a decomposition of the gradient. WSAM perturbs the weights and then calculates a corrective gradient based on the differences between the original and perturbed weights. Additionally, it synchronizes BatchNormalization momentum during the update to stabilize training. This two-phase update helps guide the model toward flatter regions of the loss landscape.
+
+**Parameters**:
+
+- **`model`** *(tf.keras.Model, required)*: The model to be optimized; used for synchronizing BatchNormalization layers during perturbation.
+- **`base_optimizer`** *(Optimizer, required)*: The underlying optimizer that performs the weight update after perturbation.
+- **`rho`** *(float, default=0.1)*: Perturbation radius for the SAM update.
+- **`k`** *(int, default=10)*: A parameter that controls the frequency of corrective updates in WSAM.
+- **`alpha`** *(float, default=0.7)*: Weighting factor for blending the corrective gradient with the original gradient.
+- **`adaptive`** *(bool, default=False)*: Whether to use adaptive scaling based on weight magnitudes in the perturbation step.
+- **`use_gc`** *(bool, default=False)*: If True, applies Gradient Centralization to the gradients.
+- **`perturb_eps`** *(float, default=1e-12)*: A small constant to avoid division by zero in the perturbation computation.
+- **Standard parameters** for clipping, EMA, and gradient accumulation are also supported.
+- **`name`** *(str, default="wsam")*: Name of the optimizer.
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.sam import WSAM
+
+# Instantiate a base optimizer
+base_opt = tf.keras.optimizers.Adam(learning_rate=1e-3)
+
+# Instantiate WSAM optimizer
+optimizer = WSAM(
+    model=model,
+    base_optimizer=base_opt,
+    rho=0.1,
+    k=10,
+    alpha=0.7,
+    adaptive=False,
+    use_gc=False,
+    perturb_eps=1e-12
+)
+
+# Compile the model using WSAM
+model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+---
+
+# BSAM
+
+**Overview**:
+
+The `BSAM` (Batch Sharpness-Aware Minimization) optimizer employs a three-step update process designed to further reduce sharpness in the weight space. First, BSAM injects controlled random noise into the weights based on the dataset size. In the second step, it computes an intermediate update by adjusting for the noisy gradient. Finally, a momentum-based correction refines the updates. This layered approach aims to produce more robust and stable training, particularly useful when handling large datasets with noisy gradient estimates.
+
+**Parameters**:
+
+- **`num_data`** *(int, required)*: The total number of training samples; used to scale the injected noise in the first step.
+- **`lr`** *(float, default=0.5)*: The learning rate for the momentum update step.
+- **`beta1`** *(float, default=0.9)*: Decay rate for the momentum accumulator.
+- **`beta2`** *(float, default=0.999)*: Decay rate for the secondary gradient accumulation for variance estimation.
+- **`weight_decay`** *(float, default=1e-4)*: Coefficient for weight decay regularization.
+- **`rho`** *(float, default=0.05)*: Perturbation strength used during the second update phase.
+- **`adaptive`** *(bool, default=False)*: Whether to apply adaptive scaling based on weight magnitudes.
+- **`damping`** *(float, default=0.1)*: Damping factor for smoothing the momentum update in the third step.
+- **Standard parameters** such as gradient clipping, EMA settings, etc., are also supported.
+- **`name`** *(str, default="bsam")*: Name of the optimizer.
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.sam import BSAM
+
+# Instantiate the BSAM optimizer
+optimizer = BSAM(
+    num_data=50000,
+    lr=0.5,
+    beta1=0.9,
+    beta2=0.999,
+    weight_decay=1e-4,
+    rho=0.05,
+    adaptive=False,
+    damping=0.1
+)
+
+# Build a model
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(256, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Compile the model using BSAM
+model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# LookSAM
+
+**Overview**:  
+The `LookSAM` optimizer is an extension of the Sharpness-Aware Minimization (SAM) family that incorporates a lookahead mechanism to improve generalization. It works in two steps. In the first step, if the current step is a multiple of a defined interval k, the optimizer perturbs the weights by adding a scaled version of the gradient (with optional gradient centralization). This perturbation is computed adaptively if desired. In the second step, the optimizer resets the weights to their original values and applies a corrective update based on the difference between the original and perturbed weights, blended with a factor alpha. This two-phase process encourages convergence toward flatter regions of the loss landscape.
+
+**Parameters**:  
+- **`base_optimizer`** *(Optimizer, required)*: The underlying optimizer (e.g., Adam, SGD) that performs the weight update after LookSAM’s correction.  
+- **`rho`** *(float, default=0.1)*: The perturbation radius controlling the magnitude of the weight perturbation.  
+- **`k`** *(int, default=10)*: The interval (in steps) at which the lookahead (perturbation and correction) is applied.  
+- **`alpha`** *(float, default=0.7)*: The blending factor for the corrective update, determining how much of the correction is applied.  
+- **`adaptive`** *(bool, default=False)*: If True, scales the perturbation based on the magnitude of the weights for adaptive adjustments.  
+- **`use_gc`** *(bool, default=False)*: If True, applies gradient centralization (subtracting the mean of the gradient) for potentially improved stability.  
+- **`perturb_eps`** *(float, default=1e-12)*: A small constant added to avoid numerical instabilities during the perturbation step.  
+- **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(float, optional)*: Options for clipping gradients by their norm, by a fixed value, or using a global norm across all parameters, respectively.  
+- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to the model weights.  
+- **`ema_momentum`** *(float, default=0.99)*: The momentum coefficient used in EMA calculations if enabled.  
+- **`ema_overwrite_frequency`** *(int, optional)*: The frequency (in steps) at which EMA weights are updated.  
+- **`loss_scale_factor`** *(float, optional)*: A factor for scaling the loss during gradient computation, useful in mixed-precision training.  
+- **`gradient_accumulation_steps`** *(int, optional)*: The number of steps over which gradients are accumulated before an update is applied.  
+- **`name`** *(str, default="looksam")*: The name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.sam import LookSAM
+
+# Define the base optimizer (e.g., Adam)
+base_opt = tf.keras.optimizers.Adam(learning_rate=1e-3)
+
+# Instantiate LookSAM without a model parameter
+optimizer = LookSAM(
+    base_optimizer=base_opt,
+    rho=0.1,
+    k=10,
+    alpha=0.7,
+    adaptive=False,
+    use_gc=False,
+    perturb_eps=1e-12
+)
+
+# Build a simple model
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(128, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Compile the model using LookSAM
+model.compile(
+    optimizer=optimizer,
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
