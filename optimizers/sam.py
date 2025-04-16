@@ -4,6 +4,7 @@ https://arxiv.org/abs/2010.01412
 Copyright 2025 NoteDance
 """
 import tensorflow as tf
+from Note import nn
 from keras.src.optimizers import optimizer
 from contextlib import ExitStack
 
@@ -29,6 +30,15 @@ class SAM(optimizer.Optimizer):
     
     def reset(self):
         self.old_p = []
+        iterations = tf.Variable(
+                0,
+                name="iteration",
+                dtype=tf.int64,
+                trainable=False,
+                aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA,
+            )
+        self._track_variable(iterations)
+        self._iterations = iterations
         for var in self._trainable_variables:
             self.old_p[self._get_variable_index(var)] = tf.Variable(var)
             self._track_variable(self.old_p[self._get_variable_index(var)])
@@ -158,6 +168,15 @@ class GSAM(optimizer.Optimizer):
         self.old_g = []
         self.e_w = []
         self.sharpness = []
+        iterations = tf.Variable(
+                0,
+                name="iteration",
+                dtype=tf.int64,
+                trainable=False,
+                aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA,
+            )
+        self._track_variable(iterations)
+        self._iterations = iterations
         for var in self._trainable_variables:
             self.old_g[self._get_variable_index(var)] = tf.Variable(var)
             self._track_variable(self.old_g[self._get_variable_index(var)])
@@ -246,15 +265,21 @@ class GSAM(optimizer.Optimizer):
         with self.maybe_no_sync():
             self.perturb_weights(rho=self.rho_t)
 
-            for layer in self.model.layers:
-                if isinstance(layer, tf.keras.layers.BatchNormalization):
-                    layer.backup_momentum = layer.momentum
-                    layer.momentum = 0.0
-                if hasattr(layer, 'layers'):
-                    for layer in layer.layers:
-                        if isinstance(layer, tf.keras.layers.BatchNormalization):
-                            layer.backup_momentum = layer.momentum
-                            layer.momentum = 0.0
+            if hasattr(self.model, 'layer_list'):
+                for layer in self.model.layer_list:
+                    if isinstance(layer, nn.batch_norm):
+                        layer.backup_momentum = layer.momentum
+                        layer.momentum = 0
+            else:
+                for layer in self.model.layers:
+                    if isinstance(layer, tf.keras.layers.BatchNormalization):
+                        layer.backup_momentum = layer.momentum
+                        layer.momentum = 0.0
+                    if hasattr(layer, 'layers'):
+                        for layer in layer.layers:
+                            if isinstance(layer, tf.keras.layers.BatchNormalization):
+                                layer.backup_momentum = layer.momentum
+                                layer.momentum = 0.0
 
             self.gradient_decompose(self.alpha)
 
@@ -269,13 +294,18 @@ class GSAM(optimizer.Optimizer):
         else:
             self.base_optimizer.apply_gradients(zip(grads, trainable_variables), self.loss)
 
-        for layer in self.model.layers:
-            if isinstance(layer, tf.keras.layers.BatchNormalization):
-                layer.momentum = layer.backup_momentum
-            if hasattr(layer, 'layers'):
-                for layer in layer.layers:
-                    if isinstance(layer, tf.keras.layers.BatchNormalization):
-                        layer.momentum = layer.backup_momentum
+        if hasattr(self.model, 'layer_list'):
+            for layer in self.model.layer_list:
+                if isinstance(layer, nn.batch_norm) and hasattr(layer, 'backup_momentum'):
+                    layer.momentum = layer.backup_momentum
+        else:
+            for layer in self.model.layers:
+                if isinstance(layer, tf.keras.layers.BatchNormalization):
+                    layer.momentum = layer.backup_momentum
+                if hasattr(layer, 'layers'):
+                    for layer in layer.layers:
+                        if isinstance(layer, tf.keras.layers.BatchNormalization):
+                            layer.momentum = layer.backup_momentum
     
     def grad_norm(self, grads, trainable_variables):
         norms = []
@@ -344,6 +374,15 @@ class WSAM(optimizer.Optimizer):
         self.e_w = []
         self.grad = []
         self.sharpness = []
+        iterations = tf.Variable(
+                0,
+                name="iteration",
+                dtype=tf.int64,
+                trainable=False,
+                aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA,
+            )
+        self._track_variable(iterations)
+        self._iterations = iterations
         for var in self._trainable_variables:
             self.e_w[self._get_variable_index(var)] = tf.Variable(var)
             self._track_variable(self.e_w[self._get_variable_index(var)])
@@ -432,25 +471,36 @@ class WSAM(optimizer.Optimizer):
         self.update_step(grads, trainable_variables, learning_rate)
 
     def update_step(self, grads, trainable_variables, learning_rate):
-        for layer in self.model.layers:
-            if isinstance(layer, tf.keras.layers.BatchNormalization):
-                layer.momentum = layer.backup_momentum
-            if hasattr(layer, 'layers'):
-                for layer in layer.layers:
-                    if isinstance(layer, tf.keras.layers.BatchNormalization):
-                        layer.momentum = layer.backup_momentum
+        if hasattr(self.model, 'layer_list'):
+            for layer in self.model.layer_list:
+                if isinstance(layer, nn.batch_norm) and hasattr(layer, 'backup_momentum'):
+                    layer.momentum = layer.backup_momentum
+        else:
+            for layer in self.model.layers:
+                if isinstance(layer, tf.keras.layers.BatchNormalization):
+                    layer.momentum = layer.backup_momentum
+                if hasattr(layer, 'layers'):
+                    for layer in layer.layers:
+                        if isinstance(layer, tf.keras.layers.BatchNormalization):
+                            layer.momentum = layer.backup_momentum
 
         self.first_step(grads, trainable_variables)
 
-        for layer in self.model.layers:
-            if isinstance(layer, tf.keras.layers.BatchNormalization):
-                layer.backup_momentum = layer.momentum
-                layer.momentum = 0.0
-            if hasattr(layer, 'layers'):
-                for layer in layer.layers:
-                    if isinstance(layer, tf.keras.layers.BatchNormalization):
-                        layer.backup_momentum = layer.momentum
-                        layer.momentum = 0.0
+        if hasattr(self.model, 'layer_list'):
+            for layer in self.model.layer_list:
+                if isinstance(layer, nn.batch_norm):
+                    layer.backup_momentum = layer.momentum
+                    layer.momentum = 0
+        else:
+            for layer in self.model.layers:
+                if isinstance(layer, tf.keras.layers.BatchNormalization):
+                    layer.backup_momentum = layer.momentum
+                    layer.momentum = 0.0
+                if hasattr(layer, 'layers'):
+                    for layer in layer.layers:
+                        if isinstance(layer, tf.keras.layers.BatchNormalization):
+                            layer.backup_momentum = layer.momentum
+                            layer.momentum = 0.0
 
         self.second_step(grads, trainable_variables)
     
@@ -516,6 +566,15 @@ class BSAM(optimizer.Optimizer):
         self.damping = damping
     
     def reset(self):
+        iterations = tf.Variable(
+                0,
+                name="iteration",
+                dtype=tf.int64,
+                trainable=False,
+                aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA,
+            )
+        self._track_variable(iterations)
+        self._iterations = iterations
         for var in self._trainable_variables:
             self.s[self._get_variable_index(var)] =  self.add_variable_from_reference(
                                                         reference_variable=var, initializer="ones", name="s"
@@ -644,6 +703,15 @@ class LookSAM(optimizer.Optimizer):
         self.perturb_eps = perturb_eps
     
     def reset(self):
+        iterations = tf.Variable(
+                0,
+                name="iteration",
+                dtype=tf.int64,
+                trainable=False,
+                aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA,
+            )
+        self._track_variable(iterations)
+        self._iterations = iterations
         for var in self._trainable_variables:
             self.old_p[self._get_variable_index(var)] = tf.Variable(var)
             self._track_variable(self.old_p[self._get_variable_index(var)])
