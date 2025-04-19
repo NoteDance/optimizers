@@ -700,7 +700,7 @@ def train_step(x, y, model, optimizer):
     with tf.GradientTape(persistent=True) as tape:
         predictions = model(x, training=True)
         loss = loss_fn(y, predictions)
-    gradients = tape.gradient(loss, model.trainable_variables)
+        gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables), tape)
 
 # Training loop
@@ -4255,6 +4255,10 @@ The `SophiaH` optimizer is a scalable, stochastic second‑order optimizer based
 import tensorflow as tf
 from optimizers.sophia import SophiaH
 
+# Define model and loss
+model = tf.keras.Sequential([...])
+loss_fn = tf.keras.losses.MeanSquaredError()
+
 # Instantiate the SophiaH optimizer
 optimizer = SophiaH(
     learning_rate=0.06,
@@ -4267,20 +4271,19 @@ optimizer = SophiaH(
     hessian_distribution='rademacher'
 )
 
-# Build and compile a Keras model
-model = tf.keras.models.Sequential([
-    tf.keras.layers.Dense(128, activation='relu', input_shape=(784,)),
-    tf.keras.layers.Dense(10, activation='softmax')
-])
+# Training step
+@tf.function
+def train_step(x, y, model, optimizer):
+    with tf.GradientTape(persistent=True) as tape:
+        predictions = model(x, training=True)
+        loss = loss_fn(y, predictions)
+        gradients = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables), tape)
 
-model.compile(
-    optimizer=optimizer,
-    loss='sparse_categorical_crossentropy',
-    metrics=['accuracy']
-)
-
-# Train the model
-model.fit(train_dataset, validation_data=val_dataset, epochs=5)
+# Training loop
+for epoch in range(epochs):
+    for x_batch, y_batch in dataset:
+        train_step(x_batch, y_batch, model, optimizer)
 ```
 
 # SRMM
