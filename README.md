@@ -4253,7 +4253,7 @@ The `SophiaH` optimizer is a scalable, stochastic second‑order optimizer based
 **Example Usage**:
 ```python
 import tensorflow as tf
-from optimizers.sophiah import SophiaH
+from optimizers.sophia import SophiaH
 
 # Instantiate the SophiaH optimizer
 optimizer = SophiaH(
@@ -4358,7 +4358,7 @@ The `AdaBelief` optimizer is a variant of Adam that adapts the learning rate by 
 **Example Usage**:
 ```python
 import tensorflow as tf
-from optimizers.adabelief import AdaBelief
+from optimizers.parallel.adabelief import AdaBelief
 
 # Create AdaBelief optimizer
 opt = AdaBelief(
@@ -4412,7 +4412,7 @@ The `AdaBoundW` optimizer is a variant of AdamW that incorporates dynamic bounds
 **Example Usage**:
 ```python
 import tensorflow as tf
-from optimizers.adaboundw import AdaBoundW
+from optimizers.parallel.adaboundw import AdaBoundW
 
 # Instantiate the optimizer with bounds converging to SGD
 opt = AdaBoundW(
@@ -4481,7 +4481,7 @@ The `Adalite` optimizer is a hybrid adaptive optimizer that integrates ideas fro
 **Example Usage**:
 ```python
 import tensorflow as tf
-from optimizers.adalite import Adalite
+from optimizers.parallel.adalite import Adalite
 
 # Instantiate the Adalite optimizer
 opt = Adalite(
@@ -4538,7 +4538,7 @@ The `AdaMod` optimizer is an enhanced variant of Adam that introduces a momentum
 **Example Usage**:
 ```python
 import tensorflow as tf
-from optimizers.adamod import AdaMod
+from optimizers.parallel.adamod import AdaMod
 
 # Instantiate the AdaMod optimizer
 opt = AdaMod(
@@ -4591,7 +4591,7 @@ The `AdamP` optimizer is a variant of Adam designed to reduce the increase of we
 **Example Usage**:
 ```python
 import tensorflow as tf
-from optimizers.adamp import AdamP
+from optimizers.parallel.adamp import AdamP
 
 # Create AdamP optimizer
 opt = AdamP(
@@ -4645,7 +4645,7 @@ The `RAdam` optimizer is a variant of Adam that introduces a rectification term 
 **Example Usage**:
 ```python
 import tensorflow as tf
-from optimizers.radam import RAdam
+from optimizers.parallel.radam import RAdam
 
 # Instantiate RAdam optimizer
 opt = RAdam(
@@ -4675,3 +4675,55 @@ model.compile(
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=20)
 ```
+
+# AdaBound (parallel)
+
+**Overview**:
+
+The `AdaBound` optimizer is an adaptive learning rate method that dynamically bounds the learning rate between a lower and upper bound, transitioning smoothly from adaptive methods like Adam to SGD over time. This approach aims to combine the fast convergence of adaptive methods with the superior generalization performance of SGD. Additionally, `AdaBound` uses Python's `multiprocessing.Manager` to share optimizer state across multiple processes for parallel training.
+
+**Parameters**:
+- **`learning_rate`** *(float, default=1e-3)*: Initial learning rate.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0)*: L2 penalty coefficient applied to the weights.
+- **`final_lr`** *(float, default=0.1)*: Final (SGD-like) learning rate towards which the optimizer transitions.
+- **`gamma`** *(float, default=1e-3)*: Convergence speed of the bound functions.
+- **`amsbound`** *(bool, default=False)*: Enables AMSBound variant, which maintains the maximum of past squared gradients.
+- **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(float, optional)*: Gradient clipping thresholds.
+- **`use_ema`**, **`ema_momentum`**, **`ema_overwrite_frequency`**: Controls exponential moving average (EMA) of weights for evaluation.
+- **`loss_scale_factor`** *(float, optional)*: Multiplicative factor for loss scaling in mixed precision training.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an update.
+- **`name`** *(str, default="adabound")*: Name of the optimizer instance.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.parallel.adabound import AdaBound
+
+# Create AdaBound optimizer
+opt = AdaBound(
+    learning_rate=1e-3,
+    final_lr=0.1,
+    gamma=1e-3,
+    weight_decay=1e-4,
+    amsbound=True
+)
+
+# Compile a model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(10)
+])
+model.compile(
+    optimizer=opt,
+    loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
+    metrics=['accuracy']
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+``` 
