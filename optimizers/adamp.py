@@ -9,9 +9,32 @@ Apache-2.0 license
 """
 
 import tensorflow as tf
-from Note import nn
+import numpy as np
 from keras.src.optimizers import optimizer
 import math
+
+
+def clip(x, min):
+    x_dtype = x.dtype
+    if x_dtype == tf.int32:
+        max = np.iinfo(np.int32).max - 2**7
+    elif x_dtype == tf.int64:
+        max = np.iinfo(np.int64).max - 2**39
+    elif x_dtype == tf.float16:
+        max = float(np.finfo(np.float16).max)
+    else:
+        max = float(np.finfo(np.float32).max)
+
+    return tf.clip_by_value(x, min, max)
+
+
+def cosine_similarity(x1, x2, axis=1, eps=1e-8):
+    w12 = tf.reduce_sum(tf.multiply(x1, x2), axis=axis)
+    w1 = tf.reduce_sum(tf.multiply(x1, x1), axis=axis)
+    w2 = tf.reduce_sum(tf.multiply(x2, x2), axis=axis)
+    n12 = tf.sqrt(clip(w1 * w2, eps * eps))
+    cos_sim = w12 / n12
+    return cos_sim
 
 
 def _channel_view(x):
@@ -28,7 +51,7 @@ def projection(p, grad, perturb, delta: float, wd_ratio: float, eps: float):
     for view_func in [_channel_view, _layer_view]:
         param_view = view_func(p)
         grad_view = view_func(grad)
-        cosine_sim = tf.abs(nn.cosine_similarity(grad_view, param_view, axis=1, eps=eps))
+        cosine_sim = tf.abs(cosine_similarity(grad_view, param_view, axis=1, eps=eps))
 
         # FIXME this is a problem for PyTorch XLA
         if tf.reduce_max(cosine_sim) < delta / math.sqrt(param_view.shape[1]):
