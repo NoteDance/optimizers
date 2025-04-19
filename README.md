@@ -3877,6 +3877,8 @@ The `GSAM` optimizer extends the Sharpness-Aware Minimization (SAM) framework by
 - **Standard parameters** such as `clipnorm`, `clipvalue`, `global_clipnorm`, `use_ema`, `ema_momentum`, `ema_overwrite_frequency`, `loss_scale_factor`, and `gradient_accumulation_steps` are also available.
 - **`name`** *(str, default="gsam")*: Name of the optimizer.
 
+---
+
 **Example Usage**:
 ```python
 import tensorflow as tf
@@ -3903,8 +3905,6 @@ model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metri
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
 
----
-
 # WSAM
 
 **Overview**:
@@ -3923,6 +3923,8 @@ The `WSAM` (Weighted SAM) optimizer is a variant of SAM that refines the sharpne
 - **`perturb_eps`** *(float, default=1e-12)*: A small constant to avoid division by zero in the perturbation computation.
 - **Standard parameters** for clipping, EMA, and gradient accumulation are also supported.
 - **`name`** *(str, default="wsam")*: Name of the optimizer.
+
+---
 
 **Example Usage**:
 ```python
@@ -3949,8 +3951,6 @@ model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metri
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
 
----
-
 # BSAM
 
 **Overview**:
@@ -3969,6 +3969,8 @@ The `BSAM` (Batch Sharpness-Aware Minimization) optimizer employs a three-step u
 - **`damping`** *(float, default=0.1)*: Damping factor for smoothing the momentum update in the third step.
 - **Standard parameters** such as gradient clipping, EMA settings, etc., are also supported.
 - **`name`** *(str, default="bsam")*: Name of the optimizer.
+
+---
 
 **Example Usage**:
 ```python
@@ -4055,4 +4057,621 @@ model.compile(
 
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# SCION
+
+**Overview**:  
+The `SCION` optimizer integrates norm-based gradient rescaling with an optional momentum mechanism and constraint application. It constructs a norm projector via a configurable norm type (e.g., AUTO, SPECTRAL, SIGN, etc.) to process each gradient before applying an update. Optionally, it uses a momentum update by blending the current gradient with a running scalar (tracked in a per-variable variable \(d\)). Additionally, when constraints are enabled, SCION scales down the weights prior to the update to enforce stability. These mechanisms help preserve the structure of the weights and stabilize training when gradients are noisy.
+
+**Parameters**:  
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.  
+- **`weight_decay`** *(float, default=0.0)*: Weight decay coefficient applied to the parameters.  
+- **`momentum`** *(float, default=0.1)*: Factor for momentum-based smoothing; a running scalar \(d\) is updated as a convex combination of its previous value and the current gradient.  
+- **`constraint`** *(bool, default=False)*: If set to True, applies an additional pre-update constraint by scaling the weights.  
+- **`norm_type`** *(LMONorm, default=LMONorm.AUTO)*: Specifies the type of norm-based projection to apply (see LMONorm enum for options such as AUTO, SPECTRAL, SIGN, etc.).  
+- **`norm_kwargs`** *(dict, optional)*: Additional keyword arguments for building the norm projector.  
+- **`scale`** *(float, default=1.0)*: Factor by which the normalized gradient is scaled before updating the weights.  
+- **`weight_decouple`** *(bool, default=True)*: If True, applies weight decay separately from the gradient update.  
+- **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(float, optional)*: Options for clipping gradients by norm, value, or global norm, respectively.  
+- **`use_ema`** *(bool, default=False)*: Whether to use an Exponential Moving Average (EMA) of the model weights.  
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.  
+- **`ema_overwrite_frequency`** *(int, optional)*: The frequency (in steps) at which EMA weights are updated.  
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.  
+- **`gradient_accumulation_steps`** *(int, optional)*: The number of steps to accumulate gradients before an update.  
+- **`name`** *(str, default="scion")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.scion import SCION
+
+# Instantiate the SCION optimizer
+optimizer = SCION(
+    learning_rate=1e-3,
+    weight_decay=0.0,
+    momentum=0.1,
+    constraint=False,
+    norm_kwargs={},  # Additional parameters for the norm projector can be provided here.
+    scale=1.0,
+    weight_decouple=True
+)
+
+# Build a simple model
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(128, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Compile the model with SCION optimizer
+model.compile(
+    optimizer=optimizer,
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# SCIONLight
+
+**Overview**:  
+The `SCIONLight` optimizer is a streamlined version of SCION that applies norm-based gradient scaling without an explicit momentum mechanism. It uses a learned norm operator—constructed via a selectable norm type—to process the gradients and directly computes the update from the normalized gradients scaled by a factor \(scale\). Optionally, it applies a constraint by scaling down the weights before the update and supports decoupled weight decay. SCIONLight is well-suited for cases where a simpler normalization-based update is preferred.
+
+**Parameters**:  
+- **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.  
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay, if used.  
+- **`momentum`** *(float, default=0.1)*: A value that is available for potential scaling of the gradient, although SCIONLight primarily uses direct gradient normalization.  
+- **`constraint`** *(bool, default=False)*: If True, applies a weight constraint by scaling the weights down before the update.  
+- **`norm_type`** *(LMONorm, default=LMONorm.AUTO)*: Specifies the type of norm projector to use (e.g., AUTO, SPECTRAL, SIGN, etc.).  
+- **`norm_kwargs`** *(dict, optional)*: Additional keyword arguments used in constructing the norm projector.  
+- **`scale`** *(float, default=1.0)*: Factor by which the normalized gradient is scaled before it is applied as an update.  
+- **`weight_decouple`** *(bool, default=True)*: If True, weight decay is applied separately from the gradient update.  
+- **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(float, optional)*: Options for gradient clipping by norm, value, or by global norm.  
+- **`use_ema`** *(bool, default=False)*: Whether to maintain an Exponential Moving Average (EMA) of model weights.  
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates.  
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for EMA weight updates.  
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling loss during gradient computations.  
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before performing an update.  
+- **`name`** *(str, default="scionlight")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.scion import SCIONLight
+
+# Instantiate the SCIONLight optimizer
+optimizer = SCIONLight(
+    learning_rate=1e-3,
+    weight_decay=0.0,
+    momentum=0.1,
+    constraint=False,
+    norm_kwargs={},  # Optionally pass norm-specific arguments
+    scale=1.0,
+    weight_decouple=True
+)
+
+# Build a simple model
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(128, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Compile the model with SCIONLight
+model.compile(
+    optimizer=optimizer,
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# SM3
+
+**Overview**:  
+SM3 is a memory‑efficient adaptive optimizer that retains the per‑parameter adaptivity of methods like Adam while dramatically reducing optimizer state memory by factorizing the second‑moment estimates across tensor dimensions. citeturn17view0 SM3 maintains separate accumulators for each dimension (e.g., rows and columns) of parameter tensors instead of a full‑size accumulator per parameter. Despite this compression, SM3 matches or surpasses the convergence behavior of full‑memory optimizers on large‑scale language and vision tasks citeturn25search8.
+
+**Parameters**:
+- **`learning_rate`** *(float, default=1e-1)*: Base step size for updates.  
+- **`epsilon`** *(float, default=1e-30)*: Small constant for numerical stability in denominator.  
+- **`momentum`** *(float, default=0.0)*: Momentum coefficient for update smoothing.  
+- **`beta`** *(float, default=0.0)*: Exponential decay rate for accumulator updates.  
+- **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(float, optional)*: Gradient clipping thresholds.  
+- **`use_ema`** *(bool, default=False)*: Whether to maintain an exponential moving average of parameters for evaluation.  
+- **`ema_momentum`** *(float, default=0.99)*: Decay rate for parameter EMA.  
+- **`ema_overwrite_frequency`** *(int, optional)*: Steps between overwriting model weights with EMA.  
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling loss in mixed‑precision training.  
+- **`gradient_accumulation_steps`** *(int, optional)*: Steps over which gradients are accumulated before applying an update.  
+- **`name`** *(str, default="sm3")*: Identifier for the optimizer instance.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.sm3 import SM3
+
+# Instantiate SM3 optimizer
+optimizer = SM3(
+    learning_rate=0.1,
+    epsilon=1e-30,
+    momentum=0.9,
+    beta=0.5
+)
+
+# Compile a model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(512, activation='relu', input_shape=(1024,)),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+```
+
+# SophiaH
+
+**Overview**  
+The `SophiaH` optimizer is a scalable, stochastic second‑order optimizer based on the **Sophia** method, extended with a Hutchinson estimator for the Hessian diagonal. It maintains moving averages of both gradients and Hessian estimates, applies these as pre‑conditioners, and uses element‑wise clipping to control update magnitudes. Hutchinson’s method is run every `update_period` iterations, balancing second‑order information with computational cost citeturn0search8.
+
+**Parameters**:
+- **`learning_rate`** *(float, default=6e-2)*: Base learning rate for parameter updates.
+- **`beta1`** *(float, default=0.96)*: Exponential decay rate for the first moment (gradient) estimates.
+- **`beta2`** *(float, default=0.99)*: Exponential decay rate for the second moment (Hessian) estimates.
+- **`epsilon`** *(float, default=1e-12)*: Small constant added to denominators for numerical stability.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay (L2 regularization).
+- **`weight_decouple`** *(bool, default=True)*: Whether to apply decoupled weight decay (as in AdamW).
+- **`fixed_decay`** *(bool, default=False)*: If `True`, uses a fixed weight decay independent of the learning rate.
+- **`p`** *(float, default=1e-2)*: Scaling factor for Hutchinson’s diagonal estimator.
+- **`update_period`** *(int, default=10)*: Number of iterations between Hessian estimator updates.
+- **`num_samples`** *(int, default=1)*: Number of random vectors used per Hutchinson estimate.
+- **`hessian_distribution`** *(str, default="gaussian")*: Distribution for Hutchinson random vectors: `"gaussian"` or `"rademacher"`.
+- **`clipnorm`** *(float, optional)*: Clip gradients by norm.
+- **`clipvalue`** *(float, optional)*: Clip gradients by value.
+- **`global_clipnorm`** *(float, optional)*: Clip gradients by global norm.
+- **`use_ema`** *(bool, default=False)*: Whether to maintain an exponential moving average of weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for the EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) to overwrite model weights with EMA weights.
+- **`loss_scale_factor`** *(float, optional)*: Factor for scaling loss when computing gradients.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an update.
+- **`name`** *(str, default="sophia")*: Name identifier for the optimizer instance.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.sophiah import SophiaH
+
+# Instantiate the SophiaH optimizer
+optimizer = SophiaH(
+    learning_rate=0.06,
+    beta1=0.96,
+    beta2=0.99,
+    epsilon=1e-12,
+    weight_decay=1e-2,
+    update_period=20,
+    num_samples=2,
+    hessian_distribution='rademacher'
+)
+
+# Build and compile a Keras model
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(128, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=5)
+```
+
+# SRMM
+
+**Overview**:
+
+The **SRMM** (Stochastic Regularized Majorization–Minimization) optimizer implements the algorithm introduced in “Stochastic regularized majorization‑minimization with weakly convex and multi‑convex surrogates.” It maintains moving averages of both gradients and parameters, weighting them by a decaying factor that depends on the iteration count and a tunable memory length. This approach blends new gradient information with historical parameter values, resulting in smoother parameter trajectories and improved convergence properties in nonconvex settings.
+
+**Parameters**:
+- **`learning_rate`** *(float, default=0.01)*: Base step size for parameter updates.  
+- **`beta`** *(float, default=0.5)*: Exponent that controls how quickly past information is discounted when computing the moving averages.  
+- **`memory_length`** *(int or None, default=100)*: The period over which past gradients and parameters are mixed. When `None`, behaves like standard momentum.  
+- **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(float, optional)*: Gradient clipping thresholds.  
+- **`use_ema`** *(bool, default=False)*: Whether to maintain an exponential moving average of the model weights for evaluation.  
+- **`ema_momentum`** *(float, default=0.99)*: Momentum factor for the EMA.  
+- **`ema_overwrite_frequency`** *(int, optional)*: How often to overwrite the EMA weights with the current weights.  
+- **`loss_scale_factor`** *(float, optional)*: Multiplier for loss scaling in mixed‑precision training.  
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an update.  
+- **`name`** *(str, default="srmm")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.srmm import SRMM
+
+# Instantiate SRMM optimizer
+optimizer = SRMM(
+    learning_rate=1e-2,
+    beta=0.4,
+    memory_length=50
+)
+
+# Build and compile a simple model
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(128, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+```
+
+# AdaBelief (parallel)
+
+**Overview**:
+
+The `AdaBelief` optimizer is a variant of Adam that adapts the learning rate by tracking the "belief" in observed gradients (i.e., the deviation of gradients from their exponential moving average). This results in more responsive updates that can improve convergence stability and generalization. Additionally, `AdaBelief` uses Python's `multiprocessing.Manager` to manage optimizer state across worker processes, enabling parallel parameter updates.
+
+**Parameters**:
+- **`learning_rate`** *(float, default=1e-3)*: Base learning rate.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`epsilon`** *(float, default=1e-16)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0)*: L2 penalty coefficient applied either decoupled or via gradient addition.
+- **`amsgrad`** *(bool, default=False)*: Enables AMSGrad; tracks the maximum of past second moments.
+- **`decoupled_decay`** *(bool, default=True)*: Uses AdamW-style decoupled weight decay.
+- **`fixed_decay`** *(bool, default=False)*: Applies a fixed decay factor rather than scaling by the learning rate.
+- **`rectify`** *(bool, default=True)*: Enables RAdam rectification of the adaptive learning rate.
+- **`degenerated_to_sgd`** *(bool, default=True)*: Falls back to SGD-like updates when variance is low.
+- **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(float, optional)*: Gradient clipping thresholds.
+- **`use_ema`**, **`ema_momentum`**, **`ema_overwrite_frequency`**: Controls weight EMA for evaluation.
+- **`loss_scale_factor`** *(float, optional)*: Multiplicative factor for loss scaling in mixed precision.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an update.
+- **`name`** *(str, default="adabelief")*: Name of the optimizer instance.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.adabelief import AdaBelief
+
+# Create AdaBelief optimizer
+opt = AdaBelief(
+    learning_rate=1e-3,
+    weight_decay=1e-2,
+    amsgrad=True,
+    rectify=True,
+    decoupled_decay=True
+)
+
+# Compile a model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(10)
+])
+model.compile(
+    optimizer=opt,
+    loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
+    metrics=['accuracy']
+)
+
+# Train with standard or multiprocessing-based data loaders
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# AdaBoundW (parallel)
+
+**Overview**:
+
+The `AdaBoundW` optimizer is a variant of AdamW that incorporates dynamic bounds on the learning rate, smoothly transitioning from an adaptive optimizer to SGD over time. By tracking both the first and second moments of gradients, it applies parameter-specific step sizes, while weight decay is handled in a decoupled fashion. Additionally, `AdaBoundW` uses Python's `multiprocessing.Manager` to manage optimizer state across worker processes, enabling parallel parameter updates.
+
+**Parameters**:
+- **`learning_rate`** *(float, default=1e-3)*: Base learning rate for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment (mean) estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment (variance) estimates.
+- **`epsilon`** *(float, default=1e-8)*: Small constant added for numerical stability when normalizing by the second moment.
+- **`weight_decay`** *(float, default=0)*: Coefficient for decoupled L2 weight decay (AdamW-style).
+- **`final_lr`** *(float, default=0.1)*: Target learning rate that the adaptive bounds will converge toward.
+- **`gamma`** *(float, default=1e-3)*: Convergence speed of the lower and upper bound functions.
+- **`amsbound`** *(bool, default=False)*: If `True`, uses the AMSBound variant to track the maximum of past squared gradients.
+- **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(float, optional)*: Thresholds for gradient clipping to prevent exploding gradients.
+- **`use_ema`** *(bool, default=False)*: Whether to maintain an exponential moving average (EMA) of model weights for evaluation.
+- **`ema_momentum`** *(float, default=0.99)*: Smoothing factor for the EMA computation.
+- **`ema_overwrite_frequency`** *(int, optional)*: Number of steps between EMA weight overwrites.
+- **`loss_scale_factor`** *(float, optional)*: Factor by which to scale the loss (useful for mixed-precision training).
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of mini-batches to accumulate gradients over before applying an update.
+- **`name`** *(str, default="adaboundw")*: Name identifier for the optimizer instance.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.adaboundw import AdaBoundW
+
+# Instantiate the optimizer with bounds converging to SGD
+opt = AdaBoundW(
+    learning_rate=2e-4,
+    final_lr=0.05,
+    gamma=5e-4,
+    weight_decay=1e-2,
+    amsbound=True,
+    clipnorm=1.0,
+    use_ema=True,
+    ema_momentum=0.995
+)
+
+# Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(256, activation='relu'),
+    tf.keras.layers.Dense(10)
+])
+
+# Compile the model with AdaBoundW
+model.compile(
+    optimizer=opt,
+    loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
+    metrics=['accuracy']
+)
+
+# Train the model, potentially across multiple processes
+model.fit(
+    train_dataset,
+    validation_data=val_dataset,
+    epochs=20
+)
+```
+
+# Adalite (parallel)
+
+**Overview**:
+
+The `Adalite` optimizer is a hybrid adaptive optimizer that integrates ideas from Adam, AdaBelief, LAMB, and Adafactor. It adapts the learning rate by tracking first and second moment estimates of gradients like Adam, while employing a trust ratio mechanism (inspired by LAMB) to scale updates based on the ratio of parameter norms to gradient norms. For high-dimensional parameters, it uses factorized second moment estimation (like Adafactor) to reduce memory requirements by maintaining separate row and column statistics. Additionally, `Adalite` uses Python's `multiprocessing.Manager` to manage optimizer state across worker processes, enabling parallel parameter updates in multi-process training setups.
+
+**Parameters**:
+- **`learning_rate`** *(float, default=1e-3)*: Base learning rate for parameter updates.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment (mean) estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment (variance) estimates.
+- **`weight_decay`** *(float, default=1e-2)*: L2 regularization coefficient applied to weights.
+- **`weight_decouple`** *(bool, default=False)*: If `True`, applies weight decay in a decoupled manner (AdamW-style).
+- **`fixed_decay`** *(bool, default=False)*: If `True`, uses a fixed decay factor independent of the learning rate.
+- **`g_norm_min`** *(float, default=1e-10)*: Minimum gradient norm to prevent division by zero when computing trust ratios.
+- **`ratio_min`** *(float, default=1e-4)*: Minimum trust ratio to avoid overly small update scaling.
+- **`tau`** *(float, default=1.0)*: Temperature parameter for the softmax computation of importance weights in factorized updates.
+- **`eps1`** *(float, default=1e-6)*: Small epsilon added in the denominator for normalization by the square root of the second moment.
+- **`eps2`** *(float, default=1e-10)*: Small epsilon for numerical stability in sum-based operations (e.g., factorized variance sums).
+- **`clipnorm`** *(float, optional)*: Maximum norm for gradient clipping per variable.
+- **`clipvalue`** *(float, optional)*: Maximum absolute value for gradient clipping per variable.
+- **`global_clipnorm`** *(float, optional)*: Maximum global norm across all gradients for clipping.
+- **`use_ema`** *(bool, default=False)*: Whether to maintain an exponential moving average (EMA) of the model weights for evaluation or inference.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum factor for the weight EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Number of steps between overwriting model weights with EMA values.
+- **`loss_scale_factor`** *(float, optional)*: Scaling factor for loss computations in mixed-precision training.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of gradient accumulation steps before performing an optimizer update.
+- **`name`** *(str, default="adalite")*: Name of this optimizer instance.
+- **`**kwargs`**: Additional keyword arguments forwarded to the base `optimizer.Optimizer` class.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.adalite import Adalite
+
+# Instantiate the Adalite optimizer
+opt = Adalite(
+    learning_rate=3e-4,
+    beta1=0.9,
+    beta2=0.999,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    fixed_decay=False,
+    tau=0.5
+)
+
+# Build and compile a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(256, activation='relu'),
+    tf.keras.layers.Dense(10)
+])
+model.compile(
+    optimizer=opt,
+    loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+    metrics=['accuracy']
+)
+
+# Train with a parallel data pipeline
+model.fit(train_dataset, validation_data=val_dataset, epochs=5)
+```
+
+# AdaMod (parallel)
+
+**Overview**:
+
+The `AdaMod` optimizer is an enhanced variant of Adam that introduces a momentum-based bound on the effective learning rates, preventing sudden large updates and improving training stability. It maintains exponential moving averages of gradients (`exp_avg`), squared gradients (`exp_avg_sq`), and adaptive learning rates (`exp_avg_lr`) to constrain step sizes. Additionally, `AdaMod` uses Python's `multiprocessing.Manager` to share optimizer state across multiple processes for parallel training.
+
+**Parameters**:
+- **`learning_rate`** *(float, default=1e-3)*: Base learning rate for updating parameters.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates (mean of gradients).
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates (variance of gradients).
+- **`beta3`** *(float, default=0.999)*: Exponential decay rate for bounding the adaptive learning rates.
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability when dividing by the root of the second moment.
+- **`weight_decay`** *(float, default=0)*: L2 regularization coefficient applied to parameters.
+- **`clipnorm`** *(float, optional)*: Maximum norm for clipping gradients per variable.
+- **`clipvalue`** *(float, optional)*: Maximum absolute value for clipping gradients per variable.
+- **`global_clipnorm`** *(float, optional)*: Maximum global norm across all gradients for clipping.
+- **`use_ema`** *(bool, default=False)*: Whether to maintain an exponential moving average of the model weights for evaluation.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum factor for the weight EMA.
+- **`ema_overwrite_frequency`** *(int, optional)*: Number of steps between overwriting model weights with EMA values.
+- **`loss_scale_factor`** *(float, optional)*: Scaling factor for loss in mixed-precision training.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an update.
+- **`name`** *(str, default="adamod")*: Name identifier for this optimizer instance.
+- **`**kwargs`**: Additional keyword arguments forwarded to the base `optimizer.Optimizer` class.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.adamod import AdaMod
+
+# Instantiate the AdaMod optimizer
+opt = AdaMod(
+    learning_rate=2e-4,
+    beta1=0.9,
+    beta2=0.999,
+    beta3=0.999,
+    epsilon=1e-8,
+    weight_decay=1e-4
+)
+
+# Build and compile a neural network model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(10)
+])
+model.compile(
+    optimizer=opt,
+    loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+    metrics=['accuracy']
+)
+
+# Train with a parallel data pipeline
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# AdamP (parallel)
+
+**Overview**:
+
+The `AdamP` optimizer is a variant of Adam designed to reduce the increase of weight norm by projecting the update direction away from the parameter vector when they are too aligned. This helps maintain generalization performance, especially in convolutional models. The optimizer implements the method proposed in the paper [*Slowing Down the Weight Norm Increase in Momentum-based Optimizers*](https://arxiv.org/abs/2006.08217). Additionally, `AdamP` uses Python's `multiprocessing.Manager` to share optimizer state across multiple processes for parallel training.
+
+**Parameters**:
+- **`learning_rate`** *(float, default=1e-3)*: Base learning rate.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`epsilon`** *(float, default=1e-8)*: Small constant added to denominator for numerical stability.
+- **`weight_decay`** *(float, default=0)*: Decoupled weight decay coefficient.
+- **`delta`** *(float, default=0.1)*: Threshold value for projection condition; controls how "aligned" gradients and weights can be before projection is applied.
+- **`wd_ratio`** *(float, default=0.1)*: Weight decay ratio to apply during projection adjustment.
+- **`nesterov`** *(bool, default=False)*: Whether to apply Nesterov momentum-style updates.
+- **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(float, optional)*: Gradient clipping thresholds for stability.
+- **`use_ema`**, **`ema_momentum`**, **`ema_overwrite_frequency`**: Controls exponential moving average (EMA) for weights, typically used during evaluation.
+- **`loss_scale_factor`** *(float, optional)*: Factor to scale the loss, useful for mixed precision training.
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an update.
+- **`name`** *(str, default="adamp")*: Name identifier for the optimizer.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.adamp import AdamP
+
+# Create AdamP optimizer
+opt = AdamP(
+    learning_rate=1e-3,
+    weight_decay=1e-2,
+    delta=0.1,
+    wd_ratio=0.1,
+    nesterov=True
+)
+
+# Build a sample model
+model = tf.keras.Sequential([
+    tf.keras.layers.Conv2D(32, 3, activation='relu'),
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(10)
+])
+
+# Compile the model with AdamP
+model.compile(
+    optimizer=opt,
+    loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+    metrics=['accuracy']
+)
+
+# Fit with standard or multiprocessing-ready dataset
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# RAdam (parallel)
+
+**Overview**:
+
+The `RAdam` optimizer is a variant of Adam that introduces a rectification term to explicitly reduce the variance of the adaptive learning rate in the early stages of training, addressing the instability of vanilla Adam updates and thereby improving convergence stability and generalization across tasks. Additionally, `RAdam` uses Python's `multiprocessing.Manager` to share optimizer state across multiple processes for parallel training.
+
+**Parameters**:
+- **`learning_rate`** *(float, default=1e-3)*: Base step size for parameter updates.  
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment (mean) estimates.  
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment (variance) estimates.  
+- **`epsilon`** *(float, default=1e-8)*: Small constant added to the denominator for numerical stability.  
+- **`weight_decay`** *(float, default=0)*: L2 penalty coefficient applied directly to the weights each step.  
+- **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(float, optional)*: Thresholds for per‑gradient or global gradient clipping.  
+- **`use_ema`** *(bool, default=False)*: Whether to maintain an exponential moving average of weights for evaluation.  
+- **`ema_momentum`** *(float, default=0.99)*: Decay rate for weight EMA when `use_ema=True`.  
+- **`ema_overwrite_frequency`** *(int, optional)*: Number of steps between EMA overwrites.  
+- **`loss_scale_factor`** *(float, optional)*: Scaling factor for loss in mixed‑precision training.  
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of mini‑batches over which to accumulate gradients before applying an update.  
+- **`name`** *(str, default="radam")*: Name given to this optimizer instance.
+
+---
+
+**Example Usage**:
+```python
+import tensorflow as tf
+from optimizers.radam import RAdam
+
+# Instantiate RAdam optimizer
+opt = RAdam(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    clipnorm=1.0,
+    use_ema=True,
+    ema_momentum=0.999
+)
+
+# Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(10)
+])
+
+# Compile with RAdam
+model.compile(
+    optimizer=opt,
+    loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
+    metrics=['accuracy']
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
 ```
