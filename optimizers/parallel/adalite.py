@@ -65,7 +65,7 @@ class Adalite(optimizer.Optimizer):
                 aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA,
             )
         self._track_variable(iterations)
-        self._iterations = iterations
+        self._iterations[0] = iterations
         for var in self._trainable_variables:
             if len(var.shape) < 2:
                 self.m_avg[self._get_variable_index(var)] =  self.add_variable_from_reference(
@@ -95,8 +95,8 @@ class Adalite(optimizer.Optimizer):
                                                         )
 
     def build(self, var_list):
+        self.manager = mp.Manager()
         if self.built:
-            self.manager = mp.Manager()
             self.m_avg = self.manager.list(self.m_avg)
             self.v_avg = self.manager.list(self.v_avg)
             self.v_avg_0 = self.manager.list(self.v_avg_0)
@@ -106,7 +106,6 @@ class Adalite(optimizer.Optimizer):
             self.m_avg_u = self.manager.list(self.m_avg_u)
             return
         super().build(var_list)
-        self.manager = mp.Manager()
         self.m_avg = self.manager.list()
         self.v_avg = self.manager.list()
         self.v_avg_0 = self.manager.list()
@@ -244,7 +243,7 @@ class Adalite(optimizer.Optimizer):
                 "tau": self.tau,
                 "eps1": self.eps1,
                 "eps2": self.eps2,
-                "step": self.manager_.list([self.iterations.numpy()]),
+                "step": self.iterations[0].numpy(),
             }
         )
         return config

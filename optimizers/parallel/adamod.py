@@ -46,14 +46,13 @@ class AdaMod(optimizer.Optimizer):
         self.epsilon = epsilon
 
     def build(self, var_list):
+        self.manager = mp.Manager()
         if self.built:
-            self.manager = mp.Manager()
             self.exp_avg = self.manager.list(self.exp_avg)
             self.exp_avg_sq = self.manager.list(self.exp_avg_sq)
             self.exp_avg_lr = self.manager.list(self.exp_avg_lr)
             return
         super().build(var_list)
-        self.manager = mp.Manager()
         self.exp_avg = self.manager.list()
         self.exp_avg_sq = self.manager.list()
         self.exp_avg_lr = self.manager.list()
@@ -119,7 +118,7 @@ class AdaMod(optimizer.Optimizer):
                 "beta2": self.beta2,
                 "beta3": self.beta3,
                 "epsilon": self.epsilon,
-                "step": self.manager_.list([self.iterations.numpy()]),
+                "step": self.iterations[0].numpy(),
             }
         )
         return config

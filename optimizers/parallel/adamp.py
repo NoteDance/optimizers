@@ -108,13 +108,12 @@ class AdamP(optimizer.Optimizer):
         self.nesterov = nesterov
 
     def build(self, var_list):
+        self.manager = mp.Manager()
         if self.built:
-            self.manager = mp.Manager()
             self.exp_avg = self.manager.list(self.exp_avg)
             self.exp_avg_sq = self.manager.list(self.exp_avg_sq)
             return
         super().build(var_list)
-        self.manager = mp.Manager()
         self.exp_avg = self.manager.list()
         self.exp_avg_sq = self.manager.list()
         self.step = self.manager.list([0])
@@ -173,7 +172,7 @@ class AdamP(optimizer.Optimizer):
                 "delta": self.delta,
                 "wd_ratio": self.wd_ratio,
                 "nesterov": self.nesterov,
-                "step": self.manager_.list([self.iterations.numpy()]),
+                "step": self.iterations[0].numpy(),
             }
         )
         return config
