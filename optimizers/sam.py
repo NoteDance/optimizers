@@ -739,23 +739,24 @@ class LookSAM(optimizer.Optimizer):
         return self.base_optimizer.iterations if hasattr(self.base_optimizer, 'step') else 0
     
     def first_step(self, grads, trainable_variables):
-        if self.get_step() % self.k != 0:
-            return
-
-        grad_norm = self.grad_norm() + self.perturb_eps
-        scale = self.rho / grad_norm
-
-        for p, g in zip(trainable_variables, grads):
-            if self.use_gc:
-                size = len(g.shape)
-                if size > 1:
-                    grads[self._get_variable_index(p)] += tf.reduce_mean(-g, axis=tuple(range(1, size)), keepdims=True)
-
-            self.old_p[self._get_variable_index(p)].assign(p)
-            self.old_grad_p[self._get_variable_index(p)].assign(g)
-
-            e_w = (tf.pow(p, 2) if self.adaptive else 1.0) * g * tf.cast(scale, p.dtype)
-            p.assign_add(e_w)
+        def true_fn():
+            pass
+        def false_fn():
+            grad_norm = self.grad_norm() + self.perturb_eps
+            scale = self.rho / grad_norm
+    
+            for p, g in zip(trainable_variables, grads):
+                if self.use_gc:
+                    size = len(g.shape)
+                    if size > 1:
+                        grads[self._get_variable_index(p)] += tf.reduce_mean(-g, axis=tuple(range(1, size)), keepdims=True)
+    
+                self.old_p[self._get_variable_index(p)].assign(p)
+                self.old_grad_p[self._get_variable_index(p)].assign(g)
+    
+                e_w = (tf.pow(p, 2) if self.adaptive else 1.0) * g * tf.cast(scale, p.dtype)
+                p.assign_add(e_w)
+        tf.cond(self.get_step() % self.k != 0, true_fn, false_fn)
 
     def second_step(self, grads, trainable_variables):
         step = self.get_step()
