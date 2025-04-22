@@ -4003,59 +4003,50 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 # LookSAM
 
 **Overview**:  
-The `LookSAM` optimizer is an extension of the Sharpness-Aware Minimization (SAM) family that incorporates a lookahead mechanism to improve generalization. It works in two steps. In the first step, if the current step is a multiple of a defined interval k, the optimizer perturbs the weights by adding a scaled version of the gradient (with optional gradient centralization). This perturbation is computed adaptively if desired. In the second step, the optimizer resets the weights to their original values and applies a corrective update based on the difference between the original and perturbed weights, blended with a factor alpha. This two-phase process encourages convergence toward flatter regions of the loss landscape.
+The `LookSAM` optimizer extends Sharpness‑Aware Minimization (SAM) by performing the costly perturbation and retraction steps only every *k* iterations, trading off a small delay in the sharpness correction for substantial compute savings. It first “looks” ahead by perturbing parameters along the gradient direction scaled by ρ, then upon the next *k*th step it “retracts” to the original weights and applies a combined direction that mixes the old and new gradient components by factor α; this retains most of SAM’s generalization benefits at a fraction of the extra cost.
 
-**Parameters**:  
-- **`base_optimizer`** *(Optimizer, required)*: The underlying optimizer (e.g., Adam, SGD) that performs the weight update after LookSAM’s correction.  
-- **`rho`** *(float, default=0.1)*: The perturbation radius controlling the magnitude of the weight perturbation.  
-- **`k`** *(int, default=10)*: The interval (in steps) at which the lookahead (perturbation and correction) is applied.  
-- **`alpha`** *(float, default=0.7)*: The blending factor for the corrective update, determining how much of the correction is applied.  
-- **`adaptive`** *(bool, default=False)*: If True, scales the perturbation based on the magnitude of the weights for adaptive adjustments.  
-- **`use_gc`** *(bool, default=False)*: If True, applies gradient centralization (subtracting the mean of the gradient) for potentially improved stability.  
-- **`perturb_eps`** *(float, default=1e-12)*: A small constant added to avoid numerical instabilities during the perturbation step.  
-- **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(float, optional)*: Options for clipping gradients by their norm, by a fixed value, or using a global norm across all parameters, respectively.  
-- **`use_ema`** *(bool, default=False)*: Whether to apply an Exponential Moving Average (EMA) to the model weights.  
-- **`ema_momentum`** *(float, default=0.99)*: The momentum coefficient used in EMA calculations if enabled.  
-- **`ema_overwrite_frequency`** *(int, optional)*: The frequency (in steps) at which EMA weights are updated.  
-- **`loss_scale_factor`** *(float, optional)*: A factor for scaling the loss during gradient computation, useful in mixed-precision training.  
-- **`gradient_accumulation_steps`** *(int, optional)*: The number of steps over which gradients are accumulated before an update is applied.  
-- **`name`** *(str, default="looksam")*: The name identifier for the optimizer.
+**Parameters**:
+
+- **`base_optimizer`** *(tf.keras.optimizers.Optimizer, required)*: Underlying optimizer to which orthogonalized updates are delegated.  
+- **`rho`** *(float, default=0.1)*: Neighborhood radius for sharpness perturbation.  
+- **`k`** *(int, default=10)*: Interval (in steps) at which to perform the SAM perturbation/retraction cycle.  
+- **`alpha`** *(float, default=0.7)*: Mixing coefficient for the gradient decomposition on non‑perturbation steps.  
+- **`adaptive`** *(bool, default=False)*: Scale perturbations per‑parameter by \|w\| to obtain ASAM‑style updates.  
+- **`use_gc`** *(bool, default=False)*: Whether to apply Gradient Centralization before perturbation.  
+- **`perturb_eps`** *(float, default=1e-12)*: Small epsilon added when normalizing gradients to avoid division by zero.  
+- **`step`** *(bool, default=True)*: If `True`, uses `base_optimizer.iterations` to decide when `k` divides; otherwise always performs first‑step perturbations.  
+- **`name`** *(str, default="looksam")*: Name identifier for this optimizer instance.
 
 ---
 
 **Example Usage**:
 ```python
 import tensorflow as tf
-from optimizers.sam import LookSAM
+from optimizers.looksam import LookSAM
 
-# Define the base optimizer (e.g., Adam)
+# 1. Define your base optimizer
 base_opt = tf.keras.optimizers.Adam(learning_rate=1e-3)
 
-# Instantiate LookSAM without a model parameter
-optimizer = LookSAM(
+# 2. Wrap it with LookSAM
+opt = LookSAM(
     base_optimizer=base_opt,
     rho=0.1,
     k=10,
     alpha=0.7,
     adaptive=False,
-    use_gc=False,
-    perturb_eps=1e-12
+    use_gc=False
 )
 
-# Build a simple model
-model = tf.keras.models.Sequential([
+# 3. Compile and train your model as usual
+model = tf.keras.Sequential([
     tf.keras.layers.Dense(128, activation='relu', input_shape=(784,)),
-    tf.keras.layers.Dense(10, activation='softmax')
+    tf.keras.layers.Dense(10),
 ])
-
-# Compile the model using LookSAM
 model.compile(
-    optimizer=optimizer,
-    loss="sparse_categorical_crossentropy",
-    metrics=["accuracy"]
+    optimizer=opt,
+    loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+    metrics=['accuracy']
 )
-
-# Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
 
