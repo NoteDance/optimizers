@@ -3619,7 +3619,7 @@ for epoch in range(10):
 
 **Overview**:
 
-The `PPCGrad` (Parallel Projected Conflicting Gradients) optimizer extends the PCGrad method by leveraging multiprocessing to parallelize the gradient surgery step. PPCGrad identifies and resolves conflicts among task-specific gradients by projecting each gradient onto the normal plane of any other conflicting gradient, similar to PCGrad. However, PPCGrad distributes the projection computation across multiple processes, which can accelerate the gradient adjustment in multi-core environments, especially when dealing with large models or many tasks.
+The `PPCGrad` (Parallel Projected Conflicting Gradients) optimizer extends the PCGrad method by using tf.vectorized_map to parallelize the gradient surgery step. PPCGrad identifies and resolves conflicts among task-specific gradients by projecting each gradient onto the normal plane of any other conflicting gradient, similar to PCGrad. However, PPCGrad distributes the projection computation across multiple processes, which can accelerate the gradient adjustment in multi-core environments, especially when dealing with large models or many tasks.
 
 **Parameters**:
 
@@ -3638,7 +3638,7 @@ The `PPCGrad` (Parallel Projected Conflicting Gradients) optimizer extends the P
     - `shapes`: Original shapes for unflattening.
     - `has_grads_list`: Masks indicating presence of gradients.
 
-- **`project_conflicting(grads, has_grads)`**: Parallel gradient surgery using multiprocessing.
+- **`project_conflicting(grads, has_grads)`**: Parallel gradient surgery using tf.vectorized_map.
   - **`grads`**: List of flattened task gradients.
   - **`has_grads`**: List of masks for existing gradients.
   - **Returns**: Merged flattened gradient after conflict resolution.
