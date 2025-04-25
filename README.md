@@ -4757,7 +4757,7 @@ SOAP (“ShampoO with Adam in the Preconditioner’s eigenbasis”) is motivated
 **Example Usage**:
 ```python
 import tensorflow as tf
-from note_dance.optimizers import SOAP
+from optimizers.soap import SOAP
 
 # Instantiate the SOAP optimizer
 optimizer = SOAP(
@@ -4765,7 +4765,6 @@ optimizer = SOAP(
     weight_decay=1e-2,
     precondition_frequency=20,
     merge_dims=True,
-    name="soap_optimizer"
 )
 
 # Compile a Keras model with SOAP
