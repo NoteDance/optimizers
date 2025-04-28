@@ -4371,7 +4371,8 @@ model = tf.keras.Sequential([
 model.compile(
     optimizer=opt,
     loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
-    metrics=['accuracy']
+    metrics=['accuracy'],
+    run_eagerly=True
 )
 
 # Train with standard or multiprocessing-based data loaders
@@ -4430,7 +4431,8 @@ model = tf.keras.Sequential([
 model.compile(
     optimizer=opt,
     loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
-    metrics=['accuracy']
+    metrics=['accuracy'],
+    run_eagerly=True
 )
 
 # Train the model, potentially across multiple processes
@@ -4496,7 +4498,8 @@ model = tf.keras.Sequential([
 model.compile(
     optimizer=opt,
     loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-    metrics=['accuracy']
+    metrics=['accuracy'],
+    run_eagerly=True
 )
 
 # Train with a parallel data pipeline
@@ -4552,7 +4555,8 @@ model = tf.keras.Sequential([
 model.compile(
     optimizer=opt,
     loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-    metrics=['accuracy']
+    metrics=['accuracy'],
+    run_eagerly=True
 )
 
 # Train with a parallel data pipeline
@@ -4607,7 +4611,8 @@ model = tf.keras.Sequential([
 model.compile(
     optimizer=opt,
     loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-    metrics=['accuracy']
+    metrics=['accuracy'],
+    run_eagerly=True
 )
 
 # Fit with standard or multiprocessing-ready dataset
@@ -4663,7 +4668,8 @@ model = tf.keras.Sequential([
 model.compile(
     optimizer=opt,
     loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
-    metrics=['accuracy']
+    metrics=['accuracy'],
+    run_eagerly=True
 )
 
 # Train the model
@@ -4715,7 +4721,8 @@ model = tf.keras.Sequential([
 model.compile(
     optimizer=opt,
     loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
-    metrics=['accuracy']
+    metrics=['accuracy'],
+    run_eagerly=True
 )
 
 # Train the model
