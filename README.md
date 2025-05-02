@@ -4788,3 +4788,354 @@ model.compile(
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=5)
 ```  
+
+# TAM
+
+**Overview**:
+
+Torque‑Aware Momentum (TAM) modifies classical SGD with momentum by computing a smoothed cosine similarity between the new gradient and the previous momentum, then using this “correlation” as a damping factor to down‑weight misaligned gradients and preserve exploration along dominant directions.  By treating momentum as velocity and gradients as forces in a mechanical analogy, TAM applies anisotropic friction to reduce the impact of “torqued” (i.e. misaligned) gradients, leading to more consistent parameter updates and better escape from sharp minima.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: Base step size for updates.
+- **`epsilon`** *(float, default=1e-8)*: Small constant to ensure non‑zero update even when damping factor is zero.
+- **`weight_decay`** *(float, default=0.0)*: Decoupled weight‑decay coefficient (applied before or after update according to `weight_decouple` and `fixed_decay`).
+- **`momentum`** *(float, default=0.9)*: Classical momentum coefficient β controlling the inertia of past updates.
+- **`decay_rate`** *(float, default=0.9)*: Smoothing factor γ for the running average of gradient–momentum correlation.
+- **`weight_decouple`** *(bool, default=True)*: If True, applies decoupled weight decay (AdamW style); else integrates decay into gradient.
+- **`fixed_decay`** *(bool, default=False)*: If True, uses a fixed weight‑decay independent of learning rate; otherwise scales decay by `learning_rate`.
+- **`clipnorm`** *(float or None)*: Clip gradients to a maximum L2‐norm.
+- **`clipvalue`** *(float or None)*: Clip gradients to a maximum absolute value.
+- **`global_clipnorm`** *(float or None)*: Clip all gradients by global norm.
+- **`use_ema`** *(bool, default=False)*: Maintain an exponential moving average of weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for weight EMA.
+- **`ema_overwrite_frequency`** *(int or None)*: Steps between overwriting model weights with EMA weights.
+- **`loss_scale_factor`** *(float or None)*: Scale applied to loss for mixed-precision training.
+- **`gradient_accumulation_steps`** *(int or None)*: Number of steps to accumulate gradients before applying update.
+- **`name`** *(str, default="soap")*: Optional name for the optimizer instance.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.tam import TAM
+
+# Create TAM optimizer
+optimizer = TAM(
+    learning_rate=5e-4,
+    momentum=0.95,
+    decay_rate=0.8,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    fixed_decay=False,
+    name="tam_optimizer"
+)
+
+# Compile and train a model
+model = tf.keras.Sequential([
+    tf.keras.layers.Conv2D(64, 3, activation='relu'),
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+---
+
+# AdaTAM
+
+**Overview**:
+
+AdaTAM extends TAM by incorporating Adam‑style first (`β₁`) and second (`β₂`) moment estimates of the (damped) gradient, allowing per‑parameter adaptive learning rates on top of torque‑aware damping.  This combination preserves Adam’s fast convergence in noisy settings while benefiting from TAM’s stability against misaligned gradients, leading to improved generalization and robustness across vision and NLP tasks.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: Base step size.
+- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+- **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+- **`weight_decay`** *(float, default=0.0)*: Decoupled weight‑decay coefficient (applied before or after update according to `weight_decouple` and `fixed_decay`).
+- **`decay_rate`** *(float, default=0.9)*: Smoothing factor γ for TAM’s correlation term.
+- **`weight_decouple`** *(bool, default=True)*: If True, applies decoupled weight decay (AdamW style); else integrates decay into gradient.
+- **`fixed_decay`** *(bool, default=False)*: If True, uses a fixed weight‑decay independent of learning rate; otherwise scales decay by `learning_rate`.
+- **`clipvalue`** *(float or None)*: Clip gradients to a maximum absolute value.
+- **`global_clipnorm`** *(float or None)*: Clip all gradients by global norm.
+- **`use_ema`** *(bool, default=False)*: Maintain an exponential moving average of weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for weight EMA.
+- **`ema_overwrite_frequency`** *(int or None)*: Steps between overwriting model weights with EMA weights.
+- **`loss_scale_factor`** *(float or None)*: Scale applied to loss for mixed-precision training.
+- **`gradient_accumulation_steps`** *(int or None)*: Number of steps to accumulate gradients before applying update.
+- **`name`** *(str, default="soap")*: Optional name for the optimizer instance.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.tam import AdaTAM
+
+# Create AdaTAM optimizer
+optimizer = AdaTAM(
+    learning_rate=2e-4,
+    beta1=0.9,
+    beta2=0.999,
+    decay_rate=0.85,
+    weight_decay=5e-3,
+    weight_decouple=True,
+    fixed_decay=True,
+    name="adatam_optimizer"
+)
+
+# Compile and train with AdaTAM
+model.compile(
+    optimizer=optimizer,
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
+)
+model.fit(train_dataset, validation_data=val_dataset, epochs=8)
+```
+
+# Ranger21
+
+**Overview**:
+
+The `Ranger21` optimizer integrates a suite of advanced techniques into a single, unified update rule built on top of AdamW (or optionally MadGrad). It combines adaptive gradient clipping, gradient centralization & normalization, positive‑negative momentum, stable weight decay, norm‑based loss regularization, linear warm‑up & explore‑exploit scheduling, lookahead, Softplus smoothing of denominators, and corrected Adam denominators to deliver robust, well‑conditioned optimization across a wide variety of deep‑learning tasks.
+
+**Parameters**:
+
+- **`num_iterations`** *(int)*: Total number of training iterations for scheduling warm‑up, warm‑down, and lookahead cycles.
+- **`learning_rate`** *(float, default=1e-3)*: Base step size for parameter updates.
+- **`epsilon`** *(float, default=1e-8)*: Small constant added for numerical stability in denominator computations.
+- **`weight_decay`** *(float, default=1e-4)*: Coefficient for decoupled weight‑decay (as in AdamW).
+- **`beta0`** *(float, default=0.9)*: Coefficient for positive–negative momentum combination baseline.
+- **`betas`** *((float, float), default=(0.9, 0.999))*: Exponential decay rates for first and second moment estimates.
+- **`use_softplus`** *(bool, default=True)*: Whether to apply a Softplus transform to the denominator (improves stability).
+- **`beta_softplus`** *(float, default=50.0)*: Sharpness parameter for the Softplus transform when `use_softplus=True`.
+- **`disable_lr_scheduler`** *(bool, default=False)*: If True, disables linear warm‑up and warm‑down scheduling.
+- **`num_warm_up_iterations`** *(int, optional)*: Number of iterations for linear learning‑rate warm‑up. Auto‑computed if None.
+- **`num_warm_down_iterations`** *(int, optional)*: Number of iterations for linear learning‑rate warm‑down. Auto‑computed if None.
+- **`warm_down_min_lr`** *(float, default=3e-5)*: Final minimum learning rate at end of warm‑down phase.
+- **`agc_clipping_value`** *(float, default=1e-2)*: Maximum ratio of gradient norm to parameter norm for Adaptive Gradient Clipping.
+- **`agc_eps`** *(float, default=1e-3)*: Epsilon floor for unit‑wise parameter norm in AGC.
+- **`centralize_gradients`** *(bool, default=True)*: Whether to subtract mean across axes for each gradient (gradient centralization).
+- **`normalize_gradients`** *(bool, default=True)*: Whether to divide gradients by their standard deviation (gradient normalization).
+- **`lookahead_merge_time`** *(int, default=5)*: Number of steps between lookahead slow‑weight merges.
+- **`lookahead_blending_alpha`** *(float, default=0.5)*: Interpolation factor between fast weights and lookahead slow weights.
+- **`weight_decouple`** *(bool, default=True)*: If True, applies decoupled weight decay (AdamW style) before parameter step.
+- **`fixed_decay`** *(bool, default=False)*: If True, uses fixed weight‑decay factor rather than scaling by learning rate.
+- **`norm_loss_factor`** *(float, default=1e-4)*: Coefficient for additional norm‑based loss regularization on parameter magnitudes.
+- **`adam_debias`** *(bool, default=False)*: If True, does not apply bias‑correction to the learning‑rate scaling.
+- **`clipnorm`** *(float, optional)*: Global norm threshold to clip gradients before any other processing.
+- **`clipvalue`** *(float, optional)*: Value threshold to clip individual gradient elements.
+- **`global_clipnorm`** *(float, optional)*: Alias for `clipnorm`, for compatibility.
+- **`use_ema`** *(bool, default=False)*: Whether to maintain an exponential moving average of model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Decay factor for EMA updates.
+- **`ema_overwrite_frequency`** *(int, optional)*: Number of steps between EMA‐to‐model weight overwrites.
+- **`loss_scale_factor`** *(float, optional)*: Multiplicative factor for dynamic loss‐scaling (mixed precision).
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an update.
+- **`name`** *(str, default="ranger21")*: Optional name scope for the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizer.ranger21 import Ranger21
+
+# Define model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(128, activation="relu"),
+    tf.keras.layers.Dense(10, activation="softmax"),
+])
+
+# Instantiate Ranger21 optimizer
+optimizer = Ranger21(
+    num_iterations=10000,
+    learning_rate=3e-4,
+    weight_decay=1e-2,
+    betas=(0.9, 0.999),
+    use_softplus=True,
+    agc_clipping_value=1e-2,
+    norm_loss_factor=1e-4,
+    lookahead_merge_time=6,
+    lookahead_blending_alpha=0.6
+)
+
+# Compile and train
+model.compile(
+    optimizer=optimizer,
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+```
+
+# Tiger
+
+**Overview**:
+
+The `Tiger` optimizer (Tight‑fisted Optimizer) is a budget‑conscious sign‑based optimizer that combines momentum with decoupled weight decay. By tracking an exponential moving average of past gradients (`exp_avg`) and updating parameters by the sign of this average, Tiger minimizes memory overhead—especially under gradient accumulation—while still providing adaptive, per‑parameter step directions. It can emulate both fixed and learning‑rate–scaled weight decay, and supports optional EMA of weights for stabilized evaluation.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e‑3)*: Base step size for updates.
+- **`beta`** *(float, default=0.965)*: Exponential decay rate for the gradient moving average.
+- **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay. If `weight_decouple=True`, decay is applied directly to weights; otherwise it is added to the gradient.
+- **`weight_decouple`** *(bool, default=True)*: If `True`, applies decoupled weight decay (as in AdamW) before gradient update.
+- **`fixed_decay`** *(bool, default=False)*: If `True`, uses a fixed decay factor independent of the learning rate; otherwise scales decay by the current learning rate.
+- **`clipnorm`** *(float, optional)*: Maximum norm for gradient clipping.
+- **`clipvalue`** *(float, optional)*: Maximum absolute value for gradient clipping.
+- **`global_clipnorm`** *(float, optional)*: Maximum global norm for all gradients.
+- **`use_ema`** *(bool, default=False)*: Whether to maintain an Exponential Moving Average (EMA) of model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum for the EMA of weights.
+- **`ema_overwrite_frequency`** *(int, optional)*: How often (in steps) to overwrite model weights with their EMA.
+- **`loss_scale_factor`** *(float, optional)*: Static scaling factor applied to the loss (useful for mixed‑precision).
+- **`gradient_accumulation_steps`** *(int, optional)*: Number of steps over which to accumulate gradients before applying an update.
+- **`name`** *(str, default="tiger")*: Optional name prefix for the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.tiger import Tiger
+
+# Instantiate Tiger optimizer
+optimizer = Tiger(
+    learning_rate=5e-4,
+    beta=0.98,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    fixed_decay=True,
+    clipnorm=1.0,
+    use_ema=True,
+    ema_momentum=0.995,
+    gradient_accumulation_steps=4,
+    name="tiger_opt"
+)
+
+# Build and compile a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(128, activation="relu"),
+    tf.keras.layers.Dense(10, activation="softmax")
+])
+model.compile(
+    optimizer=optimizer,
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+```
+
+# TRAC
+
+**Overview**:
+
+The `TRAC` optimizer wraps any existing Keras optimizer and augments its parameter updates with a time‑reversible adaptive correction mechanism based on a complex error‑function approximation (ERF1994). By tracking both parameter deltas and gradients over multiple decay rates (`betas`), TRAC computes a dynamic scaling factor that modulates each update step—enabling more robust adaptation to non‑stationary or noisy gradient dynamics.
+
+**Parameters**:
+
+- **`optimizer`** *(tf.keras.optimizers.Optimizer)*: The underlying “base” optimizer whose gradients and updates TRAC will correct (e.g. `Adam`, `SGD`).
+- **`epsilon`** *(float, default=1e-8)*: Small constant added for numerical stability in divisions and square‑root computations.
+- **`betas`** *(tuple of floats, default=(0.9, 0.99, 0.999, 0.9999, 0.99999, 0.999999))*: Sequence of decay coefficients controlling how past update–gradient products influence the adaptive scale. Higher values give longer memory.
+- **`num_coefs`** *(int, default=128)*: Number of coefficients used in the polynomial approximation of the complex error function (ERF1994). Larger values increase approximation fidelity at the cost of compute.
+- **`s_prev`** *(float, default=1e-8)*: Initial value for the cumulative scale term. Ensures nonzero scaling on the first step.
+- **`name`** *(str, default="trac”)*: Optional name scope for the optimizer, useful for multi‑optimizer training or logging.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.trac import TRAC
+
+# 1. Instantiate a base optimizer, e.g. Adam
+base_opt = tf.keras.optimizers.Adam(learning_rate=1e-3)
+
+# 2. Wrap it with TRAC
+optimizer = TRAC(
+    optimizer=base_opt,
+    epsilon=1e-8,
+    betas=(0.9, 0.99, 0.999, 0.9999, 0.99999, 0.999999),
+    num_coefs=128,
+    s_prev=1e-8,
+    name="trac"
+)
+
+# 3. Compile your model with the TRAC optimizer
+model = tf.keras.models.Sequential([ ... ])
+model.compile(
+    optimizer=optimizer,
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+# 4. Train as usual
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# AdaGC
+
+**Overview**:
+
+The `AdaGC` optimizer is an adaptive gradient clipping and rescaling method built on top of standard moment‑based optimizers. During an initial warmup phase, it applies absolute gradient clipping to enforce a maximum update magnitude. After warmup, it dynamically adjusts per‑parameter clipping thresholds based on a running estimate of past clipped gradient norms, blending relative and absolute criteria. This mechanism stabilizes training under highly variable or heavy‑tailed gradient distributions, while optional weight‑decoupled decay and exponential moving averages further improve generalization.
+
+**Parameters**:
+
+- **`learning_rate`** *(float, default=1e-3)*: The base step size for parameter updates.
+- **`betas`** *(tuple of two floats, default=(0.9, 0.999))*:
+  * First element is the decay rate for the exponential moving average of the (clipped) gradient.
+  * Second element is the decay rate for the exponential moving average of the squared (clipped) gradient.
+- **`beta`** *(float, default=0.98)*: Momentum coefficient used when updating the running threshold (`gamma`) after warmup.
+- **`epsilon`** *(float, default=1e-8)*: Small constant added inside norms and denominators for numerical stability.
+- **`weight_decay`** *(float, default=1e-1)*: Coefficient for L2 weight decay. If `weight_decouple=True`, decay is applied directly to parameters before gradient update; otherwise it is added to gradients.
+- **`lambda_abs`** *(float, default=1.0)*: Maximum allowed squared‐gradient norm during the absolute clipping (warmup) phase.
+- **`lambda_rel`** *(float, default=1.05)*: Multiplicative factor for relative clipping after warmup, scaling the running threshold `gamma`.
+- **`warmup_steps`** *(int, default=100)*: Number of initial iterations using absolute clipping (`lambda_abs`) before switching to relative clipping.
+- **`weight_decouple`** *(bool, default=True)*: If True, applies weight decay in a decoupled manner (as in AdamW) before gradient update; else adds decay term into the gradient.
+- **`fixed_decay`** *(bool, default=False)*: When `weight_decouple=True`, if True uses a fixed decay independent of learning rate; else scales decay by the learning rate.
+- **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(float or None)*: Optional built‑in Keras gradient clipping settings (by norm or value).
+- **`use_ema`** *(bool, default=False)*: Whether to maintain and apply an exponential moving average of model weights.
+- **`ema_momentum`** *(float, default=0.99)*: Momentum factor for the weights EMA.
+- **`ema_overwrite_frequency`** *(int or None)*: Frequency (in steps) to overwrite model weights with EMA weights.
+- **`loss_scale_factor`** *(float or None)*: Factor by which to scale the loss for mixed‑precision training.
+- **`gradient_accumulation_steps`** *(int or None)*: Number of steps over which to accumulate gradients before applying an update.
+- **`name`** *(str, default="adagc")*: Name identifier for the optimizer instance.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.adagc import AdaGC
+
+# 1. Instantiate the AdaGC optimizer
+optimizer = AdaGC(
+    learning_rate=5e-4,
+    betas=(0.9, 0.999),
+    beta=0.98,
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    lambda_abs=0.5,
+    lambda_rel=1.1,
+    warmup_steps=50,
+    weight_decouple=True,
+    fixed_decay=False
+)
+
+# 2. Compile a model with AdaGC
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(128, activation="relu"),
+    tf.keras.layers.Dense(10, activation="softmax")
+])
+model.compile(
+    optimizer=optimizer,
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+# 3. Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+```
