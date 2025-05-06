@@ -409,14 +409,10 @@ class AdaLOMO(optimizer.Optimizer):
     def fused_backward(self, tape, loss, variables, lr: float):
         self.lr = lr
 
-        if self.clip_grad_norm is not None and self.clip_grad_norm > 0.0 and self.clip_coef is None:
-            raise ValueError(
-                'clip_grad_norm is not None, but clip_coef is None. '
-                'Please call optimizer.grad_norm() before optimizer.fused_backward().'
-            )
-
         if self.loss_scaler:
             loss = loss * self.loss_scaler.loss_scale
+        
+        self.num_steps = tf.cast(self.iterations + 1, tf.float32)
 
         grads = tape.gradient(loss, variables)
 
