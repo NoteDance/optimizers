@@ -5,7 +5,6 @@ Copyright 2025 NoteDance
 """
 import tensorflow as tf
 from keras.src.optimizers import optimizer
-import math
 import os
 
 
@@ -298,9 +297,11 @@ class AdaLOMO(optimizer.Optimizer):
                     if self.clip_grad_norm is not None and self.clip_grad_norm > 0.0 and self.clip_coef is not None:
                         grad_fp32 *= self.clip_coef
                     
-                    beta2_t: float = 1.0 - math.pow(
-                        self.num_steps, self.decay_rate if self.num_steps > 0 else -self.decay_rate
-                    )
+                    def true_fn():
+                        return 1.0 - tf.pow(self.num_steps, self.decay_rate)
+                    def false_fn():
+                        return 1.0 - tf.pow(self.num_steps, -self.decay_rate)
+                    beta2_t = tf.cond(self.num_steps > 0, true_fn, false_fn)
                     
                     update = tf.pow(grad_fp32, 2) + self.eps1
                     
@@ -360,9 +361,11 @@ class AdaLOMO(optimizer.Optimizer):
                     if self.clip_grad_norm is not None and self.clip_grad_norm > 0.0 and self.clip_coef is not None:
                         grad_fp32 *= self.clip_coef
 
-                    beta2_t: float = 1.0 - math.pow(
-                        self.num_steps, self.decay_rate if self.num_steps > 0 else -self.decay_rate
-                    )
+                    def true_fn():
+                        return 1.0 - tf.pow(self.num_steps, self.decay_rate)
+                    def false_fn():
+                        return 1.0 - tf.pow(self.num_steps, -self.decay_rate)
+                    beta2_t = tf.cond(self.num_steps > 0, true_fn, false_fn)
                     
                     update = tf.pow(grad_fp32, 2) + self.eps1
                     
