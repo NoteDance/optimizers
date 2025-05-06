@@ -5251,7 +5251,7 @@ optimizer = LOMO(model, lr=1e-3, clip_grad_norm=1.0)
 # --- Training Step ---
 # @tf.function # Decorate for performance
 def train_step(inputs, labels):
-    with tf.GradientTape() as tape:
+    with tf.GradientTape(persistent=True) as tape:
         predictions = model(inputs, training=True)
         # Ensure loss computation uses float32 for stability
         loss = tf.keras.losses.your_loss_function(labels, tf.cast(predictions, tf.float32))
