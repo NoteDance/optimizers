@@ -47,11 +47,10 @@ class LOMO(optimizer.Optimizer):
                 )
 
             self.loss_scaler = DynamicLossScaler(init_scale=2 ** 16)
+        
+        self.build(self.model.trainable_variables)
     
     def build(self, var_list):
-        if self.built:
-            return
-        super().build(var_list)
         self.grad_norms = []
         for var in var_list:
             self.grad_norms.append(tf.Variable(var))
@@ -251,12 +250,8 @@ class AdaLOMO(optimizer.Optimizer):
             self.fuse_update_zero3() if zero3_enabled else self.fuse_update()
         )
         
-        self.exp_avg_sq = {}
-        self.exp_avg_sq_row = {}
-        self.exp_avg_sq_col = {}
-
-        self.initialize_states()
-    
+        self.build(self.model.trainable_variables)
+        
     def initialize_states(self) -> None:
         for i, p in enumerate(self.model.trainable_variables):
             with tf.device(p.device):
@@ -279,9 +274,6 @@ class AdaLOMO(optimizer.Optimizer):
                     self._track_variable(self.exp_avg_sq_col[i])
     
     def build(self, var_list):
-        if self.built:
-            return
-        super().build(var_list)
         self.exp_avg_sq = {}
         self.exp_avg_sq_row = {}
         self.exp_avg_sq_col = {}
