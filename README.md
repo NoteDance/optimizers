@@ -5224,12 +5224,12 @@ The `LOMO` (LOw-Memory Optimization) optimizer is designed to reduce the memory 
 
 **Parameters**:
 
--   **`model`** *(tf.keras.Model)*: The Keras model whose parameters will be optimized.
--   **`lr`** *(float, default=1e-3)*: The learning rate or step size for parameter updates.
--   **`clip_grad_norm`** *(float, optional, default=None)*: If set to a positive value, gradients will be clipped globally based on the total norm of all gradients. Requires calling `optimizer.grad_norm()` before `optimizer.fused_backward()`.
--   **`clip_grad_value`** *(float, optional, default=None)*: If set to a positive value, gradients will be clipped element-wise to stay within the range `[-clip_grad_value, +clip_grad_value]`.
--   **`zero3_enabled`** *(bool, default=True)*: If `True`, enables ZeRO stage 3 style optimization where gradients are reduced across replicas and only the relevant partition of the parameter is updated locally. If `False`, performs standard updates on the full parameters.
--   **`name`** *(str, default="lomo")*: The name for the optimizer instance.
+-  **`model`** *(tf.keras.Model)*: The Keras model whose parameters will be optimized.
+-  **`lr`** *(float, default=1e-3)*: The learning rate or step size for parameter updates.
+-  **`clip_grad_norm`** *(float, optional, default=None)*: If set to a positive value, gradients will be clipped globally based on the total norm of all gradients. Requires calling `optimizer.grad_norm()` before `optimizer.fused_backward()`.
+-  **`clip_grad_value`** *(float, optional, default=None)*: If set to a positive value, gradients will be clipped element-wise to stay within the range `[-clip_grad_value, +clip_grad_value]`.
+-  **`zero3_enabled`** *(bool, default=True)*: If `True`, enables ZeRO stage 3 style optimization where gradients are reduced across replicas and only the relevant partition of the parameter is updated locally. If `False`, performs standard updates on the full parameters.
+-  **`name`** *(str, default="lomo")*: The name for the optimizer instance.
 
 *(Note: For `tf.float16` parameters, dynamic loss scaling is automatically enabled to prevent underflow.)*
 
@@ -5289,18 +5289,18 @@ The `AdaLOMO` optimizer combines the low-memory optimization strategy of LOMO wi
 
 **Parameters**:
 
--   **`model`** *(tf.keras.Model)*: The Keras model whose parameters will be optimized.
--   **`lr`** *(float, default=1e-3)*: The base learning rate. The actual step size is adapted based on parameter norms and second moment estimates.
--   **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 weight decay (applied additively to the gradient before the update step).
--   **`loss_scale`** *(float, default=1024.0)*: Static loss scaling factor used to prevent gradient underflow, especially during mixed-precision training. Gradients are unscaled internally before updates.
--   **`clip_threshold`** *(float, default=1.0)*: Threshold for adaptive gradient clipping. The normalized update is clipped based on this value.
--   **`decay_rate`** *(float, default=-0.8)*: Exponent used to compute the decay factor (`beta2_t`) for the running averages of squared gradients. `beta2_t = 1.0 - steps ** decay_rate`.
--   **`clip_grad_norm`** *(float, optional, default=None)*: If set to a positive value, gradients will be clipped globally based on the total norm of all gradients *before* adaptive calculations. Requires calling `optimizer.grad_norm()` before `optimizer.fused_backward()`.
--   **`clip_grad_value`** *(float, optional, default=None)*: If set to a positive value, gradients will be clipped element-wise *before* adaptive calculations.
--   **`eps1`** *(float, default=1e-30)*: A small epsilon added to the squared gradients before computing row/column means, ensuring numerical stability.
--   **`eps2`** *(float, default=1e-3)*: A small epsilon used when scaling the learning rate by the parameter norm (`lr_scaled = lr * max(eps2, p_rms)`), preventing division by zero or overly large learning rates for small parameters.
--   **`zero3_enabled`** *(bool, default=True)*: If `True`, enables ZeRO stage 3 style optimization where gradients are reduced, second moments are potentially calculated on full gradients, and only the relevant partition of the parameter is updated locally using partitioned updates. If `False`, performs standard updates on the full parameters.
--   **`name`** *(str, default="adalomo")*: The name for the optimizer instance.
+-  **`model`** *(tf.keras.Model)*: The Keras model whose parameters will be optimized.
+-  **`lr`** *(float, default=1e-3)*: The base learning rate. The actual step size is adapted based on parameter norms and second moment estimates.
+-  **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 weight decay (applied additively to the gradient before the update step).
+-  **`loss_scale`** *(float, default=1024.0)*: Static loss scaling factor used to prevent gradient underflow, especially during mixed-precision training. Gradients are unscaled internally before updates.
+-  **`clip_threshold`** *(float, default=1.0)*: Threshold for adaptive gradient clipping. The normalized update is clipped based on this value.
+-  **`decay_rate`** *(float, default=-0.8)*: Exponent used to compute the decay factor (`beta2_t`) for the running averages of squared gradients. `beta2_t = 1.0 - steps ** decay_rate`.
+-  **`clip_grad_norm`** *(float, optional, default=None)*: If set to a positive value, gradients will be clipped globally based on the total norm of all gradients *before* adaptive calculations. Requires calling `optimizer.grad_norm()` before `optimizer.fused_backward()`.
+-  **`clip_grad_value`** *(float, optional, default=None)*: If set to a positive value, gradients will be clipped element-wise *before* adaptive calculations.
+-  **`eps1`** *(float, default=1e-30)*: A small epsilon added to the squared gradients before computing row/column means, ensuring numerical stability.
+-  **`eps2`** *(float, default=1e-3)*: A small epsilon used when scaling the learning rate by the parameter norm (`lr_scaled = lr * max(eps2, p_rms)`), preventing division by zero or overly large learning rates for small parameters.
+-  **`zero3_enabled`** *(bool, default=True)*: If `True`, enables ZeRO stage 3 style optimization where gradients are reduced, second moments are potentially calculated on full gradients, and only the relevant partition of the parameter is updated locally using partitioned updates. If `False`, performs standard updates on the full parameters.
+-  **`name`** *(str, default="adalomo")*: The name for the optimizer instance.
 
 **Example Usage**:
 
@@ -5353,4 +5353,190 @@ def train_step(inputs, labels):
 #         if step % log_interval == 0:
 #             print(f"Epoch {epoch}, Step {step}, Loss: {loss_value.numpy()}")
 # ---------------------
+```
+
+# A2Grad
+
+**Overview**:
+
+The A2Grad optimizer implements the “Adaptive Accelerated Stochastic Gradient” algorithm. It combines Nesterov‑style acceleration (to achieve optimal deterministic convergence) with per‑coordinate adaptive scaling of gradient innovations (to match the optimal stochastic convergence rate). Three variants of moving‑average (“uni”, “inc”, “exp”) let you trade off bias versus variance in the adaptive term. A2Grad fixes its base learning rate internally and automatically adapts to both smoothness and noise, often yielding faster, more stable training than standard Adam or AMSGrad.
+
+**Parameters**:
+
+-  **`beta`** *(float, default=10.0)*: Weight on the adaptive (diagonal) proximal term. Larger values increase the influence of past gradient variability.
+-  **`lips`** *(float, default=10.0)*: Estimate of the Lipschitz constant L of the gradient. Used to set the acceleration step size γₖ = 2·L/(k+1).
+-  **`rho`** *(float, default=0.5)*: Smoothing factor for the exponential‑moving‑average variant. Only used when `variant='exp'`.
+-  **`variant`** *(str, default='uni')*: Choice of moving‑average scheme for the squared “innovation” term:
+-  **`clipnorm`** *(float or None)*: If set, each tensor’s gradient is clipped by its own L₂ norm before scaling.
+-  **`clipvalue`** *(float or None)*: If set, each tensor’s gradient values are individually clipped to \[–clipvalue, clipvalue].
+-  **`global_clipnorm`** *(float or None)*: If set, all gradients are jointly clipped by their global norm.
+-  **`use_ema`** *(bool, default=False)*: Maintain an exponential moving average of model weights for evaluation or stability.
+-  **`ema_momentum`** *(float, default=0.99)*: Decay rate for the weight EMA when `use_ema=True`.
+-  **`ema_overwrite_frequency`** *(int or None)*: How many steps between replacing model weights with their EMA values.
+-  **`loss_scale_factor`** *(float or None)*: Static multiplier applied to the loss for mixed‑precision training.
+-  **`gradient_accumulation_steps`** *(int or None)*: Number of steps to accumulate gradients before performing an update.
+-  **`name`** *(str, default="a2grad")*: Identifier name for this optimizer instance.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.a2grad import A2Grad
+
+# Create an A2Grad optimizer using the 'exp' variant
+optimizer = A2Grad(
+    beta=8.0,
+    lips=5.0,
+    rho=0.9,
+    variant='exp',
+    clipnorm=1.0,
+    clipvalue=0.5,
+    use_ema=True,
+    ema_momentum=0.995,
+    name="a2grad_exp"
+)
+
+# Build a simple Keras model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(256, activation="relu", input_shape=(784,)),
+    tf.keras.layers.Dense(10, activation="softmax")
+])
+
+# Compile with A2Grad
+model.compile(
+    optimizer=optimizer,
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+# Train
+model.fit(train_dataset, validation_data=val_dataset, epochs=15)
+```
+
+# AdamG
+
+**Overview**:
+
+The `AdamG` optimizer is a generalized extension of the Adam family that introduces an additional third moment accumulator and exponentiated numerator scaling. By incorporating parameters $p$ and $q$ into the numerator function and a separate decay control for weights, `AdamG` adapts more flexibly to gradient distributions, potentially improving convergence on both smooth and noisy objectives.
+
+**Parameters**:
+
+-  **`learning_rate`** *(float, default=1.0)*: Base step size for parameter updates.
+-  **`betas`** *(tuple of three floats, default=(0.95, 0.999, 0.95))*: Exponential decay rates for the first, second, and third moment estimates, respectively.
+-  **`epsilon`** *(float, default=1e-8)*: Small constant added for numerical stability in denominator.
+-  **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 weight decay. Applied either in a decoupled fashion or directly to the gradient.
+-  **`p`** *(float, default=0.2)*: Scaling factor in the numerator function $f(x) = p \, x^q$.
+-  **`q`** *(float, default=0.24)*: Exponent in the numerator function $f(x) = p \, x^q$.
+-  **`weight_decouple`** *(bool, default=False)*: If `True`, applies weight decay by directly scaling the variable (decoupled decay).
+-  **`fixed_decay`** *(bool, default=False)*: If `True` with decoupled decay, uses a fixed decay rate rather than scaling by learning rate.
+-  **`clipnorm`** *(float, optional)*: Maximum norm for gradient clipping per variable.
+-  **`clipvalue`** *(float, optional)*: Maximum absolute value for gradient clipping per variable.
+-  **`global_clipnorm`** *(float, optional)*: Maximum global norm for all gradients before update.
+-  **`use_ema`** *(bool, default=False)*: Whether to maintain an exponential moving average of model weights.
+-  **`ema_momentum`** *(float, default=0.99)*: Momentum factor for exponential moving average.
+-  **`ema_overwrite_frequency`** *(int, optional)*: Number of steps between overwriting model weights with their EMA.
+-  **`loss_scale_factor`** *(float, optional)*: Factor by which to scale the loss for mixed‑precision or dynamic scaling.
+-  **`gradient_accumulation_steps`** *(int, optional)*: Number of steps over which to accumulate gradients before applying an update.
+-  **`name`** *(str, default="adamg")*: Identifier for the optimizer instance.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from keras.src.optimizers import optimizer
+from optimizers.adamg import AdamG  # assume AdamG is defined in this module
+
+# Instantiate the AdamG optimizer
+optimizer = AdamG(
+    learning_rate=0.001,
+    betas=(0.9, 0.999, 0.9),
+    epsilon=1e-7,
+    weight_decay=1e-4,
+    p=0.3,
+    q=0.25,
+    weight_decouple=True,
+    fixed_decay=False,
+    clipnorm=1.0,
+    use_ema=True,
+    ema_momentum=0.98
+)
+
+# Compile a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(128, activation="relu"),
+    tf.keras.layers.Dense(10, activation="softmax")
+])
+model.compile(
+    optimizer=optimizer,
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+```
+
+# AdaMax
+
+**Overview**:
+
+The `AdaMax` optimizer is a variant of Adam based on the infinity norm (max‐norm) of past gradients. By replacing the second‐moment estimate with an exponentially weighted infinity norm, AdaMax obtains more stable parameter updates when gradients have heavy tails or outliers. This often yields improved convergence in practice, especially on models with sparse or highly variable gradients. ([arXiv][1], [PyTorch][2])
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step size for parameter updates. ([PyTorch][2])
+* **`betas`** *(tuple of two floats, default=(0.9, 0.999))*: Exponential decay rates for the first‐moment (mean) and the infinity‐norm estimates, respectively. ([arXiv][1])
+* **`epsilon`** *(float, default=1e-8)*: Small constant added to the denominator for numerical stability. ([PyTorch][2])
+* **`weight_decay`** *(float, default=0.0)*: L2 penalty coefficient; applied either by modifying gradients or via decoupled weight‐scale.
+* **`r`** *(float, default=0.95)*: Smoothing constant for the optional adaptive gradient‐norm scaling (`adanorm`).
+* **`adanorm`** *(bool, default=False)*: If `True`, rescales each gradient by the ratio of its running norm to its instantaneous norm, mitigating large gradient spikes.
+* **`adam_debias`** *(bool, default=False)*: If `True`, omits the usual bias‐correction on the first‐moment estimate, using raw learning‐rate scaling instead.
+* **`weight_decouple`** *(bool, default=False)*: If `True`, applies decoupled weight decay (as in AdamW) by directly scaling parameters before the update.
+* **`fixed_decay`** *(bool, default=False)*: When using decoupled decay, applies a fixed decay factor rather than scaling by the learning rate.
+* **`clipnorm`** *(float, optional)*: Maximum norm for per‐variable gradient clipping.
+* **`clipvalue`** *(float, optional)*: Maximum absolute value for per‐variable gradient clipping.
+* **`global_clipnorm`** *(float, optional)*: Maximum global norm for all gradients combined.
+* **`use_ema`** *(bool, default=False)*: Maintain an exponential moving average of model weights for evaluation or ensembling.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum factor for the weight EMA.
+* **`ema_overwrite_frequency`** *(int, optional)*: Number of steps between copying EMA weights back to the model.
+* **`loss_scale_factor`** *(float, optional)*: Multiply the loss by this factor before computing gradients (useful for mixed precision).
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of forward/backward passes to accumulate gradients before applying an update.
+* **`name`** *(str, default="adamax")*: Identifier name for the optimizer instance.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.adamax import AdaMax  # assuming this module
+
+# Instantiate AdaMax with decoupled weight decay and adanorm enabled
+optimizer = AdaMax(
+    learning_rate=2e-4,
+    betas=(0.9, 0.999),
+    epsilon=1e-8,
+    weight_decay=1e-3,
+    r=0.9,
+    adanorm=True,
+    adam_debias=False,
+    weight_decouple=True,
+    fixed_decay=False,
+    clipnorm=1.0,
+    use_ema=True,
+    ema_momentum=0.97
+)
+
+# Build and compile a model
+model = tf.keras.Sequential([
+    tf.keras.layers.Conv2D(32, 3, activation="relu"),
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(10, activation="softmax")
+])
+model.compile(
+    optimizer=optimizer,
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=15)
 ```
