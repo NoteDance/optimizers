@@ -5540,3 +5540,67 @@ model.compile(
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=15)
 ```
+
+# AdamMini
+
+**Overview**:
+
+The `AdamMini` optimizer is a variant of the Adam family tailored for large-scale transformer models with sharded parameters and specialized update rules for embedding and attention layers. It extends the standard Adam algorithm by decoupling weight decay, supporting tensor model parallelism, applying grouped updates for query/key projections, and maintaining separate moment statistics per attention head. This design improves convergence behavior in massive transformer architectures while enabling efficient distributed training and optional exponential moving average (EMA) of model weights.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1.0)*: Base step size for parameter updates.
+* **`betas`** *(tuple of two floats, default=(0.9, 0.999))*: Exponential decay rates for the first and second moment estimates.
+* **`epsilon`** *(float, default=1e-8)*: Small constant added to the denominator for numerical stability.
+* **`weight_decay`** *(float, default=0.1)*: Coefficient for L2 regularization; can be decoupled or applied directly to gradients.
+* **`model_sharding`** *(bool, default=False)*: Whether to gather and reduce gradient norms across replicas for sharded model parallelism.
+* **`num_embeds`** *(int, default=2048)*: Hidden dimension size, used to reshape parameters for per-head statistics.
+* **`num_heads`** *(int, default=32)*: Number of attention heads, determining the grouping of query/key projections.
+* **`num_query_groups`** *(int or None, default=None)*: Number of groups for query/key projections; defaults to `num_embeds` if not specified.
+* **`clipnorm`** *(float or None, default=None)*: Clip gradients by norm threshold.
+* **`clipvalue`** *(float or None, default=None)*: Clip gradients by absolute value.
+* **`global_clipnorm`** *(float or None, default=None)*: Clip gradients by global norm across all parameters.
+* **`use_ema`** *(bool, default=False)*: Whether to maintain an exponential moving average of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum factor for EMA updates.
+* **`ema_overwrite_frequency`** *(int or None, default=None)*: How often (in steps) to overwrite model weights with EMA weights.
+* **`loss_scale_factor`** *(float or None, default=None)*: Scaling factor for loss when using mixed precision.
+* **`gradient_accumulation_steps`** *(int or None, default=None)*: Number of micro-steps to accumulate gradients before applying an update.
+* **`name`** *(str, default="adammini")*: Optional name prefix for optimizer variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.adammini import AdamMini
+
+# Instantiate the AdamMini optimizer
+optimizer = AdamMini(
+    learning_rate=0.5,
+    betas=(0.9, 0.98),
+    epsilon=1e-6,
+    weight_decay=0.05,
+    model_sharding=True,
+    num_embeds=4096,
+    num_heads=16,
+    use_ema=True,
+    ema_momentum=0.995
+)
+
+# Compile a transformer-style Keras model
+model = tf.keras.Sequential([
+    tf.keras.layers.Embedding(input_dim=10000, output_dim=4096),
+    tf.keras.layers.MultiHeadAttention(num_heads=16, key_dim=256),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train the model on a distributed strategy
+strategy = tf.distribute.MirroredStrategy()
+with strategy.scope():
+    model.fit(train_dataset, validation_data=val_dataset, epochs=5)
+```
