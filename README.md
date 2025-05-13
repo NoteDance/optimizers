@@ -5571,7 +5571,7 @@ The `AdamMini` optimizer is a variant of the Adam family tailored for large-scal
 
 ```python
 import tensorflow as tf
-from optimizers.adammini import AdamMini
+from optimizers.adam_mini import AdamMini
 
 # Instantiate the AdamMini optimizer
 optimizer = AdamMini(
