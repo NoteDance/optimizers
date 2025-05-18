@@ -5604,3 +5604,70 @@ strategy = tf.distribute.MirroredStrategy()
 with strategy.scope():
     model.fit(train_dataset, validation_data=val_dataset, epochs=5)
 ```
+
+# Fira
+
+**Overview**:
+
+The `Fira` optimizer extends the Adam family by integrating low‐rank gradient projections via the GaLore projector. It adaptively scales gradients with moment estimates and selectively projects and reconstructs updates for matrix parameters, which can improve training efficiency and generalization in large models. Optional maximization, mixed‐precision loss scaling, gradient accumulation, and Exponential Moving Average (EMA) of weights are also supported.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step size for parameter updates.
+* **`betas`** *(tuple of two floats, default=(0.9, 0.999))*: Exponential decay rates for the first and second moment estimates.
+* **`epsilon`** *(float, default=1e-6)*: Small constant for numerical stability in denominator.
+* **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 regularization applied to variables after update.
+* **`maximize`** *(bool, default=False)*: If `True`, performs gradient ascent instead of descent.
+* **`rank`** *(int or None, default=None)*: Rank of the low‐rank approximation for 2D parameters; if `None`, no projection is applied.
+* **`update_proj_gap`** *(int or None, default=None)*: Number of steps between projector refreshes; only used when `rank` is set.
+* **`scale`** *(float or None, default=None)*: Scaling factor applied within the GaLore projection; only used when `rank` is set.
+* **`projection_type`** *(str or None, default=None)*: Type of projection strategy passed to the GaLore projector.
+* **`clipnorm`** *(float, optional)*: Clip gradients by their norm before any other update.
+* **`clipvalue`** *(float, optional)*: Clip gradients by absolute value before any other update.
+* **`global_clipnorm`** *(float, optional)*: Clip gradients by global norm across all parameters.
+* **`use_ema`** *(bool, default=False)*: Whether to maintain an Exponential Moving Average of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum factor for EMA updates when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) at which the model weights are overwritten with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss in mixed‐precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of micro‐batches to accumulate gradients over before applying an update.
+* **`name`** *(str, default="fira")*: Optional name prefix for all optimizer variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from keras.src.optimizers import optimizer
+from optimizers.fira import Fira
+
+# Instantiate the Fira optimizer with low-rank projection
+optimizer = Fira(
+    learning_rate=5e-4,
+    betas=(0.9, 0.999),
+    epsilon=1e-6,
+    weight_decay=1e-2,
+    maximize=False,
+    rank=64,
+    update_proj_gap=100,
+    scale=0.1,
+    projection_type="svd",
+    use_ema=True,
+    ema_momentum=0.995,
+    gradient_accumulation_steps=4
+)
+
+# Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(512, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Compile with Fira
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+```
