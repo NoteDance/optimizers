@@ -5671,3 +5671,200 @@ model.compile(
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=20)
 ```
+
+# RACS
+
+**Overview**:
+
+The `RACS` optimizer is a coordinate‐separable adaptive method that normalizes gradients by factorizing their squared values along rows and columns. It maintains two sets of exponential moving averages—one per row and one per column—and uses them to rescale the gradient before applying updates. Optional features include weight decoupling, fixed decay, maximization (gradient ascent), clipping, EMA of weights, mixed‐precision loss scaling, and gradient accumulation.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step size for parameter updates.
+* **`beta`** *(float, default=0.9)*: Exponential decay rate for both row‐ and column‐wise second moment estimates.
+* **`epsilon`** *(float, default=1e-8)*: Small constant added to denominators for numerical stability.
+* **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 regularization.
+* **`alpha`** *(float, default=0.05)*: Scaling factor for the normalized gradient during the update.
+* **`gamma`** *(float, default=1.01)*: Threshold multiplier to limit drastic step‐size increases.
+* **`maximize`** *(bool, default=False)*: If `True`, the optimizer performs gradient ascent rather than descent.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, applies decoupled weight decay (as in AdamW); otherwise standard decay adds to the gradient.
+* **`fixed_decay`** *(bool, default=False)*: When using decoupled decay, fixes the weight decay coefficient independent of learning rate.
+* **`clipnorm`** *(float, optional)*: Clip gradients by their norm before any other processing.
+* **`clipvalue`** *(float, optional)*: Clip gradients by absolute value before any other processing.
+* **`global_clipnorm`** *(float, optional)*: Clip gradients by global norm across all parameters.
+* **`use_ema`** *(bool, default=False)*: Maintain an Exponential Moving Average of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum factor for EMA updates.
+* **`ema_overwrite_frequency`** *(int, optional)*: How often (in steps) to overwrite model weights with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss in mixed‐precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of micro‐batches to accumulate before applying an update.
+* **`name`** *(str, default="racs")*: Optional name prefix for optimizer variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.racs import RACS
+
+optimizer = RACS(
+    learning_rate=2e-3,
+    beta=0.95,
+    epsilon=1e-7,
+    weight_decay=1e-2,
+    alpha=0.1,
+    gamma=1.02,
+    weight_decouple=True,
+    fixed_decay=True,
+    use_ema=True,
+    ema_momentum=0.99,
+    gradient_accumulation_steps=2
+)
+
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+model.fit(train_dataset, validation_data=val_dataset, epochs=15)
+```
+
+# Alice
+
+**Overview**:
+
+The `Alice` optimizer combines three mechanisms: low‐rank subspace updates for large matrices, adaptive moment estimation in the projected subspace, and a compensation step for the orthogonal residual. It maintains separate low‐rank bases (`U`, `Q`), moment estimates (`m`, `v`), and a residual scaling factor (`phi`) for each 2D parameter. This enables efficient large‐matrix optimization with controlled update directions. Additional features include weight decoupling, fixed decay, maximization, clipping, EMA, mixed‐precision loss scaling, and gradient accumulation.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=0.02)*: Base learning rate for parameter updates.
+* **`betas`** *(tuple of three floats, default=(0.9, 0.9, 0.999))*: Exponential decay rates for subspace residual update (`beta1`), subspace moment estimate (`beta2`), and subspace correlation matrix (`beta3`).
+* **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+* **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 regularization.
+* **`alpha`** *(float, default=0.3)*: Scaling factor for the subspace update component.
+* **`alpha_c`** *(float, default=0.4)*: Scaling factor for the compensation (residual) update.
+* **`update_interval`** *(int, default=200)*: Steps between full subspace basis refreshes.
+* **`rank`** *(int, default=256)*: Dimension of the low‐rank subspace basis used for projection.
+* **`gamma`** *(float, default=1.01)*: Threshold multiplier to regulate compensation magnitude.
+* **`leading_basis`** *(int, default=40)*: Number of top eigenvectors to retain in the basis during refresh.
+* **`maximize`** *(bool, default=False)*: If `True`, performs gradient ascent.
+* **`weight_decouple`** *(bool, default=True)*: Use decoupled weight decay when `True`.
+* **`fixed_decay`** *(bool, default=False)*: When decoupled, apply fixed decay independent of learning rate.
+* **`clipnorm`** *(float, optional)*: Clip gradients by norm.
+* **`clipvalue`** *(float, optional)*: Clip gradients by value.
+* **`global_clipnorm`** *(float, optional)*: Clip gradients by global norm.
+* **`use_ema`** *(bool, default=False)*: Maintain EMA of weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency to overwrite weights with EMA.
+* **`loss_scale_factor`** *(float, optional)*: For mixed‐precision loss scaling.
+* **`gradient_accumulation_steps`** *(int, optional)*: Steps to accumulate gradients before update.
+* **`name`** *(str, default="alice")*: Optional name for optimizer variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.racs import Alice
+
+optimizer = Alice(
+    learning_rate=1e-2,
+    betas=(0.9, 0.9, 0.999),
+    epsilon=1e-8,
+    alpha=0.5,
+    alpha_c=0.3,
+    update_interval=100,
+    rank=128,
+    gamma=1.05,
+    leading_basis=32,
+    weight_decouple=True,
+    fixed_decay=False,
+    use_ema=True,
+    ema_momentum=0.995,
+    gradient_accumulation_steps=4
+)
+
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(1024, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+model.compile(
+    optimizer=optimizer,
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+model.fit(train_dataset, validation_data=val_dataset, epochs=25)
+```
+
+# SPAM
+
+**Overview**:
+
+The `SPAM` optimizer integrates sparse parameter updates with adaptive moment estimation and cosine‐decayed “death” of update masks. At each update, a fixed fraction (`density`) of a weight matrix is selected via a random mask; only those entries are updated using Adam‐style moment estimates, while the rest remain frozen. Masks are periodically refreshed, and a cosine decay warms up the mask refresh rate. Optional features include gradient clipping, decoupled weight decay, maximization (ascent), EMA of weights, mixed‐precision loss scaling, and gradient accumulation.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step size for parameter updates.
+* **`betas`** *(tuple of two floats, default=(0.9, 0.999))*: Exponential decay rates for the first and second moment estimates.
+* **`epsilon`** *(float, default=1e-6)*: Small constant for numerical stability in denominator.
+* **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 regularization applied decoupled after the update.
+* **`density`** *(float, default=1.0)*: Fraction of weights in each 2D tensor to update (mask density).
+* **`warmup_epoch`** *(int, default=50)*: Number of epochs over which the mask “death rate” warms up via cosine decay.
+* **`threshold`** *(float, default=5000)*: Clipping threshold multiplier for large gradient squares; gradients above `threshold × exp_avg_sq` are clipped in magnitude.
+* **`grad_accu_steps`** *(int, default=20)*: Minimum step before threshold clipping is applied.
+* **`update_proj_gap`** *(int, default=500)*: Number of optimization steps between mask refreshes.
+* **`maximize`** *(bool, default=False)*: If `True`, performs gradient ascent instead of descent.
+* **`clipnorm`** *(float, optional)*: Clip gradients by global norm before any update.
+* **`clipvalue`** *(float, optional)*: Clip gradients by absolute value before any update.
+* **`global_clipnorm`** *(float, optional)*: Clip gradients by global norm across all parameters.
+* **`use_ema`** *(bool, default=False)*: Maintain an Exponential Moving Average of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum factor for EMA updates when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) at which model weights are overwritten with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss in mixed‐precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of micro‐batches to accumulate before applying an update.
+* **`name`** *(str, default="spam")*: Optional name prefix for optimizer variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.spam import SPAM
+
+# Instantiate the SPAM optimizer with 50% sparsity and periodic mask updates
+optimizer = SPAM(
+    learning_rate=1e-3,
+    betas=(0.9, 0.999),
+    epsilon=1e-6,
+    weight_decay=1e-2,
+    density=0.5,
+    warmup_epoch=20,
+    threshold=1000,
+    grad_accu_steps=10,
+    update_proj_gap=200,
+    maximize=False,
+    use_ema=True,
+    ema_momentum=0.995,
+    gradient_accumulation_steps=4
+)
+
+# Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(512, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Compile with SPAM
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=30)
+```
