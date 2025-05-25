@@ -5868,3 +5868,70 @@ model.compile(
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=30)
 ```
+
+# StableSPAM
+
+**Overview**:
+
+The `StableSPAM` optimizer builds on sparse adaptive moment estimation by adding dynamic clipping based on historical gradient norms and magnitudes. It tracks maximum per‐parameter gradients (`m_max_t`), maintains normalized gradient norms (`m_norm_t`, `v_norm_t`), and applies thresholded clipping before standard Adam‐style updates. An optional cosine‐decayed “death rate” warms up the stability controls over `t_max` steps. Features include decoupled weight decay, optional maximization (ascent), periodic reset of moment buffers, gradient clipping, EMA of weights, mixed‐precision loss scaling, and gradient accumulation.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step size for parameter updates.
+* **`betas`** *(tuple of two floats, default=(0.9, 0.999))*: Exponential decay rates for the first and second moment estimates.
+* **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability in denominators.
+* **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 regularization applied decoupled after updates.
+* **`gamma1`** *(float, default=0.7)*: Decay rate for the exponential moving average of gradient norms.
+* **`gamma2`** *(float, default=0.9)*: Decay rate for the exponential moving average of squared gradient norms.
+* **`theta`** *(float, default=0.999)*: Decay rate for tracking the maximum absolute gradient per step.
+* **`t_max`** *(int or None, default=None)*: Total steps for cosine‐decayed warmup of stability controls; if `None`, no warmup.
+* **`eta_min`** *(float, default=0.5)*: Minimum decay fraction at end of warmup when `t_max` is set.
+* **`update_proj_gap`** *(int, default=1000)*: Steps between periodic resets of moment buffers and clipping thresholds.
+* **`maximize`** *(bool, default=False)*: If `True`, performs gradient ascent instead of descent.
+* **`clipnorm`** *(float, optional)*: Clip gradients by global norm before any update.
+* **`clipvalue`** *(float, optional)*: Clip gradients by value before any update.
+* **`global_clipnorm`** *(float, optional)*: Clip gradients by global norm across all parameters.
+* **`use_ema`** *(bool, default=False)*: Maintain an Exponential Moving Average of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum factor for EMA updates when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) at which model weights are overwritten with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss in mixed‐precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of micro‐batches to accumulate before applying an update.
+* **`name`** *(str, default="stablespam")*: Optional name prefix for optimizer variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.spam import StableSPAM
+
+# Instantiate the StableSPAM optimizer with warmup and stability controls
+optimizer = StableSPAM(
+    learning_rate=2e-3,
+    betas=(0.9, 0.999),
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    gamma1=0.6,
+    gamma2=0.95,
+    theta=0.995,
+    t_max=10000,
+    eta_min=0.1,
+    update_proj_gap=500,
+    maximize=False,
+    use_ema=True,
+    ema_momentum=0.99,
+    gradient_accumulation_steps=2
+)
+
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(256, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+```
