@@ -5935,3 +5935,66 @@ model.compile(
 
 model.fit(train_dataset, validation_data=val_dataset, epochs=20)
 ```
+
+# ASGD
+
+**Overview**:
+
+The `ASGD` (Adaptive Step‐Size Gradient Descent) optimizer dynamically adjusts its learning rate based on changes in parameter and gradient norms across iterations. At each step, it computes the Euclidean norm of all trainable parameters and gradients as a group, then uses differences in those norms to modulate a per‐variable learning rate. Optional decoupled weight decay, maximization (gradient ascent), and mixed‐precision or distributed features (gradient accumulation, EMA) are supported.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-2)*: Initial base learning rate for all parameters.
+* **`epsilon`** *(float, default=1e-5)*: Small constant added to adjusted learning rate to avoid division by zero.
+* **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 regularization. When `weight_decouple=True`, decay is applied multiplicatively after each update; otherwise it is added to gradients.
+* **`amplifier`** *(float, default=0.02)*: Scaling factor for amplifying the ratio between new and previous learning rate when computing an unconstrained increase (`new_lr = lr * sqrt(1 + amplifier * theta)`).
+* **`theta`** *(float, default=1.0)*: Initial ratio of new learning rate to old learning rate; updated each step to track how much the learning rate has changed.
+* **`dampening`** *(float, default=1.0)*: Factor in the denominator when constraining learning‐rate increase. In effect, larger `dampening` slows down the allowed jump in learning rate.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, applies L2 weight decay multiplicatively (`param ← param × (1 – weight_decay × lr)`); otherwise, adds `variable × weight_decay` into the gradient.
+* **`fixed_decay`** *(bool, default=False)*: When used with `weight_decouple=True`, if `True` then uses a fixed decay factor of `(1 – weight_decay)` instead of scaling by the current learning rate.
+* **`maximize`** *(bool, default=False)*: If `True`, performs gradient ascent (negates gradients before update).
+* **`clipnorm`** *(float, optional)*: If set, clips each gradient tensor by the given global L2 norm before any other operation.
+* **`clipvalue`** *(float, optional)*: If set, clips each gradient tensor element‐wise to the range \[–`clipvalue`, `clipvalue`] before any other operation.
+* **`global_clipnorm`** *(float, optional)*: If set, clips the global norm of all gradients combined across variables before any other operation.
+* **`use_ema`** *(bool, default=False)*: If `True`, maintains an Exponential Moving Average (EMA) of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum factor for updating EMA weights when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Number of optimizer steps between overwriting model weights with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor by which to scale the loss for mixed‐precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of micro‐batches to accumulate gradients over before applying an update.
+* **`name`** *(str, default="asgd")*: Optional name prefix for all optimizer‐related variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.asgd import ASGD
+
+# Instantiate the ASGD optimizer
+optimizer = ASGD(
+    learning_rate=5e-3,
+    epsilon=1e-6,
+    weight_decay=1e-2,
+    amplifier=0.05,
+    theta=1.0,
+    dampening=1.0,
+    weight_decouple=True,
+    fixed_decay=False,
+    maximize=False
+)
+
+# Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Compile with ASGD
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
