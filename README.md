@@ -5998,3 +5998,61 @@ model.compile(
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# SignSGD
+
+**Overview**:
+
+The `SignSGD` optimizer updates parameters by taking the sign of a momentum‐smoothed gradient, effectively moving each weight in the positive or negative direction of the gradient. This simple scheme can improve robustness to noisy gradients and reduce communication in distributed settings. Optional weight decay (either decoupled or standard), maximization (gradient ascent), gradient clipping, EMA of weights, and gradient accumulation are also supported.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Step size for each parameter update.
+* **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 regularization. If `weight_decouple=True`, decay is applied multiplicatively after each update; otherwise it is added to gradients.
+* **`momentum`** *(float, default=0.9)*: Momentum factor (0 ≤ `momentum` < 1). The buffer is updated and the sign of this buffer determines the update direction.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, applies weight decay after the sign update. If `False` and `weight_decay>0`, adds `param × weight_decay` into the gradient.
+* **`maximize`** *(bool, default=False)*: If `True`, performs gradient ascent by negating the gradient before computing the sign.
+* **`clipnorm`** *(float, optional)*: Clip each gradient tensor by its L2 norm before momentum accumulation.
+* **`clipvalue`** *(float, optional)*: Clip each gradient tensor element‐wise to the range \[–`clipvalue`, `clipvalue`] before momentum accumulation.
+* **`global_clipnorm`** *(float, optional)*: Clip the global norm of all gradients before momentum accumulation.
+* **`use_ema`** *(bool, default=False)*: If `True`, maintains an Exponential Moving Average (EMA) of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum factor for EMA updates of weights when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Number of optimizer steps between overwriting model weights with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor to scale the loss for mixed‐precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of micro‐batches to accumulate gradients before applying an update.
+* **`name`** *(str, default="signsgd")*: Optional name prefix for optimizer variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.signsgd import SignSGD
+
+# Instantiate the SignSGD optimizer
+optimizer = SignSGD(
+    learning_rate=1e-3,
+    weight_decay=1e-4,
+    momentum=0.9,
+    weight_decouple=True,
+    maximize=False,
+    use_ema=True,
+    ema_momentum=0.99,
+    gradient_accumulation_steps=2
+)
+
+# Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(256, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Compile with SignSGD
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
