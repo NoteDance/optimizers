@@ -6056,3 +6056,63 @@ model.compile(
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# SGDSaI
+
+**Overview**:
+
+The `SGDSaI` optimizer enhances standard SGD by adapting the update magnitude with a per-parameter signal-to-noise ratio (SNR). After an initial “warmup” pass that computes the SNR for each parameter, subsequent updates scale the usual momentum‐smoothed gradient by this SNR. Optional decoupled weight decay, gradient clipping, EMA of weights, and gradient accumulation are supported.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-2)*: Base step size for parameter updates.
+* **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability when computing SNR.
+* **`weight_decay`** *(float, default=1e-2)*: L2 regularization coefficient. When `weight_decouple=True`, decay is applied multiplicatively after update; otherwise it is added to the gradient.
+* **`momentum`** *(float, default=0.9)*: Momentum factor for smoothing gradients.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, applies weight decay as `param ← param * (1 – weight_decay * lr)` after the update; if `False` and `weight_decay>0`, adds `param * weight_decay` into the gradient.
+* **`maximize`** *(bool, default=False)*: If `True`, performs gradient ascent by negating gradients before updates.
+* **`clipnorm`** *(float, optional)*: Clips each gradient tensor by its L2 norm before momentum accumulation.
+* **`clipvalue`** *(float, optional)*: Clips gradient values element-wise to `[–clipvalue, clipvalue]` before momentum accumulation.
+* **`global_clipnorm`** *(float, optional)*: Clips the global norm of all gradients before momentum accumulation.
+* **`use_ema`** *(bool, default=False)*: If `True`, maintains an Exponential Moving Average of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum factor for EMA updates when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Number of optimizer steps between overwriting model weights with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor by which to scale the loss for mixed-precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of micro-batches to accumulate gradients before applying an update.
+* **`name`** *(str, default="sgdsai")*: Optional name prefix for optimizer variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.sgdsai import SGDSaI
+
+# 1. Instantiate SGDSaI with momentum and weight decay
+optimizer = SGDSaI(
+    learning_rate=1e-2,
+    epsilon=1e-8,
+    weight_decay=1e-3,
+    momentum=0.8,
+    weight_decouple=True,
+    maximize=False,
+    use_ema=True,
+    ema_momentum=0.99,
+    gradient_accumulation_steps=4
+)
+
+# 2. Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# 3. Compile with SGDSaI
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# 4. Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+```
