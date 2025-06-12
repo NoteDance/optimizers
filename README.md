@@ -6116,3 +6116,69 @@ model.compile(
 # 4. Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=20)
 ```
+
+# VSGD
+
+**Overview**:
+
+The `VSGD` optimizer applies a variance‐stabilized SGD update, maintaining running estimates of gradient statistics to adaptively scale updates. It tracks parameter‐specific accumulators (`mug`, `bg`, `bhg`) and uses time‐decayed learning rates influenced by two decay exponents (`tau1`, `tau2`). Optional decoupled weight decay, maximization (ascent), gradient clipping, EMA of weights, mixed‐precision loss scaling, and gradient accumulation are supported.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-1)*: Base step size for parameter updates.
+* **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability when dividing by the estimated variance term.
+* **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 regularization. When `weight_decouple=True`, applied as `param = param * (1 – weight_decay * lr)` before the update; otherwise added to gradient.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, uses decoupled weight decay (as in AdamW) before gradient scaling; if `False`, adds `param * weight_decay` into the gradient.
+* **`ghattg`** *(float, default=30.0)*: A constant used to initialize and scale the accumulator `bhg` related to gradient history.
+* **`ps`** *(float, default=1e-8)*: A small positive constant used in the initial variance computations and accumulator updates.
+* **`tau1`** *(float, default=0.81)*: Exponent for time‐decay of the accumulator `bg`. Controls how rapidly past gradient variance estimates are discounted in `bg`.
+* **`tau2`** *(float, default=0.9)*: Exponent for time‐decay of the accumulator `bhg`. Controls how rapidly past gradient‐squared terms are discounted in `bhg`.
+* **`maximize`** *(bool, default=False)*: If `True`, performs gradient ascent by negating the gradient before computing statistics and updates.
+* **`clipnorm`** *(float, optional)*: If specified, clips each gradient tensor by its L2 norm before any other processing.
+* **`clipvalue`** *(float, optional)*: If specified, clips gradient tensor values element‐wise to \[–`clipvalue`, `clipvalue`] before any other processing.
+* **`global_clipnorm`** *(float, optional)*: If specified, clips the global norm of all gradients combined before any other processing.
+* **`use_ema`** *(bool, default=False)*: If `True`, maintains an Exponential Moving Average of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum factor for updating EMA weights when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Number of optimizer steps between overwriting model weights with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Scaling factor for the loss in mixed‐precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of micro‐batches to accumulate gradients before applying an update.
+* **`name`** *(str, default="vsgd")*: Optional name prefix for optimizer variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.vsgd import VSGD
+
+# Instantiate VSGD optimizer with custom settings
+optimizer = VSGD(
+    learning_rate=0.1,
+    epsilon=1e-8,
+    weight_decay=1e-3,
+    weight_decouple=True,
+    ghattg=20.0,
+    ps=1e-7,
+    tau1=0.8,
+    tau2=0.9,
+    maximize=False,
+    use_ema=True,
+    ema_momentum=0.99,
+    gradient_accumulation_steps=2
+)
+
+# Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Compile with VSGD
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+```
