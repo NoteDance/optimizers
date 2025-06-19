@@ -6182,3 +6182,69 @@ model.compile(
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=20)
 ```
+
+# AdamC
+
+**Overview**:
+
+The `AdamC` optimizer is an Adam variant that supports decoupled weight decay, optional fixed decay, and an AMS-bound option. It maintains exponential moving averages of gradients and squared gradients, with optional clipping and maximization support. When `ams_bound=True`, it tracks the maximum of second-moment estimates to provide a more stable denominator. Additional features include decoupled or standard weight decay, optional gradient clipping, EMA of weights, mixed-precision loss scaling, and gradient accumulation.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step size for parameter updates.
+* **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates (moving average of gradients).
+* **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates (moving average of squared gradients).
+* **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability in denominator.
+* **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 regularization. When `weight_decouple=True`, applied decoupled after moment updates; otherwise added to gradient.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, applies decoupled weight decay (`param = param * (1 – weight_decay * lr)` or fixed); if `False`, adds `param * weight_decay` into the gradient.
+* **`fixed_decay`** *(bool, default=False)*: When using decoupled decay, if `True` applies a fixed factor independent of learning rate; if `False`, scales decay by current learning rate.
+* **`ams_bound`** *(bool, default=False)*: If `True`, tracks the maximum of the second-moment estimates (`max_exp_avg_sq`) and uses it in denominator for a more stable update (AMSBound variant).
+* **`maximize`** *(bool, default=False)*: If `True`, performs gradient ascent by negating gradients before updates.
+* **`clipnorm`** *(float, optional)*: If set, clips each gradient tensor by its L2 norm before moment updates.
+* **`clipvalue`** *(float, optional)*: If set, clips gradient tensor values element-wise to \[–clipvalue, clipvalue] before moment updates.
+* **`global_clipnorm`** *(float, optional)*: If set, clips the global norm of all gradients before moment updates.
+* **`use_ema`** *(bool, default=False)*: If `True`, maintains an Exponential Moving Average of model weights alongside updates.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum factor for updating EMA weights when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Steps between overwriting model weights with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss in mixed-precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of micro-batches to accumulate before applying an update.
+* **`name`** *(str, default="adamc")*: Optional name prefix for optimizer variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.adamc import AdamC
+
+# Instantiate AdamC optimizer
+optimizer = AdamC(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    fixed_decay=False,
+    ams_bound=True,
+    maximize=False,
+    use_ema=True,
+    ema_momentum=0.99,
+    gradient_accumulation_steps=2
+)
+
+# Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Compile with AdamC
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
