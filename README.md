@@ -6248,3 +6248,71 @@ model.compile(
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# AdamWSN
+
+**Overview**:
+
+The `AdamWSN` optimizer is a variant of Adam that integrates subset-based second-moment estimation (subset normalization) for large parameter tensors. When enabled (`sn=True`), it partitions each tensor into subsets of size `subset_size` (or a computed divisor) and computes second-moment updates over those subsets rather than element-wise. This can reduce memory or computation overhead and provide group-wise normalization. It also supports decoupled or standard weight decay, optional fixed decay, maximization (ascent), gradient clipping, EMA of weights, mixed-precision loss scaling, and gradient accumulation.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step size for parameter updates.
+* **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates (moving average of gradients).
+* **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates (moving average of squared gradients or subset sums).
+* **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability when dividing by the estimated second moment.
+* **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 regularization. When `weight_decouple=True`, applied decoupled after moment updates; otherwise added to the gradient before updating.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, applies decoupled weight decay (`param = param * (1 – weight_decay * lr)` or fixed); if `False`, adds `param * weight_decay` into the gradient.
+* **`fixed_decay`** *(bool, default=False)*: When using decoupled decay, if `True`, applies a fixed factor independent of the current learning rate; if `False`, scales decay by current learning rate.
+* **`subset_size`** *(int, default=-1)*: Desired subset size for grouping elements when computing second-moment updates. If >0, used directly; if ≤0, a divisor close to sqrt(size) is computed.
+* **`sn`** *(bool, default=True)*: If `True`, enable subset normalization: partition each tensor into subsets of length `subset_size` (or computed), reshape gradient accordingly, and compute second-moment update per subset. If `False`, falls back to element-wise squared gradients.
+* **`maximize`** *(bool, default=False)*: If `True`, performs gradient ascent by negating the gradient before updates.
+* **`clipnorm`** *(float, optional)*: Clip each gradient tensor by its L2 norm before moment updates.
+* **`clipvalue`** *(float, optional)*: Clip gradient tensor values element-wise to \[–clipvalue, clipvalue] before moment updates.
+* **`global_clipnorm`** *(float, optional)*: Clip the global norm of all gradients combined before moment updates.
+* **`use_ema`** *(bool, default=False)*: If `True`, maintain an Exponential Moving Average of model weights alongside updates.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum factor for updating EMA weights when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Steps between overwriting model weights with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss in mixed-precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of micro-batches to accumulate before applying an update.
+* **`name`** *(str, default="adamwsn")*: Optional name prefix for optimizer variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.adamwsn import AdamWSN
+
+# Instantiate AdamWSN optimizer with subset normalization enabled
+optimizer = AdamWSN(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-8,
+    weight_decay=1e-4,
+    weight_decouple=True,
+    fixed_decay=False,
+    subset_size=256,
+    sn=True,
+    maximize=False,
+    use_ema=True,
+    ema_momentum=0.99,
+    gradient_accumulation_steps=2
+)
+
+# Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(512, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Compile with AdamWSN
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=15)
+```
