@@ -147,7 +147,7 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
-
+Ranger25
 # Lars
 
 **Overview**:
@@ -5144,35 +5144,39 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=20)
 
 **Overview**:
 
-`Ranger25` is an experimental composite optimizer that blends together seven advanced optimization techniques—ADOPT, AdEMAMix, Cautious updates, StableAdamW/Adam‑atan2, OrthoGrad, adaptive gradient clipping (AGC), and Lookahead—to achieve more reliable convergence, improved stability, and faster training across a wide range of deep‑learning tasks. By combining theoretical convergence fixes (ADOPT) with enhanced utilization of past gradients (AdEMAMix), directional masking (Cautious), numerical stability (Adam‑atan2), gradient decorrelation (OrthoGrad), unit‑wise clipping (AGC), and periodic weight averaging (Lookahead), Ranger25 aims to deliver the best of each world in a single optimizer.
+`Ranger25` is an experimental, composite TensorFlow/Keras optimizer that integrates multiple advanced optimization techniques—ADOPT, AdEMAMix, Cautious updates, StableAdamW (or Adam‑atan2), OrthoGrad, adaptive gradient clipping (AGC), subset‑based second‑moment estimation (subset normalization), and Lookahead—to enhance convergence reliability, stability, and training speed across diverse deep‑learning tasks. By combining theoretical convergence fixes (ADOPT) with enriched moment utilization (AdEMAMix), directional masking (Cautious), numerical stability enhancements (StableAdamW/Adam‑atan2), gradient decorrelation (OrthoGrad), unit‑wise gradient clipping (AGC), subset‑wise RMS estimation, and periodic weight averaging (Lookahead), Ranger25 seeks to harness the strengths of each component in a unified optimizer.
 
 **Parameters**:
 
-- **`learning_rate`** *(float, default=1e-3)*: Base step size for parameter updates.
-- **`betas`** *(tuple of three floats, default=(0.9, 0.98, 0.9999))*:
-  * `beta1` for first‑moment EMA (momentum)
-  * `beta2` for second‑moment EMA (RMS scaling)
-  * `beta3` for slow EMA used in the “mix” component (AdEMAMix).
-- **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability in denominator (and in StableAdamW/Adam‑atan2 branch).
-- **`weight_decay`** *(float, default=1e-3)*: Coefficient for decoupled weight‑decay regularization (AdamW style).
-- **`alpha`** *(float, default=5.0)*: Mixing coefficient magnitude for the slow EMA in AdEMAMix.
-- **`t_alpha_beta3`** *(int or None, default=None)*: Number of steps over which to warm up `alpha` and `beta3`; if `None`, no warmup.
-- **`lookahead_merge_time`** *(int, default=5)*: Number of steps between Lookahead slow‑weight merges.
-- **`lookahead_blending_alpha`** *(float, default=0.5)*: Interpolation factor between fast and slow weights at each Lookahead merge.
-- **`cautious`** *(bool, default=True)*: Enable Cautious updates—masking out parameter updates whose sign conflicts with the raw gradient.
-- **`stable_adamw`** *(bool, default=True)*: Use StableAdamW variant, which rescales step size by measured gradient variance for numerical stability.
-- **`orthograd`** *(bool, default=True)*: Enable OrthoGrad, projecting each gradient to be orthogonal to its parameter vector before update.
-- **`weight_decouple`** *(bool, default=True)*: Apply weight decay in a decoupled fashion (AdamW) rather than via loss augmentation.
-- **`fixed_decay`** *(bool, default=False)*: Use fixed weight‑decay (not scaled by learning rate) when `weight_decouple` is True.
-- **`clipnorm`** *(float or None)*: Clip gradients by global L‑2 norm.
-- **`clipvalue`** *(float or None)*: Clip gradients by value.
-- **`global_clipnorm`** *(float or None)*: Alias for clipping by global norm across all parameters.
-- **`use_ema`** *(bool, default=False)*: Maintain an exponential moving average of model weights.
-- **`ema_momentum`** *(float, default=0.99)*: Decay rate for weight EMA.
-- **`ema_overwrite_frequency`** *(int or None)*: How often to overwrite model weights with EMA weights.
-- **`loss_scale_factor`** *(float or None)*: Static loss‑scaling factor for mixed‑precision training.
-- **`gradient_accumulation_steps`** *(int or None)*: Number of steps to accumulate gradients before applying an update.
-- **`name`** *(str, default="ranger25")*: Name identifier for the optimizer instance.
+* `learning_rate` *(float, default=1e-3)*: Base learning rate for parameter updates.
+* `betas` *(tuple of three floats, default=(0.9, 0.98, 0.9999))*:
+
+  * `beta1`: Decay rate for first‑moment EMA (momentum).
+  * `beta2`: Decay rate for second‑moment EMA (RMS scaling).
+  * `beta3`: Decay rate for the slow EMA used in AdEMAMix.
+* `epsilon` *(float or None, default=1e-8)*: Small constant added to denominators for numerical stability; if set to `None`, uses Adam‑atan2 style updates.
+* `weight_decay` *(float, default=1e-3)*: Coefficient for decoupled weight‑decay regularization (AdamW style).
+* `alpha` *(float, default=5.0)*: Magnitude for mixing coefficient in AdEMAMix (slow EMA contribution).
+* `t_alpha_beta3` *(int or None, default=None)*: Number of steps to warm up `alpha` and `beta3`. If `None`, no warmup scheduling is applied.
+* `lookahead_merge_time` *(int, default=5)*: Intended number of update steps between Lookahead merges; the blending logic uses `lookahead_blending_alpha` at merge points.
+* `lookahead_blending_alpha` *(float, default=0.5)*: Interpolation factor between fast weights and slow (shadow) weights at each Lookahead merge.
+* `cautious` *(bool, default=True)*: Enable Cautious updates—masks parameter updates whose sign conflicts with the raw gradient direction.
+* `stable_adamw` *(bool, default=True)*: Enable StableAdamW variant; rescales step size by measured gradient variance for numerical stability.
+* `orthograd` *(bool, default=True)*: Enable OrthoGrad, projecting gradients orthogonal to parameters before update.
+* `weight_decouple` *(bool, default=True)*: Apply weight decay in a decoupled fashion (AdamW) rather than via direct gradient modification.
+* `fixed_decay` *(bool, default=False)*: When `weight_decouple=True`, if `True`, applies a fixed weight‑decay independent of learning rate; otherwise scales decay by learning rate.
+* `subset_size` *(int, default=-1)*: Target subset size for subset‑based second‑moment estimation. If > 0, uses this fixed subset size; if ≤ 0 (default -1), dynamic subset size is computed per variable as roughly `sqrt(size) / abs(subset_size)` cast to int.
+* `sn` *(bool, default=True)*: Enable subset normalization. If `True`, uses subset-based second‑moment estimation; otherwise uses full‑tensor second‑moment.
+* `clipnorm` *(float or None)*: Global L2 norm clipping threshold for gradients (inherited from base Optimizer).
+* `clipvalue` *(float or None)*: Clip gradients by value (inherited).
+* `global_clipnorm` *(float or None)*: Alias for global norm clipping across all parameters.
+* `use_ema` *(bool, default=False)*: Maintain an exponential moving average of model weights for evaluation or checkpointing.
+* `ema_momentum` *(float, default=0.99)*: Decay rate for the weight EMA.
+* `ema_overwrite_frequency` *(int or None)*: Frequency (in steps) to overwrite model weights with EMA weights.
+* `loss_scale_factor` *(float or None)*: Static loss-scaling factor for mixed-precision training.
+* `gradient_accumulation_steps` *(int or None)*: Number of steps to accumulate gradients before applying an update.
+* `name` *(str, default="ranger25")*: Name identifier for the optimizer instance.
+* `**kwargs` passed to the base `Optimizer`.
 
 **Example Usage**:
 
@@ -5194,11 +5198,13 @@ optimizer = Ranger25(
     stable_adamw=True,
     orthograd=True,
     fixed_decay=False,
+    subset_size=-1,
+    sn=True,
     clipnorm=1.0,
     use_ema=True,
     ema_momentum=0.995,
     gradient_accumulation_steps=2,
-    name="ranger25_custom"
+    name="ranger25"
 )
 
 # Compile a Keras model
