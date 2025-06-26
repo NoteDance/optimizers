@@ -6322,3 +6322,297 @@ model.compile(
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=15)
 ```
+
+# Ranger_sn
+
+**Overview**:
+
+The `Ranger_sn` optimizer combines RAdam’s rectified adaptive moments with Lookahead and optional Subset Normalization (SN) and Gradient Centralization (GC). It maintains moving averages of gradients (`exp_avg`) and second moments (`exp_avg_sq`)—either per element or per subset when `sn=True`—applies a rectified step size when variance is sufficient, and periodically “looks ahead” by interpolating fast weights toward a slow weight buffer. GC can be applied to convolutional layers (and optionally fully connected layers) by centering gradients.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step size for updates.
+* **`beta1`** *(float, default=0.95)*: Decay rate for the first moment (`exp_avg`).
+* **`beta2`** *(float, default=0.999)*: Decay rate for the second moment (`exp_avg_sq`).
+* **`epsilon`** *(float, default=1e-5)*: Small constant for numerical stability in denominator.
+* **`weight_decay`** *(float, default=0)*: L2 regularization coefficient applied to parameters after the update.
+* **`alpha`** *(float, default=0.5)*: Lookahead interpolation factor—how much the slow buffer moves toward the fast weights every `k` steps.
+* **`k`** *(int, default=6)*: Number of steps between Lookahead “synchronization” events.
+* **`N_sma_threshhold`** *(int, default=5)*: Minimum value of the variance statistic (N\_sma) required to use the rectified update; otherwise uses unrectified update.
+* **`use_gc`** *(bool, default=True)*: Whether to apply Gradient Centralization.
+* **`gc_conv_only`** *(bool, default=False)*: If `True`, apply GC only to convolutional kernels (i.e., dims > 1); if `False`, apply GC to all multi-dimensional gradients.
+* **`subset_size`** *(int, default=-1)*: Desired subset length for Subset Normalization. If > 0, used directly; if ≤ 0, a divisor near sqrt(size) is computed.
+* **`sn`** *(bool, default=True)*: Whether to enable Subset Normalization—group-wise second-moment computation over subsets of gradients.
+* **`clipnorm`** *(float, optional)*: Clip each gradient tensor by its L2 norm before any update.
+* **`clipvalue`** *(float, optional)*: Clip gradient values element-wise to \[–clipvalue, clipvalue] before any update.
+* **`global_clipnorm`** *(float, optional)*: Clip the global norm of all gradients before any update.
+* **`use_ema`** *(bool, default=False)*: Maintain an Exponential Moving Average of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Steps between overwriting model weights with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Scaling factor for the loss in mixed-precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of micro-batches to accumulate before applying an update.
+* **`name`** *(str, default="ranger\_sn")*: Optional name prefix for optimizer variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.ranger_sn import Ranger_sn
+
+# 1. Instantiate Ranger_sn with subset normalization and GC on all layers
+optimizer = Ranger_sn(
+    learning_rate=1e-3,
+    beta1=0.95,
+    beta2=0.999,
+    epsilon=1e-5,
+    weight_decay=1e-4,
+    alpha=0.5,
+    k=6,
+    N_sma_threshhold=5,
+    use_gc=True,
+    gc_conv_only=False,
+    subset_size=256,
+    sn=True,
+    use_ema=True,
+    ema_momentum=0.99,
+    gradient_accumulation_steps=2
+)
+
+# 2. Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Conv2D(32, 3, activation='relu'),
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# 3. Compile with Ranger_sn
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# 4. Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+```
+
+# Ranger2020_sn
+
+**Overview**:
+
+The `Ranger_sn` optimizer integrates RAdam’s rectified adaptive moments with Lookahead, optional Subset Normalization (SN), and Gradient Centralization (GC). It maintains moving averages of gradients (`exp_avg`) and second moments (`exp_avg_sq`)—computed either per element or per user-defined subsets when `sn=True`. The optimizer applies a rectified step size when the variance statistic exceeds a threshold (`N_sma_threshhold`), and periodically “looks ahead” by interpolating fast weights toward a slow weight buffer every `k` steps. Gradient Centralization is applied either to convolutional layers only or to all multi-dimensional gradients, controlled by `use_gc`, `gc_conv_only`, and `gc_loc` flags.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step size for updates.
+* **`beta1`** *(float, default=0.95)*: Decay rate for the first moment estimates (`exp_avg`).
+* **`beta2`** *(float, default=0.999)*: Decay rate for the second moment estimates (`exp_avg_sq`).
+* **`epsilon`** *(float, default=1e-5)*: Small constant for numerical stability in denominator.
+* **`weight_decay`** *(float, default=0)*: L2 regularization coefficient applied to gradients after moment computation.
+* **`alpha`** *(float, default=0.5)*: Lookahead interpolation factor—how much the slow buffer moves toward the fast weights at each synchronization.
+* **`k`** *(int, default=6)*: Number of steps between Lookahead synchronization events.
+* **`N_sma_threshhold`** *(int, default=5)*: Minimum variance statistic (N\_sma) required to use the rectified adaptive step; below this threshold, uses unrectified update.
+* **`use_gc`** *(bool, default=True)*: Whether to apply Gradient Centralization.
+* **`gc_conv_only`** *(bool, default=False)*: If `True`, apply GC only to convolutional kernels (tensors with rank > 3); if `False`, apply GC to all tensors with rank > 1.
+* **`gc_loc`** *(bool, default=True)*: If `True`, apply GC to input gradients before moment updates; if `False`, apply GC to the computed update direction instead.
+* **`subset_size`** *(int, default=-1)*: Desired subset length for Subset Normalization. If > 0, used directly; if ≤ 0, a divisor near sqrt(tensor\_size) is computed.
+* **`sn`** *(bool, default=True)*: If `True`, enable Subset Normalization—group-wise second-moment computation over subsets of gradients; if `False`, falls back to element-wise squared gradients.
+* **`clipnorm`** *(float, optional)*: Clip each gradient tensor by its L2 norm before any update.
+* **`clipvalue`** *(float, optional)*: Clip gradient values element-wise to \[–clipvalue, clipvalue] before any update.
+* **`global_clipnorm`** *(float, optional)*: Clip the global norm of all gradients before any update.
+* **`use_ema`** *(bool, default=False)*: If `True`, maintain an Exponential Moving Average of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Steps between overwriting model weights with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Scaling factor for the loss in mixed-precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of micro-batches to accumulate before applying an update.
+* **`name`** *(str, default="ranger2020\_sn")*: Optional name prefix for optimizer variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.ranger2020_sn import Ranger_sn
+
+# Instantiate Ranger_sn with Subset Normalization and GC on convolution layers only
+optimizer = Ranger_sn(
+    learning_rate=1e-3,
+    beta1=0.95,
+    beta2=0.999,
+    epsilon=1e-5,
+    weight_decay=1e-4,
+    alpha=0.5,
+    k=6,
+    N_sma_threshhold=5,
+    use_gc=True,
+    gc_conv_only=True,
+    gc_loc=True,
+    subset_size=256,
+    sn=True,
+    use_ema=True,
+    ema_momentum=0.99,
+    gradient_accumulation_steps=2
+)
+
+# Build a simple convolutional model
+model = tf.keras.Sequential([
+    tf.keras.layers.Conv2D(32, 3, activation='relu'),
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Compile with Ranger_sn
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+```
+
+# RangerQH_sn
+
+**Overview**:
+
+The `RangerQH_sn` optimizer integrates the QHAdam (Quasi-Hyperbolic Adam) algorithm with Lookahead and optional Subset Normalization (SN). QHAdam uses two “nu” hyperparameters to mix instantaneous gradients and their moving averages before scaling by the root of mixed second moments. Lookahead periodically interpolates fast weights toward a slow weight buffer every `k` steps. When `sn=True`, second‐moment statistics are computed over subsets of each tensor to reduce per-element overhead.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step size for parameter updates.
+* **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment moving average in QHAdam.
+* **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment moving average in QHAdam.
+* **`epsilon`** *(float, default=1e-8)*: Small constant added to the denominator for numerical stability.
+* **`weight_decay`** *(float, default=0.0)*: L2 regularization coefficient. If `decouple_weight_decay=True`, decay is applied to parameters independently of gradients; otherwise it is added into the gradient before update.
+* **`nus`** *(tuple of two floats, default=(0.7, 1.0))*: QHAdam mixing coefficients `(nu1, nu2)` that weight the contribution of the moving averages vs. instant values for numerator and denominator.
+* **`k`** *(int, default=6)*: Number of steps between Lookahead synchronizations.
+* **`alpha`** *(float, default=0.5)*: Lookahead interpolation factor—fraction by which the slow buffer moves toward fast weights at each synchronization.
+* **`decouple_weight_decay`** *(bool, default=False)*: If `True`, applies decoupled weight decay; otherwise includes weight decay in the gradient.
+* **`subset_size`** *(int, default=-1)*: Desired subset length for Subset Normalization. If > 0, used directly; if ≤ 0, a divisor near √(tensor\_size) is computed.
+* **`sn`** *(bool, default=True)*: Whether to enable Subset Normalization—compute second moments over subsets of elements; if `False`, uses per‐element squared gradients.
+* **`clipnorm`** *(float, optional)*: Clip each gradient tensor by its L2 norm before any computation.
+* **`clipvalue`** *(float, optional)*: Clip gradient values element‐wise to \[–clipvalue, clipvalue] before any computation.
+* **`global_clipnorm`** *(float, optional)*: Clip the global norm of all gradients before any computation.
+* **`use_ema`** *(bool, default=False)*: Maintain an Exponential Moving Average of model weights alongside updates.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum factor for updating EMA weights when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Steps between overwriting model weights with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss in mixed‐precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of micro‐batches to accumulate before applying an update.
+* **`name`** *(str, default="rangerqh\_sn")*: Optional name prefix for optimizer variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.rangerqh_sn import RangerQH_sn
+
+# Instantiate RangerQH_sn with QHAdam, Lookahead, and subset normalization
+optimizer = RangerQH_sn(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-8,
+    weight_decay=1e-4,
+    nus=(0.7, 1.0),
+    k=6,
+    alpha=0.5,
+    decouple_weight_decay=True,
+    subset_size=256,
+    sn=True,
+    use_ema=True,
+    ema_momentum=0.99,
+    gradient_accumulation_steps=2
+)
+
+# Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(512, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Compile with RangerQH_sn
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+```
+
+# RangerVA_sn
+
+**Overview**:
+
+The `RangerVA_sn` optimizer extends RAdam with Variance-Aware transformation, adaptive moment rectification (AMSGrad), Lookahead, and optional Subset Normalization (SN). It supports alternative gradient transformers (e.g., square or absolute), smooths the denominator via a customizable activation (e.g., Softplus), and maintains both exponential moving averages of gradients and second moments (with an AMS bound). Lookahead synchronizes fast and slow weights every `k` steps. When `sn=True`, second‐moment statistics are computed over subsets of each tensor to reduce per‐element overhead.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step size for parameter updates.
+* **`beta1`** *(float, default=0.95)*: Decay rate for the first moment moving average.
+* **`beta2`** *(float, default=0.999)*: Decay rate for the second moment moving average.
+* **`epsilon`** *(float, default=1e-5)*: Small constant added to denominators for numerical stability.
+* **`weight_decay`** *(float, default=0)*: L2 regularization coefficient applied to model weights.
+* **`alpha`** *(float, default=0.5)*: Lookahead interpolation factor—fraction by which the slow buffer moves toward fast weights at each synchronization.
+* **`k`** *(int, default=6)*: Number of steps between Lookahead synchronization events.
+* **`n_sma_threshhold`** *(int, default=5)*: Minimum value of the variance statistic (N\_sma) to apply the rectified update; below this threshold, falls back to unrectified update.
+* **`amsgrad`** *(bool, default=True)*: If `True`, maintains the maximum of all second-moment estimates for a stable denominator.
+* **`transformer`** *(str, default="softplus")*: Type of activation to smooth the denominator; `"softplus"` applies a Softplus transform, otherwise falls back to sqrt.
+* **`smooth`** *(float, default=50)*: Smoothness parameter (beta) or threshold for the Softplus transformer when `transformer="softplus"`.
+* **`grad_transformer`** *(str, default="square")*: How to transform raw gradients for second-moment updates; options are `"square"` (gradient²) or `"abs"` (|gradient|).
+* **`subset_size`** *(int, default=-1)*: Desired subset length for Subset Normalization. If > 0, used directly; if ≤ 0, computes a divisor near √(tensor\_size).
+* **`sn`** *(bool, default=True)*: Whether to enable Subset Normalization—compute second moments over subsets rather than per-element.
+* **`clipnorm`** *(float, optional)*: Clip each gradient tensor by its L2 norm before updates.
+* **`clipvalue`** *(float, optional)*: Clip gradient values element-wise to \[–clipvalue, clipvalue] before updates.
+* **`global_clipnorm`** *(float, optional)*: Clip the global norm of all gradients before updates.
+* **`use_ema`** *(bool, default=False)*: If `True`, maintain an Exponential Moving Average of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum factor for updating EMA weights when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Steps between overwriting model weights with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss in mixed‐precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of micro‐batches to accumulate before applying an update.
+* **`name`** *(str, default="rangerva\_sn")*: Optional name prefix for optimizer variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.rangerva_sn import RangerVA_sn
+
+# Instantiate RangerVA_sn with Softplus smoothing and square-gradient transformer
+optimizer = RangerVA_sn(
+    learning_rate=1e-3,
+    beta1=0.95,
+    beta2=0.999,
+    epsilon=1e-5,
+    weight_decay=1e-4,
+    alpha=0.5,
+    k=6,
+    n_sma_threshhold=5,
+    amsgrad=True,
+    transformer='softplus',
+    smooth=50,
+    grad_transformer='square',
+    subset_size=256,
+    sn=True,
+    use_ema=True,
+    ema_momentum=0.99,
+    gradient_accumulation_steps=2
+)
+
+# Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(512, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Compile with RangerVA_sn
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+```
