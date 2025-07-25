@@ -6654,7 +6654,7 @@ The `AdaMuon` optimizer blends Nesterov‐accelerated adaptive moment estimation
 
 ```python
 import tensorflow as tf
-from optimizers.adamuon import AdaMuon
+from optimizers.muon import AdaMuon
 
 # Define model parameters
 model = tf.keras.Sequential([
