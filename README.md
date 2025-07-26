@@ -6695,3 +6695,166 @@ model.compile(
 
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# Muon_sn
+
+**Overview**:
+
+The `Muon_sn` optimizer applies a two‐phase update:
+
+1. **Muon Updates** for tensors of rank ≥ 2 (“muon” group): uses Nesterov momentum and Newton–Schulz “zero‐power” normalization over micro‐batches distributed across devices. Per‐tensor learning rates can be adjusted by shape.
+2. **AdamW‑style Updates** for remaining parameters: standard Adam with decoupled weight decay and optional Subset Normalization (SN) of second moments.
+
+This hybrid approach accelerates large‐matrix parameters with normalized momentum while retaining robust AdamW behavior on biases and other vectors.
+
+**Parameters**:
+
+* **`params`** *(list of `tf.Variable`)*: Primary parameters to receive Muon updates; any `adamw_params` are appended and handled by AdamW.
+* **`learning_rate`** *(float, default=2e-2)*: Base learning rate for Muon updates.
+* **`beta1`** *(float, default=0.9)*: Momentum decay factor for Muon updates.
+* **`beta2`** *(float, default=0.95)*: Second‐moment decay for Muon zero‐power normalization.
+* **`weight_decay`** *(float, default=1e-2)*: L2 regularization coefficient for Muon updates (decoupled if `weight_decouple=True`).
+* **`momentum`** *(float, default=0.95)*: Nesterov momentum factor.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, applies decoupled weight decay to Muon parameters; otherwise adds to gradient.
+* **`nesterov`** *(bool, default=True)*: Enables Nesterov‐style lookahead in momentum accumulation.
+* **`ns_steps`** *(int, default=5)*: Newton–Schulz iterations for zero‐power gradient normalization.
+* **`use_adjusted_lr`** *(bool, default=False)*: If `True`, scales per‐tensor learning rates by √(max(dim0,dim1)) factor; otherwise uses uniform `learning_rate`.
+* **`adamw_params`** *(list of `tf.Variable` or `None`, default=None)*: Secondary parameter list for AdamW updates.
+* **`adamw_lr`** *(float, default=3e-4)*: Learning rate for AdamW updates on `adamw_params`.
+* **`adamw_wd`** *(float, default=0.0)*: Weight‐decay coefficient for AdamW updates.
+* **`adamw_eps`** *(float, default=1e-8)*: Epsilon for numerical stability in AdamW denominator.
+* **`sn`** *(bool, default=True)*: If `True`, compute second moments over subsets (Subset Normalization) for AdamW group.
+* **`clipnorm`** *(float, optional)*: Clip each gradient tensor by its L2 norm before updates.
+* **`clipvalue`** *(float, optional)*: Clip each gradient tensor by element‐wise bounds before updates.
+* **`global_clipnorm`** *(float, optional)*: Clip the global norm of all gradients before updates.
+* **`use_ema`** *(bool, default=False)*: Maintain an Exponential Moving Average of all model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum factor for EMA updates when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Steps between overwriting model weights with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Scaling factor for mixed‐precision loss.
+* **`gradient_accumulation_steps`** *(int, optional)*: Micro‐batches to accumulate before applying an update.
+* **`name`** *(str, default="muon\_sn")*: Name prefix for optimizer variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.muon import Muon_sn
+
+# 1. Define model and parameters
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(512, activation='relu'),
+    tf.keras.layers.Dense(10)
+])
+params = model.trainable_variables
+
+# 2. Instantiate Muon_sn optimizer
+optimizer = Muon_sn(
+    params=params,
+    learning_rate=1e-2,
+    beta1=0.9,
+    beta2=0.95,
+    weight_decay=1e-2,
+    momentum=0.95,
+    nesterov=True,
+    ns_steps=5,
+    use_adjusted_lr=True,
+    adamw_params=None,
+    adamw_lr=3e-4,
+    adamw_wd=1e-3,
+    adamw_eps=1e-8,
+    sn=True,
+    clipnorm=1.0,
+    use_ema=True,
+    ema_momentum=0.99,
+    gradient_accumulation_steps=4
+)
+
+# 3. Compile model
+model.compile(
+    optimizer=optimizer,
+    loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+    metrics=['accuracy']
+)
+
+# 4. Train
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# AdaMuon_sn
+
+**Overview**:
+
+The `AdaMuon_sn` optimizer extends `AdaMuon` by adding optional Subset Normalization (SN) for the AdamW‐style secondary group. It applies Muon’s zero‐power Newton–Schulz normalization and Nesterov momentum to matrix‐shaped parameters, while vector parameters are updated via decoupled AdamW with optional SN over subsets. Per‐tensor learning rates can be adjusted based on shape, and updates are distributed across devices when using `tf.distribute`.
+
+**Parameters**:
+
+* **`params`** *(list of `tf.Variable`)*: Primary parameters to receive Muon updates; any `adamw_params` are appended for AdamW updates.
+* **`learning_rate`** *(float, default=1e-3)*: Base learning rate for Muon updates.
+* **`beta1`** *(float, default=0.9)*: Momentum decay for Muon updates and first‐moment in AdamW.
+* **`beta2`** *(float, default=0.999)*: Second‐moment decay for both Muon zero‐power normalization and AdamW.
+* **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability in denominators.
+* **`weight_decay`** *(float, default=1e-2)*: L2 regularization coefficient for Muon updates (decoupled).
+* **`weight_decouple`** *(bool, default=True)*: If `True`, apply decoupled weight decay to Muon parameters; otherwise include in gradient.
+* **`nesterov`** *(bool, default=True)*: Enables Nesterov‐style lookahead in Muon momentum accumulation.
+* **`ns_steps`** *(int, default=5)*: Newton–Schulz iterations for zero‐power gradient normalization.
+* **`use_adjusted_lr`** *(bool, default=False)*: If `True`, per‐tensor learning rates are scaled by a factor based on tensor shape; otherwise uniform.
+* **`adamw_params`** *(list of `tf.Variable` or `None`, default=None)*: Secondary parameters for AdamW updates.
+* **`adamw_betas`** *(tuple of two floats, default=(0.9, 0.999))*: `(beta1, beta2)` for AdamW moving averages.
+* **`adamw_lr`** *(float, default=3e-4)*: Learning rate for AdamW updates on `adamw_params`.
+* **`adamw_wd`** *(float, default=0.0)*: Weight‐decay coefficient for AdamW.
+* **`sn`** *(bool, default=True)*: If `True`, compute second moments over subsets (Subset Normalization) for AdamW group.
+* **`clipnorm`** *(float, optional)*: Clip each gradient tensor by its L2 norm.
+* **`clipvalue`** *(float, optional)*: Clip gradient entries to \[–clipvalue, clipvalue].
+* **`global_clipnorm`** *(float, optional)*: Clip the global norm of all gradients.
+* **`use_ema`** *(bool, default=False)*: Maintain an Exponential Moving Average of all model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Steps between overwriting model weights with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss in mixed‐precision.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of micro‐batches to accumulate before an update.
+* **`name`** *(str, default="adamuon\_sn")*: Name prefix for optimizer variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.muon import AdaMuon_sn
+
+# 1. Define model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(512, activation='relu'),
+    tf.keras.layers.Dense(10)
+])
+params = model.trainable_variables
+
+# 2. Instantiate AdaMuon_sn with a small AdamW group and SN
+optimizer = AdaMuon_sn(
+    params=params,
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    nesterov=True,
+    ns_steps=5,
+    use_adjusted_lr=True,
+    adamw_params=None,           # no separate AdamW group
+    adamw_betas=(0.9, 0.999),
+    adamw_lr=3e-4,
+    adamw_wd=1e-3,
+    sn=True,
+    clipnorm=1.0,
+    use_ema=True,
+    ema_momentum=0.99,
+    gradient_accumulation_steps=4
+)
+
+# 3. Compile
+model.compile(
+    optimizer=optimizer,
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# 4. Train
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
