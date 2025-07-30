@@ -3352,53 +3352,77 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 
 **Overview**:
 
-The `Muon` optimizer is a novel optimization algorithm designed for deep learning, leveraging Newton-Schulz iterations for orthogonalization and integrating momentum-based updates with adaptive learning rate strategies. It supports weight decay, Nesterov momentum, and an optional AdamW-based update step for enhanced performance and stability in training deep neural networks.
+The `Muon` optimizer applies a hybrid update strategy:
+
+1. **Muon Updates** for matrix‐shaped parameters (rank ≥ 2): uses Nesterov momentum combined with Newton–Schulz “zero‐power” normalization over micro‑batches distributed across devices, optionally scaling per‑tensor learning rates by shape.
+2. **AdamW‑style Updates** for the remaining parameters: standard Adam with decoupled weight decay and bias‐corrected moments plus an epsilon floor.
+
+This design accelerates large weight matrices with normalized momentum while retaining AdamW’s robustness on biases and vectors.
 
 **Parameters**:
 
-- **`learning_rate`** *(float, default=2e-2)*: The primary learning rate used for updates.
-- **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimate.
-- **`beta2`** *(float, default=0.95)*: Exponential decay rate for the second moment estimate.
-- **`weight_decay`** *(float, default=1e-2)*: Weight decay coefficient for regularization.
-- **`momentum`** *(float, default=0.95)*: Momentum factor for gradient updates.
-- **`weight_decouple`** *(bool, default=True)*: Whether to use decoupled weight decay as in AdamW.
-- **`nesterov`** *(bool, default=True)*: Whether to apply Nesterov momentum.
-- **`ns_steps`** *(int, default=5)*: Number of Newton-Schulz iterations for orthogonalization.
-- **`use_adjusted_lr`** *(bool, default=False)*: Whether to adjust the learning rate dynamically based on parameter shape.
-- **`adamw_params`** *(list, optional)*: Parameters for AdamW-based updates.
-- **`adamw_lr`** *(float, default=3e-4)*: Learning rate for the AdamW update step.
-- **`adamw_wd`** *(float, default=0.0)*: Weight decay for AdamW.
-- **`adamw_eps`** *(float, default=1e-8)*: Small constant for numerical stability in AdamW.
-- **`clipnorm`** *(float, optional)*: Clips gradients by norm.
-- **`clipvalue`** *(float, optional)*: Clips gradients by value.
-- **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
-- **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
-- **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
-- **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
-- **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
-- **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients.
-- **`name`** *(str, default="muon")*: Name of the optimizer.
-
----
+* **`params`** *(list of `tf.Variable`)*: Primary parameters for Muon updates; any `adamw_params` are appended for AdamW updates.
+* **`learning_rate`** *(float, default=2e-2)*: Base learning rate for Muon group.
+* **`beta1`** *(float, default=0.9)*: Decay rate for momentum in both Muon and AdamW groups.
+* **`beta2`** *(float, default=0.95)*: Decay rate for second‐moment in Muon normalization and AdamW.
+* **`weight_decay`** *(float, default=1e-2)*: L2 regularization coefficient for Muon updates (decoupled if `weight_decouple=True`).
+* **`momentum`** *(float, default=0.95)*: Nesterov momentum factor for Muon updates.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, apply decoupled weight decay to Muon parameters; otherwise include in gradient.
+* **`nesterov`** *(bool, default=True)*: Applies Nesterov lookahead in momentum.
+* **`ns_steps`** *(int, default=5)*: Number of Newton–Schulz iterations for zero‐power gradient normalization.
+* **`use_adjusted_lr`** *(bool, default=False)*: If `True`, scales Muon learning rates by 0.2 × √(max(dim0,dim1)); otherwise uses uniform `learning_rate`.
+* **`adamw_params`** *(list of `tf.Variable` or `None`, default=None)*: Secondary parameters for AdamW updates.
+* **`adamw_lr`** *(float, default=3e-4)*: Learning rate for AdamW updates on `adamw_params`.
+* **`adamw_wd`** *(float, default=0.0)*: Weight‐decay coefficient for AdamW.
+* **`adamw_eps`** *(float, default=1e-8)*: Epsilon for AdamW denominator stability.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional floats)*: Gradient clipping thresholds.
+* **`use_ema`**, **`ema_momentum`**, **`ema_overwrite_frequency`** *(optional)*: EMA of weights settings.
+* **`loss_scale_factor`**, **`gradient_accumulation_steps`** *(optional)*: Mixed‑precision loss scaling and accumulation.
+* **`name`** *(str, default="muon")*: Name prefix for optimizer variables.
 
 **Example Usage**:
+
 ```python
 import tensorflow as tf
 from optimizers.muon import Muon
 
-# Instantiate optimizer
+# 1. Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(512, activation='relu'),
+    tf.keras.layers.Dense(10)
+])
+params = model.trainable_variables
+
+# 2. Instantiate Muon optimizer
 optimizer = Muon(
+    params=params,
     learning_rate=2e-2,
+    beta1=0.9,
+    beta2=0.95,
     weight_decay=1e-2,
     momentum=0.95,
+    weight_decouple=True,
     nesterov=True,
-    ns_steps=5
+    ns_steps=5,
+    use_adjusted_lr=True,
+    adamw_params=None,
+    adamw_lr=3e-4,
+    adamw_wd=1e-3,
+    adamw_eps=1e-8,
+    clipnorm=1.0,
+    use_ema=True,
+    ema_momentum=0.99,
+    gradient_accumulation_steps=4
 )
 
-# Compile a model
-model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+# 3. Compile model
+model.compile(
+    optimizer=optimizer,
+    loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+    metrics=['accuracy']
+)
 
-# Train the model
+# 4. Train
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
 
@@ -5374,7 +5398,7 @@ The A2Grad optimizer implements the “Adaptive Accelerated Stochastic Gradient�
 -  **`rho`** *(float, default=0.5)*: Smoothing factor for the exponential‑moving‑average variant. Only used when `variant='exp'`.
 -  **`variant`** *(str, default='uni')*: Choice of moving‑average scheme for the squared “innovation” term:
 -  **`clipnorm`** *(float or None)*: If set, each tensor’s gradient is clipped by its own L₂ norm before scaling.
--  **`clipvalue`** *(float or None)*: If set, each tensor’s gradient values are individually clipped to \[–clipvalue, clipvalue].
+-  **`clipvalue`** *(float or None)*: If set, each tensor’s gradient values are individually clipped to \[–clipvalue, clipvalue].
 -  **`global_clipnorm`** *(float or None)*: If set, all gradients are jointly clipped by their global norm.
 -  **`use_ema`** *(bool, default=False)*: Maintain an exponential moving average of model weights for evaluation or stability.
 -  **`ema_momentum`** *(float, default=0.99)*: Decay rate for the weight EMA when `use_ema=True`.
@@ -5428,7 +5452,7 @@ The `AdamG` optimizer is a generalized extension of the Adam family that introdu
 **Parameters**:
 
 -  **`learning_rate`** *(float, default=1.0)*: Base step size for parameter updates.
--  **`betas`** *(tuple of three floats, default=(0.95, 0.999, 0.95))*: Exponential decay rates for the first, second, and third moment estimates, respectively.
+-  **`betas`** *(tuple of three floats, default=(0.95, 0.999, 0.95))*: Exponential decay rates for the first, second, and third moment estimates, respectively.
 -  **`epsilon`** *(float, default=1e-8)*: Small constant added for numerical stability in denominator.
 -  **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 weight decay. Applied either in a decoupled fashion or directly to the gradient.
 -  **`p`** *(float, default=0.2)*: Scaling factor in the numerator function $f(x) = p \, x^q$.
@@ -5491,7 +5515,7 @@ The `AdaMax` optimizer is a variant of Adam based on the infinity norm (max‐no
 **Parameters**:
 
 * **`learning_rate`** *(float, default=1e-3)*: Base step size for parameter updates. ([PyTorch][2])
-* **`betas`** *(tuple of two floats, default=(0.9, 0.999))*: Exponential decay rates for the first‐moment (mean) and the infinity‐norm estimates, respectively. ([arXiv][1])
+* **`betas`** *(tuple of two floats, default=(0.9, 0.999))*: Exponential decay rates for the first‐moment (mean) and the infinity‐norm estimates, respectively. ([arXiv][1])
 * **`epsilon`** *(float, default=1e-8)*: Small constant added to the denominator for numerical stability. ([PyTorch][2])
 * **`weight_decay`** *(float, default=0.0)*: L2 penalty coefficient; applied either by modifying gradients or via decoupled weight‐scale.
 * **`r`** *(float, default=0.95)*: Smoothing constant for the optional adaptive gradient‐norm scaling (`adanorm`).
