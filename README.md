@@ -6858,3 +6858,74 @@ model.compile(
 # 4. Train
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# SPlus
+
+**Overview**:
+
+The `SPlus` optimizer is a Stable Whitening method that adapts updates by re‐whitening activations for efficient neural network training. It maintains momentum of gradients and an exponential moving average (EMA) of parameters. For 2D tensors (e.g., weight matrices), it tracks per‑dimension covariance (`sides`) and their eigenbases (`q_sides`), allowing sign‑based updates along principal directions. It supports decoupled or standard weight decay, optional maximization, and switching between training and evaluation modes via EMA.
+
+**Parameters**:
+
+* **`params`** *(iterable of `tf.Variable`)*: Parameters to optimize.
+* **`learning_rate`** *(float, default=1e-1)*: Base step size for updates.
+* **`betas`** *(tuple of two floats, default=(0.9, 0.999))*: `(beta1, beta2)` decay rates for the momentum (`m`) and EMA of parameters.
+* **`epsilon`** *(float, default=1e-30)*: Small constant added for numerical stability.
+* **`weight_decay`** *(float, default=1e-2)*: L2 regularization coefficient.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, applies decoupled weight decay (`param *= 1 – wd * lr`); otherwise adds `param * wd` to the gradient.
+* **`fixed_decay`** *(bool, default=False)*: When decoupled, if `True` uses a fixed decay factor independent of learning rate.
+* **`ema_rate`** *(float, default=0.999)*: Decay rate for the EMA of parameters.
+* **`inverse_steps`** *(int, default=100)*: Number of steps between eigendecomposition of `sides` to update `q_sides`.
+* **`nonstandard_constant`** *(float, default=1e-3)*: Scale factor for learning rate on non‑2D tensors or large dimensions.
+* **`max_dim`** *(int, default=10000)*: Maximum dimension size for which whitening is applied; larger dims are skipped.
+* **`maximize`** *(bool, default=False)*: If `True`, performs gradient ascent rather than descent.
+* **`train_mode`** *(bool, default=True)*: If `False`, uses EMA values for parameters (evaluation mode).
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional floats)*: Gradient clipping thresholds.
+* **`use_ema`**, **`ema_momentum`**, **`ema_overwrite_frequency`** *(optional)*: EMA of weights settings.
+* **`loss_scale_factor`**, **`gradient_accumulation_steps`** *(optional)*: Mixed‑precision scaling and accumulation.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.splus import SPlus
+
+# 1. Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(256, activation='relu'),
+    tf.keras.layers.Dense(10)
+])
+params = model.trainable_variables
+
+# 2. Instantiate SPlus optimizer
+optimizer = SPlus(
+    params=params,
+    learning_rate=0.1,
+    betas=(0.9, 0.999),
+    epsilon=1e-30,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    fixed_decay=False,
+    ema_rate=0.999,
+    inverse_steps=100,
+    nonstandard_constant=1e-3,
+    max_dim=10000,
+    maximize=False,
+    train_mode=True
+)
+
+# 3. Compile model
+model.compile(
+    optimizer=optimizer,
+    loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+    metrics=['accuracy']
+)
+
+# 4. Train
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+
+# 5. Switch to evaluation mode (using EMA weights)
+optimizer.eval()
+# ... run validation/inference ...
+optimizer.train()  # switch back to training
+```
