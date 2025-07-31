@@ -6953,3 +6953,158 @@ optimizer.eval()
 # ... run validation/inference ...
 optimizer.train()  # switch back to training
 ```
+
+# EmoNavi
+
+**Overview**:
+
+The `EmoNavi` optimizer is an emotion-driven variant of AdamW that dynamically interpolates model parameters toward a “shadow” copy based on the network’s recent loss behavior. It maintains a short- and long-term EMA of the loss to compute an emotional scalar, which governs occasional “mood-based” look-ahead steps. Standard AdamW updates follow for every step.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step size for parameter updates.
+* **`betas`** *(tuple of two floats, default=(0.9, 0.999))*: (`beta1`, `beta2`) decay rates for first and second moment estimates.
+* **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability in denominator.
+* **`weight_decay`** *(float, default=1e-2)*: L2 penalty coefficient.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, applies decoupled weight decay (AdamW style); otherwise adds `param*wd` to gradient.
+* **`fixed_decay`** *(bool, default=False)*: When decoupled, if `True` uses a fixed decay factor rather than scaling by `lr`.
+* **`shadow_weight`** *(float, default=0.05)*: Interpolation rate for shadow parameter updates when emotion triggers.
+* **`maximize`** *(bool, default=False)*: If `True`, performs gradient ascent rather than descent.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional floats)*: Gradient clipping thresholds by norm or value.
+* **`use_ema`**, **`ema_momentum`**, **`ema_overwrite_frequency`** *(optional)*: EMA settings for optimizer state (not to be confused with loss EMAs).
+* **`loss_scale_factor`**, **`gradient_accumulation_steps`** *(optional)*: Mixed-precision and accumulation.
+* **`name`** *(str, default="emonavi")*: Name prefix for optimizer variables.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.emonavi import EmoNavi
+
+# 1) Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(128, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10)
+])
+
+# 2) Instantiate EmoNavi optimizer
+optimizer = EmoNavi(
+    learning_rate=1e-3,
+    betas=(0.9, 0.999),
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    fixed_decay=False,
+    shadow_weight=0.05,
+    maximize=False,
+    clipnorm=1.0
+)
+
+# 3) Prepare loss function and metrics
+loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+train_acc = tf.keras.metrics.SparseCategoricalAccuracy()
+val_acc   = tf.keras.metrics.SparseCategoricalAccuracy()
+
+# 4) Custom training loop
+epochs = 5
+for epoch in range(epochs):
+    # -- Training --
+    train_acc.reset_states()
+    for x_batch, y_batch in train_ds:
+        with tf.GradientTape() as tape:
+            logits = model(x_batch, training=True)
+            loss = loss_fn(y_batch, logits)
+        grads = tape.gradient(loss, model.trainable_variables)
+        # optimizer.apply_gradients expects (grads_and_vars, loss)
+        grads_and_vars = zip(grads, model.trainable_variables)
+        optimizer.apply_gradients(grads_and_vars, loss)
+        train_acc.update_state(y_batch, logits)
+
+    # -- Validation --
+    val_acc.reset_states()
+    for x_batch, y_batch in val_ds:
+        logits = model(x_batch, training=False)
+        val_acc.update_state(y_batch, logits)
+
+    print(
+        f"Epoch {epoch+1}/{epochs} — "
+        f"train_acc={train_acc.result():.4f}, val_acc={val_acc.result():.4f}"
+    )
+```
+
+# EmoNavi_sn
+
+**Overview**:
+
+`EmoNavi_sn` augments `EmoNavi` with Subset Normalization (SN) on the second moment in AdamW steps. It shares the same emotion-driven shadow interpolation logic but, for each gradient, computes its variance over fixed-size subsets, which can improve stability on large vector parameters. Mood-triggered shadow updates and SN-powered AdamW follow each mini-batch.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step size.
+* **`betas`** *(tuple of two floats, default=(0.9, 0.999))*: Decay rates for moment estimates.
+* **`epsilon`** *(float, default=1e-8)*: Numerical stability constant.
+* **`weight_decay`** *(float, default=1e-2)*: L2 penalty coefficient.
+* **`weight_decouple`** *(bool, default=True)*: Use AdamW’s decoupled weight decay.
+* **`fixed_decay`** *(bool, default=False)*: Use fixed rather than `lr`-scaled decay when decoupled.
+* **`shadow_weight`** *(float, default=0.05)*: Shadow interpolation rate on emotional triggers.
+* **`sn`** *(bool, default=True)*: If `True`, applies Subset Normalization on the squared gradients for the second‐moment buffer.
+* **`maximize`** *(bool, default=False)*: If `True`, maximizes the loss.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional floats)*: Gradient clipping settings.
+* **`use_ema`**, **`ema_momentum`**, **`ema_overwrite_frequency`** *(optional)*: EMA usage for optimizer.
+* **`loss_scale_factor`**, **`gradient_accumulation_steps`** *(optional)*: Mixed precision and accumulation.
+* **`name`** *(str, default="emonavi\_sn")*: Optimizer name prefix.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.emonavi import EmoNavi_sn
+
+# 1) Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(256, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10)
+])
+
+# 2) Instantiate EmoNavi_sn optimizer
+optimizer = EmoNavi_sn(
+    learning_rate=1e-3,
+    betas=(0.9, 0.999),
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    fixed_decay=False,
+    shadow_weight=0.1,
+    sn=True,                 # enable Subset Normalization
+    maximize=False,
+    clipvalue=0.5
+)
+
+# 3) Prepare loss function and metrics
+loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+train_acc = tf.keras.metrics.SparseCategoricalAccuracy()
+val_acc   = tf.keras.metrics.SparseCategoricalAccuracy()
+
+# 4) Custom training loop
+epochs = 8
+for epoch in range(epochs):
+    train_acc.reset_states()
+    for x_batch, y_batch in train_ds:
+        with tf.GradientTape() as tape:
+            logits = model(x_batch, training=True)
+            loss = loss_fn(y_batch, logits)
+        grads = tape.gradient(loss, model.trainable_variables)
+        grads_and_vars = zip(grads, model.trainable_variables)
+        optimizer.apply_gradients(grads_and_vars, loss)
+        train_acc.update_state(y_batch, logits)
+
+    val_acc.reset_states()
+    for x_batch, y_batch in val_ds:
+        logits = model(x_batch, training=False)
+        val_acc.update_state(y_batch, logits)
+
+    print(
+        f"Epoch {epoch+1}/{epochs} — "
+        f"train_acc={train_acc.result():.4f}, val_acc={val_acc.result():.4f}"
+    )
+```
