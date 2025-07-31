@@ -105,6 +105,7 @@ class Ranger_sn(optimizer.Optimizer):
         self.exp_avg = []
         self.exp_avg_sq = []
         self.slow_buffer = []
+        self.subset_size_ = []
         for var in var_list:
             var_fp32 = tf.Variable(tf.cast(var, 'float32'))
             self.exp_avg.append(
@@ -191,6 +192,7 @@ class Ranger_sn(optimizer.Optimizer):
             ) / (1 - self.beta1 ** step)
             
             if self.sn:
+                exp_avg.assign(exp_avg * self.beta1 + gradient * (1.0 - self.beta1))
                 numerator = tf.reshape(exp_avg, (size // self.subset_size_[self._get_variable_index(variable)], self.subset_size_[self._get_variable_index(variable)]))
                 normed_grad = tf.reshape((numerator / denom), variable.shape)
                 update = lr * step_size * normed_grad
