@@ -7108,3 +7108,232 @@ for epoch in range(epochs):
         f"train_acc={train_acc.result():.4f}, val_acc={val_acc.result():.4f}"
     )
 ```
+
+# EmoLynx
+
+**Overview**:
+
+The `EmoLynx` optimizer combines the lightweight “sign-based” update of Lion/Tiger with the emotion-driven shadow mechanism of EmoNavi.  In each step it first softly interpolates parameters toward a “shadow” copy based on the network’s recent “emotional” loss history, then applies a sign-based gradient update blended with a running average.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step size for parameter updates.
+* **`betas`** *(tuple of two floats, default=(0.9, 0.99))*:
+
+  * First element is the interpolation coefficient for the blended gradient (`β₁`).
+  * Second element is the EMA coefficient for the running average of past gradients (`β₂`).
+* **`epsilon`** *(float, default=1e-8)*: Small constant added for numerical stability.
+* **`weight_decay`** *(float, default=1e-2)*: L2 penalty coefficient.
+* **`weight_decouple`** *(bool, default=True)*: Whether to apply weight decay in a decoupled manner (as in AdamW).
+* **`fixed_decay`** *(bool, default=False)*: If true, use a fixed decay factor independent of the learning rate.
+* **`shadow_weight`** *(float, default=0.05)*: Interpolation rate between parameters and their “shadow” copy during an “emotion” step.
+* **`maximize`** *(bool, default=False)*: If true, gradients are negated to maximize rather than minimize.
+* **`clipnorm`** *(float, optional)*: If set, clip all gradients to have norm ≤ this value.
+* **`clipvalue`** *(float, optional)*: If set, clip each gradient element to the range \[–clipvalue, clipvalue].
+* **`global_clipnorm`** *(float, optional)*: If set, clip all gradients by the global norm.
+* **`use_ema`** *(bool, default=False)*: Whether to maintain an exponential moving average of parameters for evaluation.
+* **`ema_momentum`** *(float, default=0.99)*: Decay rate for the parameter EMA.
+* **`ema_overwrite_frequency`** *(int, optional)*: How often (in steps) to overwrite the EMA weights with the current weights.
+* **`loss_scale_factor`** *(float, optional)*: Static factor by which to scale the loss during backprop.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of batches to accumulate gradients over before applying an update.
+* **`name`** *(str, default="emolynx")*: Optional name for the optimizer instance.
+
+---
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.emonavi import EmoLynx
+
+# Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(128, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10)
+])
+
+# Instantiate EmoLynx optimizer
+optimizer = EmoLynx(
+    learning_rate=1e-3,
+    betas=(0.9, 0.99),
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    fixed_decay=False,
+    shadow_weight=0.05,
+    maximize=False,
+    clipnorm=1.0
+)
+
+# Prepare loss and metrics
+loss_fn  = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+train_acc = tf.keras.metrics.SparseCategoricalAccuracy()
+val_acc   = tf.keras.metrics.SparseCategoricalAccuracy()
+
+# Custom training loop
+for epoch in range(5):
+    train_acc.reset_states()
+    for x_batch, y_batch in train_dataset:
+        with tf.GradientTape() as tape:
+            logits = model(x_batch, training=True)
+            loss   = loss_fn(y_batch, logits)
+        grads = tape.gradient(loss, model.trainable_variables)
+        # Pass (grads, vars) plus the current loss to trigger the emotion-driven update
+        optimizer.apply_gradients(zip(grads, model.trainable_variables), loss)
+        train_acc.update_state(y_batch, logits)
+
+    val_acc.reset_states()
+    for x_batch, y_batch in val_dataset:
+        logits = model(x_batch, training=False)
+        val_acc.update_state(y_batch, logits)
+
+    print(f"Epoch {epoch+1}, "
+          f"Train Acc: {train_acc.result():.4f}, "
+          f"Val Acc:   {val_acc.result():.4f}")
+```
+
+# EmoFact
+
+**Overview**:
+
+The `EmoFact` optimizer adapts the memory efficiency of AdaFactor’s factored second-moment estimates into an emotion-driven framework.  It maintains row- and column-factorized running variances, applies an EmoNavi-style shadow interpolation based on the network’s loss “emotion,” and then rescales gradients by the factored RMS.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step size for updates.
+* **`betas`** *(tuple of two floats, default=(0.9, 0.999))*: EMA coefficients for the row/column second-moment estimates.
+* **`epsilon`** *(float, default=1e-8)*: Numerical stability constant.
+* **`weight_decay`** *(float, default=1e-2)*: L2 penalty coefficient.
+* **`weight_decouple`** *(bool, default=True)*: Decoupled weight decay (AdamW-style).
+* **`fixed_decay`** *(bool, default=False)*: Fixed decay factor instead of scaling by the learning rate.
+* **`shadow_weight`** *(float, default=0.05)*: Shadow-interpolation rate in the “emotion” step.
+* **`maximize`** *(bool, default=False)*: If true, perform gradient ascent.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`**, **`use_ema`**, **`ema_momentum`**, **`ema_overwrite_frequency`**, **`loss_scale_factor`**, **`gradient_accumulation_steps`**, **`name`**: As in **EmoLynx**.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.emonavi import EmoFact
+
+# Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(512, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10)
+])
+
+# Instantiate EmoFact optimizer
+optimizer = EmoFact(
+    learning_rate=5e-4,
+    betas=(0.9, 0.999),
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    fixed_decay=False,
+    shadow_weight=0.1,
+    maximize=False
+)
+
+# Loss and metrics
+loss_fn  = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+train_acc = tf.keras.metrics.SparseCategoricalAccuracy()
+val_acc   = tf.keras.metrics.SparseCategoricalAccuracy()
+
+# Custom training loop
+for epoch in range(10):
+    train_acc.reset_states()
+    for x_batch, y_batch in train_dataset:
+        with tf.GradientTape() as tape:
+            logits = model(x_batch, training=True)
+            loss   = loss_fn(y_batch, logits)
+        grads = tape.gradient(loss, model.trainable_variables)
+        optimizer.apply_gradients(zip(grads, model.trainable_variables), loss)
+        train_acc.update_state(y_batch, logits)
+
+    val_acc.reset_states()
+    for x_batch, y_batch in val_dataset:
+        logits = model(x_batch, training=False)
+        val_acc.update_state(y_batch, logits)
+
+    print(f"Epoch {epoch+1}, "
+          f"Train Acc: {train_acc.result():.4f}, "
+          f"Val Acc:   {val_acc.result():.4f}")
+```
+
+# EmoFact_sn
+
+**Overview**:
+
+The `EmoFact_sn` optimizer extends `EmoFact` by incorporating “sign-based” updates for scalar parameters, combined with an emotion-driven shadow interpolation.  It uses factored second-moment estimates (row/column) for multi-dimensional weights, and simple sign-scaled updates for 1D parameters.  During each step, it optionally first shifts parameters toward a “shadow” copy based on recent loss “emotion,” then rescales gradients by the factored RMS (or sign for scalars) before applying the update.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step size for all updates.
+* **`betas`** *(tuple of two floats, default=(0.9, 0.999))*:
+
+  * First element is the decay rate for the row/column factored second moments (`β₁`).
+  * Second element is the decay rate for the overall second-moment accumulator (`β₂`).
+* **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+* **`weight_decay`** *(float, default=1e-2)*: L2 penalty coefficient.
+* **`weight_decouple`** *(bool, default=True)*: Apply weight decay in a decoupled fashion (as in AdamW).
+* **`fixed_decay`** *(bool, default=False)*: If true, use a fixed weight decay factor rather than scaling by the learning rate.
+* **`shadow_weight`** *(float, default=0.05)*: Interpolation rate toward shadow parameters when emotion-driven update triggers.
+* **`subset_size`** *(int, default=-1)*: Block size for sign-based updates on scalar tensors; if >0, splits 1D arrays into blocks for second-moment estimation.
+* **`sn`** *(bool, default=True)*: Enable sign-based (“SN”) update mode for scalar parameters or 1D tensors.
+* **`maximize`** *(bool, default=False)*: If true, gradients are negated to perform maximization.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`**, **`use_ema`**, **`ema_momentum`**, **`ema_overwrite_frequency`**, **`loss_scale_factor`**, **`gradient_accumulation_steps`**, **`name`**: Same behavior as in **EmoFact**.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.emonavi import EmoFact_sn
+
+# Define a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(256, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10)
+])
+
+# Instantiate EmoFact_sn optimizer
+optimizer = EmoFact_sn(
+    learning_rate=2e-3,
+    betas=(0.9, 0.999),
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    fixed_decay=False,
+    shadow_weight=0.1,
+    subset_size=50,
+    sn=True,
+    maximize=False
+)
+
+# Prepare loss function and metrics
+loss_fn  = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+train_acc = tf.keras.metrics.SparseCategoricalAccuracy()
+val_acc   = tf.keras.metrics.SparseCategoricalAccuracy()
+
+# Custom training loop
+for epoch in range(8):
+    # Training
+    train_acc.reset_states()
+    for x_batch, y_batch in train_dataset:
+        with tf.GradientTape() as tape:
+            logits = model(x_batch, training=True)
+            loss   = loss_fn(y_batch, logits)
+        grads = tape.gradient(loss, model.trainable_variables)
+        # Pass loss to trigger emotion-driven shadow update
+        optimizer.apply_gradients(zip(grads, model.trainable_variables), loss)
+        train_acc.update_state(y_batch, logits)
+
+    # Validation
+    val_acc.reset_states()
+    for x_batch, y_batch in val_dataset:
+        logits = model(x_batch, training=False)
+        val_acc.update_state(y_batch, logits)
+
+    print(f"Epoch {epoch+1}, "
+          f"Train Acc: {train_acc.result():.4f}, "
+          f"Val Acc:   {val_acc.result():.4f}")
+```
