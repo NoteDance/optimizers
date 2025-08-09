@@ -7337,3 +7337,87 @@ for epoch in range(8):
           f"Train Acc: {train_acc.result():.4f}, "
           f"Val Acc:   {val_acc.result():.4f}")
 ```
+
+# EmoNeco
+
+**Overview**:
+
+The `EmoNeco` optimizer is an emotion-aware, lightweight optimizer inspired by Lion/Tiger/Lynx families and integrates a shadow-parameter interpolation mechanism driven by a small EMA ("emotion") of the loss. For multi-step training it adaptively blends parameters toward a shadow copy when recent loss dynamics indicate it, and uses a combined blended gradient / softsign / sign logic to compute updates. It supports decoupled weight decay and standard optimizer conveniences (gradient clipping, EMA of weights, etc.).
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step size for parameter updates.
+* **`betas`** *(tuple of two floats, default=(0.9, 0.99))*: Coefficients for running averages; first for the blended gradient mixture, second for the exponential moving average of gradients.
+* **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+* **`weight_decay`** *(float, default=1e-2)*: L2 penalty coefficient applied to parameters.
+* **`weight_decouple`** *(bool, default=True)*: If true, apply weight decay in a decoupled fashion (like AdamW).
+* **`fixed_decay`** *(bool, default=False)*: If true, apply a fixed weight decay factor instead of scaling it by the learning rate.
+* **`shadow_weight`** *(float, default=0.05)*: Interpolation rate used when updating the shadow copy after a shadow-blend step.
+* **`maximize`** *(bool, default=False)*: If true, optimizer will maximize the objective (gradients are negated).
+* **`clipnorm`** *(float, optional)*: Clip gradients by norm before applying updates.
+* **`clipvalue`** *(float, optional)*: Clip gradients by value before applying updates.
+* **`global_clipnorm`** *(float, optional)*: Clip all gradients by a global norm.
+* **`use_ema`** *(bool, default=False)*: Whether to keep an exponential moving average of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for the EMA if `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency to overwrite model weights from EMA.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaled-loss training (mixed precision).
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an update.
+* **`name`** *(str, default="emoneco")*: Name of the optimizer instance.
+
+**Notes**:
+
+* `EmoNeco` exposes `apply_gradients(grads_and_vars, loss)` and the example below uses a custom training loop — you must pass the current `loss` to `apply_gradients` so the optimizer can update its internal "emotion" EMA and perform shadow interpolation when appropriate.
+* The optimizer internally keeps a shadow copy per parameter and will interpolate model parameters toward the shadow when recent loss dynamics indicate it (emotion-driven behavior).
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.emonavi import EmoNeco
+
+# Simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(256, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10)
+])
+
+# Loss and metrics
+loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+train_acc = tf.keras.metrics.SparseCategoricalAccuracy()
+val_acc = tf.keras.metrics.SparseCategoricalAccuracy()
+
+# Instantiate EmoNeco optimizer
+optimizer = EmoNeco(
+    learning_rate=1e-3,
+    betas=(0.9, 0.99),
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    fixed_decay=False,
+    shadow_weight=0.05,
+    maximize=False,
+    name="emoneco"
+)
+
+# Custom training loop: note we pass loss into apply_gradients so EmoNeco can update its internal EMA ("emotion")
+epochs = 5
+for epoch in range(epochs):
+    train_acc.reset_states()
+    # training
+    for x_batch, y_batch in train_dataset:
+        with tf.GradientTape() as tape:
+            logits = model(x_batch, training=True)
+            loss = loss_fn(y_batch, logits)
+        grads = tape.gradient(loss, model.trainable_variables)
+        # Pass (grads, vars) and loss so the optimizer can update its "emotion" EMA and shadow state.
+        optimizer.apply_gradients(zip(grads, model.trainable_variables), loss)
+        train_acc.update_state(y_batch, logits)
+
+    # validation
+    val_acc.reset_states()
+    for x_batch, y_batch in val_dataset:
+        logits = model(x_batch, training=False)
+        val_acc.update_state(y_batch, logits)
+
+    print(f"Epoch {epoch+1}: Train Acc={train_acc.result():.4f}, Val Acc={val_acc.result():.4f}")
+```
