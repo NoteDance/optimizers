@@ -7421,3 +7421,136 @@ for epoch in range(epochs):
 
     print(f"Epoch {epoch+1}: Train Acc={train_acc.result():.4f}, Val Acc={val_acc.result():.4f}")
 ```
+
+# EmoZeal
+
+**Overview**:
+
+The `EmoZeal` optimizer is an Adafactor-style, memory-friendly optimizer that combines per-tensor/per-factor second-moment tracking with an optional shadow-parameter interpolation driven by a tiny EMA-based "emotion" signal of the loss. It supports decoupled weight decay, optional shadow behavior, and mixed factor / full second-moment handling for multi-dimensional tensors.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step size for parameter updates.
+* **`betas`** *(tuple of two floats, default=(0.9, 0.999))*: Coefficients for exponential moving averages used in the optimizer (used for mean and variance tracking).
+* **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+* **`weight_decay`** *(float, default=1e-2)*: L2 penalty coefficient applied to parameters.
+* **`weight_decouple`** *(bool, default=True)*: If true, apply weight decay in a decoupled fashion (like AdamW).
+* **`fixed_decay`** *(bool, default=False)*: If true, apply a fixed weight decay factor instead of scaling it by the learning rate.
+* **`use_shadow`** *(bool, default=True)*: Enable shadow-parameter interpolation driven by the emotion EMA.
+* **`shadow_weight`** *(float, default=0.05)*: Interpolation rate used to update the shadow copy when a shadow step occurs.
+* **`maximize`** *(bool, default=False)*: If true, optimizer will maximize the objective (gradients are negated).
+* **`clipnorm`** *(float, optional)*: Clip gradients by norm before applying updates.
+* **`clipvalue`** *(float, optional)*: Clip gradients by value before applying updates.
+* **`global_clipnorm`** *(float, optional)*: Clip all gradients by a global norm.
+* **`use_ema`** *(bool, default=False)*: Whether to keep an exponential moving average of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for the EMA if `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency to overwrite model weights from EMA.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaled-loss training (mixed precision).
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an update.
+* **`name`** *(str, default="emozeal")*: Name of the optimizer instance.
+
+**Notes**:
+
+* `EmoZeal` exposes `apply_gradients(grads_and_vars, loss)` — you **must** pass the current `loss` so the optimizer can update its internal emotion EMA and perform shadow interpolation when appropriate.
+* For tensors with rank ≥ 2 it uses factorized statistics (rows/cols) to be VRAM efficient; for vectors it keeps per-element second moment buffers.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.emozeal import EmoZeal  # module path where your class lives
+
+# Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(256, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10)
+])
+
+loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+train_acc = tf.keras.metrics.SparseCategoricalAccuracy()
+
+# Instantiate the optimizer
+opt = EmoZeal(
+    learning_rate=1e-3,
+    betas=(0.9, 0.999),
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    use_shadow=True,
+    shadow_weight=0.05,
+    name="emozeal"
+)
+
+# Custom training loop — note: pass loss into apply_gradients
+for epoch in range(5):
+    train_acc.reset_states()
+    for x_batch, y_batch in train_dataset:
+        with tf.GradientTape() as tape:
+            logits = model(x_batch, training=True)
+            loss = loss_fn(y_batch, logits)
+        grads = tape.gradient(loss, model.trainable_variables)
+        # PASS loss to apply_gradients so EmoZeal can update its internal EMA ("emotion")
+        opt.apply_gradients(zip(grads, model.trainable_variables), loss)
+        train_acc.update_state(y_batch, logits)
+    print(f"Epoch {epoch+1}, Train Acc: {train_acc.result().numpy():.4f}")
+```
+
+# EmoZeal_sn
+
+**Overview**:
+
+`EmoZeal_sn` is the subset-normalized / "sharded-norm" variant of `EmoZeal`. It provides the same Adafactor-style and emotion-driven shadow interpolation features while optionally applying subset aggregation for second-moment statistics (useful to reduce memory and compute on very large parameter vectors). The `sn` suffix indicates support for subset normalization of per-element second moments.
+
+**Parameters**:
+
+All parameters from `EmoZeal`, plus:
+
+* **`subset_size`** *(int, default=-1)*: If >0, number of elements per subset used when computing summed second-moment statistics for vectors; if -1 it derives a heuristic subset size (sqrt of vector length).
+* **`sn`** *(bool, default=True)*: Enable subset-normalization mode for vector parameters (aggregated second-moment statistics).
+* Other parameters (learning\_rate, betas, epsilon, weight\_decay, use\_shadow, shadow\_weight, maximize, etc.) behave the same as in `EmoZeal`.
+
+**Notes**:
+
+* Like `EmoZeal`, `EmoZeal_sn` exposes `apply_gradients(grads_and_vars, loss)` — you **must** pass the current `loss` for the internal emotion EMA and shadow updates.
+* `subset_size` controls how vector parameters are reshaped into (n\_subsets × subset\_size) to compute reduced second-moment statistics for memory efficiency.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.emozeal import EmoZeal_sn  # module path where your class lives
+
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(256, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10)
+])
+
+loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+train_acc = tf.keras.metrics.SparseCategoricalAccuracy()
+
+# Instantiate the sn variant with subset normalization enabled
+opt = EmoZeal_sn(
+    learning_rate=1e-3,
+    betas=(0.9, 0.999),
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    use_shadow=True,
+    shadow_weight=0.05,
+    subset_size=256,  # example subset size; set -1 to let the optimizer choose heuristically
+    sn=True,
+    name="emozeal_sn"
+)
+
+# Training loop — must pass loss into apply_gradients
+for epoch in range(5):
+    train_acc.reset_states()
+    for x_batch, y_batch in train_dataset:
+        with tf.GradientTape() as tape:
+            logits = model(x_batch, training=True)
+            loss = loss_fn(y_batch, logits)
+        grads = tape.gradient(loss, model.trainable_variables)
+        opt.apply_gradients(zip(grads, model.trainable_variables), loss)
+        train_acc.update_state(y_batch, logits)
+    print(f"Epoch {epoch+1}, Train Acc: {train_acc.result().numpy():.4f}")
+```
