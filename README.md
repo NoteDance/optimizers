@@ -7458,7 +7458,7 @@ The `EmoZeal` optimizer is an Adafactor-style, memory-friendly optimizer that co
 
 ```python
 import tensorflow as tf
-from optimizers.emozeal import EmoZeal  # module path where your class lives
+from optimizers.emonavi import EmoZeal  # module path where your class lives
 
 # Build a simple model
 model = tf.keras.Sequential([
@@ -7518,7 +7518,7 @@ All parameters from `EmoZeal`, plus:
 
 ```python
 import tensorflow as tf
-from optimizers.emozeal import EmoZeal_sn  # module path where your class lives
+from optimizers.emonavi import EmoZeal_sn  # module path where your class lives
 
 model = tf.keras.Sequential([
     tf.keras.layers.Dense(256, activation='relu', input_shape=(784,)),
