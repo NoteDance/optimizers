@@ -7554,3 +7554,76 @@ for epoch in range(5):
         train_acc.update_state(y_batch, logits)
     print(f"Epoch {epoch+1}, Train Acc: {train_acc.result().numpy():.4f}")
 ```
+
+# DistributedMuon
+
+**Overview**:
+
+The `DistributedMuon` optimizer is a hybrid distributed optimizer designed for large-scale training. It employs **Muon-style updates** with momentum and zero-power (Newton-Schulz) normalization when `use_muon=True`, distributing parameter updates across replicas efficiently. Optionally, when Muon is disabled, it falls back to **AdamW-style updates** for stability. It supports cautious masking, Nesterov momentum, per-parameter adaptive learning rates, and EMA features.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=2e-2)*: Base step size for optimization.
+* **`weight_decay`** *(float, default=0.0)*: L2 penalty applied to parameters (decoupled if `weight_decouple=True`).
+* **`momentum`** *(float, default=0.95)*: Momentum coefficient for Muon updates.
+* **`weight_decouple`** *(bool, default=True)*: Apply weight decay in a decoupled manner (like AdamW).
+* **`nesterov`** *(bool, default=True)*: Use Nesterov momentum in Muon updates.
+* **`ns_steps`** *(int, default=5)*: Number of Newton-Schulz iterations for zero-power normalization in Muon.
+* **`use_adjusted_lr`** *(bool, default=False)*: Whether to adapt learning rate per parameter shape.
+* **`adamw_lr`** *(float, default=3e-4)*: Learning rate for AdamW fallback updates (when `use_muon=False`).
+* **`adamw_betas`** *(tuple of two floats, default=(0.9, 0.95))*: Beta coefficients for first- and second-moment estimates in AdamW fallback.
+* **`adamw_wd`** *(float, default=0.0)*: Weight decay for AdamW fallback updates.
+* **`adamw_eps`** *(float, default=1e-10)*: Epsilon for numerical stability in AdamW denominator.
+* **`use_muon`** *(bool, default=True)*: Enable Muon-style distributed updates across replicas.
+* **`cautious`** *(bool, default=False)*: If true, applies a mask that suppresses update elements that disagree with the gradient sign.
+* **`maximize`** *(bool, default=False)*: If true, optimizer performs gradient ascent.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional floats)*: Gradient clipping thresholds.
+* **`use_ema`**, **`ema_momentum`**, **`ema_overwrite_frequency`** *(optional)*: EMA settings for tracking parameter averages.
+* **`loss_scale_factor`**, **`gradient_accumulation_steps`** *(optional)*: Mixed-precision loss scaling and gradient accumulation.
+* **`name`** *(str, default="distributedmuon")*: Name of the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.muon import DistributedMuon
+
+# Build a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(512, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10)
+])
+
+# Instantiate DistributedMuon optimizer within a distribution scope
+strategy = tf.distribute.MirroredStrategy()
+with strategy.scope():
+    optimizer = DistributedMuon(
+        learning_rate=1e-2,
+        weight_decay=1e-3,
+        momentum=0.9,
+        use_adjusted_lr=True,
+        adamw_lr=5e-4,
+        use_muon=True,
+        cautious=True,
+    )
+
+    loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+    train_acc = tf.keras.metrics.SparseCategoricalAccuracy()
+
+    # Custom distributed training loop
+    @tf.function
+    def train_step(inputs):
+        x, y = inputs
+        with tf.GradientTape() as tape:
+            logits = model(x, training=True)
+            loss = loss_fn(y, logits)
+        grads = tape.gradient(loss, model.trainable_variables)
+        optimizer.apply_gradients(zip(grads, model.trainable_variables), loss)
+        train_acc.update_state(y, logits)
+
+    for epoch in range(5):
+        train_acc.reset_states()
+        for batch in train_dataset:
+            strategy.run(train_step, args=(batch,))
+        print(f"Epoch {epoch+1}: Train Acc = {train_acc.result():.4f}")
+```
