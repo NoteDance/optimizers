@@ -7627,3 +7627,102 @@ with strategy.scope():
             strategy.run(train_step, args=(batch,))
         print(f"Epoch {epoch+1}: Train Acc = {train_acc.result():.4f}")
 ```
+
+# DistributedMuon_sn
+
+**Overview**:
+
+The `DistributedMuon_sn` optimizer is a hybrid distributed optimizer combining Muon-style zero-power normalized updates for large matrix parameters (when `use_muon=True`) with an AdamW-like fallback path. It supports subset-normalization (`sn`) for memory/time trade-offs, optional per-parameter adjusted learning rates, Nesterov-style momentum, and distributed gathering of per-rank updates. When `use_muon` is enabled the optimizer shards and gathers parameter updates across replicas for efficient large-scale training; when disabled it performs AdamW-style updates with bias correction and second-moment normalization. This optimizer is intended for advanced/distributed training workflows where per-parameter structural handling and distributed aggregation are required.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=2e-2)*: Base step size used for optimization.
+* **`weight_decay`** *(float, default=0.0)*: L2 weight decay coefficient.
+* **`momentum`** *(float, default=0.95)*: Momentum coefficient used in Muon-style updates.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, apply decoupled weight decay (like AdamW); otherwise apply standard L2 to gradients.
+* **`nesterov`** *(bool, default=True)*: Use Nesterov-style momentum composition when performing Muon updates.
+* **`ns_steps`** *(int, default=5)*: Number of Newton–Schulz iterations used for the zero-power normalization (Muon path).
+* **`use_adjusted_lr`** *(bool, default=False)*: Adapt learning rate per-parameter shape using the `get_adjusted_lr` heuristic.
+* **`adamw_lr`** *(float, default=3e-4)*: Learning rate used by the AdamW-style fallback updates.
+* **`adamw_betas`** *(tuple(float, float), default=(0.9, 0.95))*: Beta coefficients for first/second moment moving averages in AdamW path.
+* **`adamw_wd`** *(float, default=0.0)*: Weight decay used by AdamW fallback path.
+* **`adamw_eps`** *(float, default=1e-10)*: Small epsilon added for numerical stability in AdamW denominator.
+* **`use_muon`** *(bool, default=True)*: Enable the Muon-style distributed zero-power update path (for large matrix-like parameters).
+* **`cautious`** *(bool, default=False)*: When enabled, applies a cautious mask to suppress update elements that disagree with the local gradient sign.
+* **`subset_size`** *(int, default=-1)*: Subset size used by subset-normalization (SN) for element grouping; `-1` means automatic heuristic.
+* **`sn`** *(bool, default=True)*: Enable subset-normalization (compute second moment on subsets instead of elementwise).
+* **`maximize`** *(bool, default=False)*: If `True`, perform gradient ascent instead of descent.
+* **`clipnorm`** *(float, optional)*: Clip gradients by norm if provided.
+* **`clipvalue`** *(float, optional)*: Clip gradients by value if provided.
+* **`global_clipnorm`** *(float, optional)*: Clip gradients by a global norm across tensors.
+* **`use_ema`** *(bool, default=False)*: Track/expose exponential moving average of parameters.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Loss scaling factor used in mixed precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an update.
+* **`name`** *(str, default="distributedmuon\_sn")*: Name of the optimizer instance.
+
+**Notes / Behavior**:
+
+* When `use_muon=True`, parameters are padded and sharded across replica ranks; per-rank updates are gathered with `tf.distribute` primitives and normalized with a Newton–Schulz zero-power routine (`zero_power_via_newton_schulz_5`) before being applied.
+* When `sn=True`, second-moment statistics are computed on subsets (groups) of elements, reducing memory for very large tensors. `subset_size` controls grouping; if left at `-1` the code uses a heuristic based on sqrt of tensor size.
+* The optimizer exposes `world_size` and `rank` derived from the distribution strategy; this is used to decide which parameter shards each replica updates.
+* The AdamW fallback path performs bias-corrected first/second moment normalization and applies learning-rate scaling consistent with the implementation.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.distributedmuon_sn import DistributedMuon_sn
+
+# Example uses MirroredStrategy for multi-GPU training
+strategy = tf.distribute.MirroredStrategy()
+
+with strategy.scope():
+    # Build a simple model
+    model = tf.keras.Sequential([
+        tf.keras.layers.Dense(1024, activation='relu', input_shape=(784,)),
+        tf.keras.layers.Dense(10)
+    ])
+
+    # Instantiate optimizer
+    optimizer = DistributedMuon_sn(
+        learning_rate=1e-2,
+        weight_decay=1e-3,
+        momentum=0.9,
+        use_adjusted_lr=True,   # enable per-parameter scaling heuristic
+        use_muon=True,          # use Muon-style distributed updates
+        cautious=True,          # enable cautious masking
+        subset_size=-1,         # automatic subset sizing for SN
+        sn=True,
+        name="distributed_muon_sn"
+    )
+
+    loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+    train_acc = tf.keras.metrics.SparseCategoricalAccuracy()
+
+    # A single-step training function. This uses a custom loop because
+    # the optimizer performs distributed sharding/gathering internally.
+    @tf.function
+    def train_step(batch):
+        x, y = batch
+        with tf.GradientTape() as tape:
+            logits = model(x, training=True)
+            loss = loss_fn(y, logits)
+        grads = tape.gradient(loss, model.trainable_variables)
+
+        # Apply gradients. DistributedMuon_sn does not require passing `loss`
+        # to apply_gradients; the training script is responsible for computing loss.
+        optimizer.apply_gradients(zip(grads, model.trainable_variables))
+
+        train_acc.update_state(y, logits)
+        return loss
+
+    # Typical training loop (dataset should be a per-replica dataset under strategy)
+    for epoch in range(3):
+        train_acc.reset_states()
+        for batch in train_dataset:
+            # strategy.run will run train_step on each replica with its slice of the batch
+            strategy.run(train_step, args=(batch,))
+        print(f"Epoch {epoch+1}, Train Acc: {train_acc.result().numpy():.4f}")
+```
