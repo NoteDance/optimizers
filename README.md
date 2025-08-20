@@ -6347,79 +6347,6 @@ model.compile(
 model.fit(train_dataset, validation_data=val_dataset, epochs=15)
 ```
 
-# Ranger_sn
-
-**Overview**:
-
-The `Ranger_sn` optimizer combines RAdam’s rectified adaptive moments with Lookahead and optional Subset Normalization (SN) and Gradient Centralization (GC). It maintains moving averages of gradients (`exp_avg`) and second moments (`exp_avg_sq`)—either per element or per subset when `sn=True`—applies a rectified step size when variance is sufficient, and periodically “looks ahead” by interpolating fast weights toward a slow weight buffer. GC can be applied to convolutional layers (and optionally fully connected layers) by centering gradients.
-
-**Parameters**:
-
-* **`learning_rate`** *(float, default=1e-3)*: Base step size for updates.
-* **`beta1`** *(float, default=0.95)*: Decay rate for the first moment (`exp_avg`).
-* **`beta2`** *(float, default=0.999)*: Decay rate for the second moment (`exp_avg_sq`).
-* **`epsilon`** *(float, default=1e-5)*: Small constant for numerical stability in denominator.
-* **`weight_decay`** *(float, default=0)*: L2 regularization coefficient applied to parameters after the update.
-* **`alpha`** *(float, default=0.5)*: Lookahead interpolation factor—how much the slow buffer moves toward the fast weights every `k` steps.
-* **`k`** *(int, default=6)*: Number of steps between Lookahead “synchronization” events.
-* **`N_sma_threshhold`** *(int, default=5)*: Minimum value of the variance statistic (N\_sma) required to use the rectified update; otherwise uses unrectified update.
-* **`use_gc`** *(bool, default=True)*: Whether to apply Gradient Centralization.
-* **`gc_conv_only`** *(bool, default=False)*: If `True`, apply GC only to convolutional kernels (i.e., dims > 1); if `False`, apply GC to all multi-dimensional gradients.
-* **`subset_size`** *(int, default=-1)*: Desired subset length for Subset Normalization. If > 0, used directly; if ≤ 0, a divisor near sqrt(size) is computed.
-* **`sn`** *(bool, default=True)*: Whether to enable Subset Normalization—group-wise second-moment computation over subsets of gradients.
-* **`clipnorm`** *(float, optional)*: Clip each gradient tensor by its L2 norm before any update.
-* **`clipvalue`** *(float, optional)*: Clip gradient values element-wise to \[–clipvalue, clipvalue] before any update.
-* **`global_clipnorm`** *(float, optional)*: Clip the global norm of all gradients before any update.
-* **`use_ema`** *(bool, default=False)*: Maintain an Exponential Moving Average of model weights.
-* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates when `use_ema=True`.
-* **`ema_overwrite_frequency`** *(int, optional)*: Steps between overwriting model weights with EMA weights.
-* **`loss_scale_factor`** *(float, optional)*: Scaling factor for the loss in mixed-precision training.
-* **`gradient_accumulation_steps`** *(int, optional)*: Number of micro-batches to accumulate before applying an update.
-* **`name`** *(str, default="ranger\_sn")*: Optional name prefix for optimizer variables.
-
-**Example Usage**:
-
-```python
-import tensorflow as tf
-from optimizers.ranger_sn import Ranger_sn
-
-# 1. Instantiate Ranger_sn with subset normalization and GC on all layers
-optimizer = Ranger_sn(
-    learning_rate=1e-3,
-    beta1=0.95,
-    beta2=0.999,
-    epsilon=1e-5,
-    weight_decay=1e-4,
-    alpha=0.5,
-    k=6,
-    N_sma_threshhold=5,
-    use_gc=True,
-    gc_conv_only=False,
-    subset_size=256,
-    sn=True,
-    use_ema=True,
-    ema_momentum=0.99,
-    gradient_accumulation_steps=2
-)
-
-# 2. Build a simple model
-model = tf.keras.Sequential([
-    tf.keras.layers.Conv2D(32, 3, activation='relu'),
-    tf.keras.layers.Flatten(),
-    tf.keras.layers.Dense(10, activation='softmax')
-])
-
-# 3. Compile with Ranger_sn
-model.compile(
-    optimizer=optimizer,
-    loss='sparse_categorical_crossentropy',
-    metrics=['accuracy']
-)
-
-# 4. Train the model
-model.fit(train_dataset, validation_data=val_dataset, epochs=20)
-```
-
 # Ranger2020_sn
 
 **Overview**:
@@ -7905,7 +7832,7 @@ for epoch in range(3):
 
 ```python
 import tensorflow as tf
-# from optimizers.ranger import Ranger_  # adjust the import path as needed
+# from optimizers.ranger_ import Ranger_  # adjust the import path as needed
 
 # Define a simple model
 model = tf.keras.Sequential([
