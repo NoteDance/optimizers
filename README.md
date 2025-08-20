@@ -7726,3 +7726,136 @@ with strategy.scope():
             strategy.run(train_step, args=(batch,))
         print(f"Epoch {epoch+1}, Train Acc: {train_acc.result().numpy():.4f}")
 ```
+
+# DAdaptAdam_sn
+
+**Overview**:
+
+`DAdaptAdam_sn` is an adaptive, scale-free variant of Adam that includes an online automatic step-size scheduler (`D`-Adapt) and optional subset-normalization (SN) to reduce memory for very large tensors. The optimizer adaptively adjusts an internal scalar `d0` based on accumulated gradient statistics, and then uses this scale to modulate per-parameter updates computed from Adam-like first and second moments. When `sn=True`, second-moment statistics are computed over groups (subsets) of elements rather than elementwise to reduce memory and compute.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1.0)*: Global learning-rate multiplier. Final per-step effective scale is controlled by the internal `d0`.
+* **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+* **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+* **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability in denominators.
+* **`weight_decay`** *(float, default=0.0)*: L2 weight decay coefficient applied either decoupled or through gradients depending on `weight_decouple`.
+* **`d0`** *(float, default=1e-6)*: Initial scale used by the D-Adapt mechanism.
+* **`growth_rate`** *(float, default=inf)*: Maximum multiplicative growth allowed for `d0` between updates.
+* **`weight_decouple`** *(bool, default=True)*: When `True`, apply decoupled weight decay (like AdamW).
+* **`fixed_decay`** *(bool, default=False)*: If `True`, treat weight decay as a fixed multiplier instead of scaling it by the optimizer step.
+* **`bias_correction`** *(bool, default=False)*: If `True`, the internal step calculation uses Adam-style bias correction when updating `d0`.
+* **`subset_size`** *(int, default=-1)*: Subset size used for SN grouping; `-1` means automatic heuristic (sqrt of tensor size).
+* **`sn`** *(bool, default=True)*: Enable subset-normalization (grouped second moments).
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Gradient clipping settings.
+* **`use_ema`** *(bool, default=False)*: Track exponential moving averages of parameters.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Loss scaling for mixed precision.
+* **`gradient_accumulation_steps`** *(int, optional)*: Accumulate gradients for this many steps before applying an update.
+* **`name`** *(str, default="dadaptadam\_sn")*: Name of the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.dadaptadam import DAdaptAdam_sn  # assume module path
+
+# Build model inside strategy.scope() if using distribution.
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(512, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10)
+])
+
+# Instantiate optimizer
+optimizer = DAdaptAdam_sn(
+    learning_rate=1.0,
+    beta1=0.9,
+    beta2=0.999,
+    d0=1e-6,
+    subset_size=-1,  # automatic subset sizing for SN
+    sn=True
+)
+
+loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+
+# Example training step using tf.GradientTape (correctly computes loss, grads, applies grads)
+@tf.function
+def train_step(x, y):
+    with tf.GradientTape() as tape:
+        logits = model(x, training=True)
+        loss = loss_fn(y, logits)
+    grads = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(grads, model.trainable_variables))
+    return loss
+
+# Typical loop (dataset yields (x, y))
+for epoch in range(3):
+    for x_batch, y_batch in train_dataset:
+        loss_value = train_step(x_batch, y_batch)
+```
+
+# DAdaptAdan_sn
+
+**Overview**:
+
+`DAdaptAdan_sn` is a D-Adapt variant of the Adan family that combines adaptive step-size scheduling with Adan-style moments (first moment, running difference moments, and a third moment for squared differences). It maintains an internal adaptive scalar `d0` that is computed from accumulated gradient statistics and uses subset-normalization (SN) to compute grouped second moments for memory efficiency. This optimizer is tailored for scenarios where stable adaptive scaling and memory-efficient normalization matter.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1.0)*: Global learning-rate multiplier; the D-Adapt internal scale `d0` modulates effective step sizes.
+* **`beta1`** *(float, default=0.98)*: Decay for the primary first moment.
+* **`beta2`** *(float, default=0.92)*: Decay used for the difference-derived first moment (Adan-style).
+* **`beta3`** *(float, default=0.99)*: Decay for the second-moment estimate used by Adan.
+* **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+* **`weight_decay`** *(float, default=0.0)*: L2 weight decay coefficient.
+* **`d0`** *(float, default=1e-6)*: Initial D-Adapt scalar.
+* **`growth_rate`** *(float, default=inf)*: Maximum allowed growth factor for `d0`.
+* **`weight_decouple`** *(bool, default=True)*: Use decoupled weight decay when `True`.
+* **`fixed_decay`** *(bool, default=False)*: If `True`, weight decay is fixed rather than scaled by step.
+* **`subset_size`** *(int, default=-1)*: SN grouping size; `-1` selects an automatic heuristic.
+* **`sn`** *(bool, default=True)*: Enable subset-normalization.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Gradient clipping options.
+* **`use_ema`** *(bool, default=False)*: Track EMA of parameters.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum.
+* **`ema_overwrite_frequency`** *(int, optional)*: How often to overwrite EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Loss scaling factor for mixed precision.
+* **`gradient_accumulation_steps`** *(int, optional)*: Accumulate gradients before applying.
+* **`name`** *(str, default="dadaptadan\_sn")*: Name of the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.dadaptadan import DAdaptAdan_sn  # assume module path
+
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(1024, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10)
+])
+
+optimizer = DAdaptAdan_sn(
+    learning_rate=1.0,
+    beta1=0.98,
+    beta2=0.92,
+    beta3=0.99,
+    d0=1e-6,
+    subset_size=-1,
+    sn=True
+)
+
+loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+
+@tf.function
+def train_step(x, y):
+    with tf.GradientTape() as tape:
+        logits = model(x, training=True)
+        loss = loss_fn(y, logits)
+    grads = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(grads, model.trainable_variables))
+    return loss
+
+for epoch in range(3):
+    for x_batch, y_batch in train_dataset:
+        loss_value = train_step(x_batch, y_batch)
+```
