@@ -7859,3 +7859,92 @@ for epoch in range(3):
     for x_batch, y_batch in train_dataset:
         loss_value = train_step(x_batch, y_batch)
 ```
+
+# Ranger_
+
+**Overview**:
+
+`Ranger_` is a hybrid optimizer that combines RAdam-style rectified adaptive updates with Lookahead, optional Gradient Centralization (GC), optional subset-normalization (SN) for memory-efficient second-moment estimates, and an optional D-Adapt automatic step-size controller. It is intended for robust, stable training across architectures: when `use_gc` is enabled it recenters gradients (useful for convolutional and/or fully-connected layers), `sn=True` groups elements to reduce second-moment memory, Lookahead (slow buffer + interpolation) improves stability, and `DAdapt` automatically adjusts an internal scaling `d0` from observed gradient statistics.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base learning rate (global multiplier). Effective per-step scale may be modulated by D-Adapt when enabled.
+* **`beta1`** *(float, default=0.95)*: Decay for the first moment (moving average of gradients).
+* **`beta2`** *(float, default=0.999)*: Decay for the second moment (moving average of squared gradients or grouped second moments when SN is enabled).
+* **`epsilon`** *(float, default=1e-5)*: Small constant added for numerical stability in denominators.
+* **`weight_decay`** *(float, default=0)*: L2 weight decay coefficient (applied as a parameter-level subtraction inside the update step).
+* **`alpha`** *(float, default=0.5)*: Lookahead interpolation factor between slow and fast weights.
+* **`k`** *(int, default=6)*: Lookahead synchronization period (apply slow/fast interpolation every `k` steps).
+* **`N_sma_threshhold`** *(int, default=5)*: RAdam N\_sma threshold controlling rectified vs. unrectified behavior.
+* **`use_gc`** *(bool, default=True)*: Enable Gradient Centralization (GC). When enabled GC removes mean across axes for conv/fc gradients.
+* **`gc_conv_only`** *(bool, default=False)*: If `True`, only apply GC to convolutional layers (checked via gradient dimensionality).
+* **`subset_size`** *(int, default=-1)*: Subset size hint for subset-normalization (SN). `-1` uses an automatic heuristic (sqrt of tensor size).
+* **`sn`** *(bool, default=True)*: Enable subset-normalization: group elements into subsets and compute grouped second moments to reduce memory.
+* **`d0`** *(float, default=1e-6)*: Initial D-Adapt scalar (when `DAdapt=True`) that multiplies the global `learning_rate`.
+* **`growth_rate`** *(float, default=inf)*: Maximum multiplicative growth for `d0` per adapt step.
+* **`DAdapt`** *(bool, default=True)*: Enable the D-Adapt automatic step-size controller that adjusts `d0` from accumulated statistics.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard gradient clipping options passed to the base optimizer.
+* **`use_ema`** *(bool, default=False)*: Whether to maintain exponential moving averages of parameters.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum if `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting weights from EMA (when used).
+* **`loss_scale_factor`** *(float, optional)*: Loss scaling factor for mixed-precision workflows.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an optimizer update.
+* **`name`** *(str, default="ranger\_")*: Name of the optimizer.
+
+**Behavior & Notes**:
+
+* Gradient Centralization (GC): when `use_gc=True` the optimizer will subtract the mean over feature axes for gradients whose rank exceeds a threshold; set `gc_conv_only=True` to restrict GC to convolution-like gradients.
+* Subset-Normalization (SN): when `sn=True` a grouped second-moment (`exp_avg_sq`) is stored per-subset instead of per-element. The optimizer chooses a practical subset size (heuristic: `sqrt(size)` unless `subset_size` is provided) and computes grouped squared norms to reduce memory.
+* Lookahead: the optimizer keeps a `slow_buffer` (slow weights) and every `k` steps performs slow/fast interpolation `slow += alpha * (fast - slow)` and copies slow weights back to the fast parameters.
+* RAdam rectification: the update uses the rectified `N_sma` schedule; when `N_sma <= N_sma_threshhold` the optimizer uses unrectified updates similar to SGD with momentum.
+* D-Adapt (optional): when `DAdapt=True` the optimizer collects statistics across parameters to estimate and adapt an internal scalar `d0` that multiplies `learning_rate`. This is designed to produce a stable automatic step-size without manual tuning.
+* Mixed precision: the implementation casts gradients and internal accumulators to `float32` for stability; parameters are updated and then cast back to their original dtype.
+* Sparse gradients are **not supported**; the optimizer raises if a sparse gradient is encountered.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+# from optimizers.ranger import Ranger_  # adjust the import path as needed
+
+# Define a simple model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(512, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10)
+])
+
+# Instantiate the Ranger_ optimizer
+optimizer = Ranger_(
+    learning_rate=1e-3,
+    beta1=0.95,
+    beta2=0.999,
+    epsilon=1e-5,
+    alpha=0.5,         # lookahead interpolation
+    k=6,               # lookahead sync period
+    use_gc=True,       # gradient centralization
+    gc_conv_only=False,
+    sn=True,           # subset-normalization
+    subset_size=-1,    # automatic subset sizing
+    DAdapt=True,       # enable D-Adapt automatic scaling
+    d0=1e-6,
+    growth_rate=1e6
+)
+
+loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+
+# Training step using tf.GradientTape
+@tf.function
+def train_step(x, y):
+    with tf.GradientTape() as tape:
+        logits = model(x, training=True)
+        loss = loss_fn(y, logits)
+    grads = tape.gradient(loss, model.trainable_variables)
+    # apply_gradients expects an iterable of (grad, var) pairs
+    optimizer.apply_gradients(zip(grads, model.trainable_variables))
+    return loss
+
+# Example loop (dataset yields (x, y))
+for epoch in range(3):
+    for x_batch, y_batch in train_dataset:
+        loss_value = train_step(x_batch, y_batch)
+```
