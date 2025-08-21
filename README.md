@@ -5164,88 +5164,6 @@ model.compile(
 model.fit(train_dataset, validation_data=val_dataset, epochs=20)
 ```
 
-# Ranger25
-
-**Overview**:
-
-`Ranger25` is an experimental, composite TensorFlow/Keras optimizer that integrates multiple advanced optimization techniques—ADOPT, AdEMAMix, Cautious updates, StableAdamW (or Adam‑atan2), OrthoGrad, adaptive gradient clipping (AGC), subset‑based second‑moment estimation (subset normalization), and Lookahead—to enhance convergence reliability, stability, and training speed across diverse deep‑learning tasks. By combining theoretical convergence fixes (ADOPT) with enriched moment utilization (AdEMAMix), directional masking (Cautious), numerical stability enhancements (StableAdamW/Adam‑atan2), gradient decorrelation (OrthoGrad), unit‑wise gradient clipping (AGC), subset‑wise RMS estimation, and periodic weight averaging (Lookahead), Ranger25 seeks to harness the strengths of each component in a unified optimizer.
-
-**Parameters**:
-
-* `learning_rate` *(float, default=1e-3)*: Base learning rate for parameter updates.
-* `betas` *(tuple of three floats, default=(0.9, 0.98, 0.9999))*:
-
-  * `beta1`: Decay rate for first‑moment EMA (momentum).
-  * `beta2`: Decay rate for second‑moment EMA (RMS scaling).
-  * `beta3`: Decay rate for the slow EMA used in AdEMAMix.
-* `epsilon` *(float or None, default=1e-8)*: Small constant added to denominators for numerical stability; if set to `None`, uses Adam‑atan2 style updates.
-* `weight_decay` *(float, default=1e-3)*: Coefficient for decoupled weight‑decay regularization (AdamW style).
-* `alpha` *(float, default=5.0)*: Magnitude for mixing coefficient in AdEMAMix (slow EMA contribution).
-* `t_alpha_beta3` *(int or None, default=None)*: Number of steps to warm up `alpha` and `beta3`. If `None`, no warmup scheduling is applied.
-* `lookahead_merge_time` *(int, default=5)*: Intended number of update steps between Lookahead merges; the blending logic uses `lookahead_blending_alpha` at merge points.
-* `lookahead_blending_alpha` *(float, default=0.5)*: Interpolation factor between fast weights and slow (shadow) weights at each Lookahead merge.
-* `cautious` *(bool, default=True)*: Enable Cautious updates—masks parameter updates whose sign conflicts with the raw gradient direction.
-* `stable_adamw` *(bool, default=True)*: Enable StableAdamW variant; rescales step size by measured gradient variance for numerical stability.
-* `orthograd` *(bool, default=True)*: Enable OrthoGrad, projecting gradients orthogonal to parameters before update.
-* `weight_decouple` *(bool, default=True)*: Apply weight decay in a decoupled fashion (AdamW) rather than via direct gradient modification.
-* `fixed_decay` *(bool, default=False)*: When `weight_decouple=True`, if `True`, applies a fixed weight‑decay independent of learning rate; otherwise scales decay by learning rate.
-* `subset_size` *(int, default=-1)*: Target subset size for subset‑based second‑moment estimation. If > 0, uses this fixed subset size; if ≤ 0 (default -1), dynamic subset size is computed per variable as roughly `sqrt(size) / abs(subset_size)` cast to int.
-* `sn` *(bool, default=True)*: Enable subset normalization. If `True`, uses subset-based second‑moment estimation; otherwise uses full‑tensor second‑moment.
-* `clipnorm` *(float or None)*: Global L2 norm clipping threshold for gradients (inherited from base Optimizer).
-* `clipvalue` *(float or None)*: Clip gradients by value (inherited).
-* `global_clipnorm` *(float or None)*: Alias for global norm clipping across all parameters.
-* `use_ema` *(bool, default=False)*: Maintain an exponential moving average of model weights for evaluation or checkpointing.
-* `ema_momentum` *(float, default=0.99)*: Decay rate for the weight EMA.
-* `ema_overwrite_frequency` *(int or None)*: Frequency (in steps) to overwrite model weights with EMA weights.
-* `loss_scale_factor` *(float or None)*: Static loss-scaling factor for mixed-precision training.
-* `gradient_accumulation_steps` *(int or None)*: Number of steps to accumulate gradients before applying an update.
-* `name` *(str, default="ranger25")*: Name identifier for the optimizer instance.
-* `**kwargs` passed to the base `Optimizer`.
-
-**Example Usage**:
-
-```python
-import tensorflow as tf
-from optimizers.ranger25 import Ranger25
-
-# Instantiate the Ranger25 optimizer with custom settings
-optimizer = Ranger25(
-    learning_rate=3e-4,
-    betas=(0.9, 0.98, 0.9999),
-    epsilon=1e-8,
-    weight_decay=1e-4,
-    alpha=4.0,
-    t_alpha_beta3=10000,
-    lookahead_merge_time=6,
-    lookahead_blending_alpha=0.6,
-    cautious=True,
-    stable_adamw=True,
-    orthograd=True,
-    fixed_decay=False,
-    subset_size=-1,
-    sn=True,
-    clipnorm=1.0,
-    use_ema=True,
-    ema_momentum=0.995,
-    gradient_accumulation_steps=2,
-    name="ranger25"
-)
-
-# Compile a Keras model
-model = tf.keras.models.Sequential([
-    tf.keras.layers.Dense(128, activation="relu"),
-    tf.keras.layers.Dense(10, activation="softmax")
-])
-model.compile(
-    optimizer=optimizer,
-    loss="sparse_categorical_crossentropy",
-    metrics=["accuracy"]
-)
-
-# Train the model
-model.fit(train_dataset, validation_data=val_dataset, epochs=20)
-```
-
 # LOMO
 
 **Overview**:
@@ -6345,81 +6263,6 @@ model.compile(
 
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=15)
-```
-
-# Ranger2020_sn
-
-**Overview**:
-
-The `Ranger_sn` optimizer integrates RAdam’s rectified adaptive moments with Lookahead, optional Subset Normalization (SN), and Gradient Centralization (GC). It maintains moving averages of gradients (`exp_avg`) and second moments (`exp_avg_sq`)—computed either per element or per user-defined subsets when `sn=True`. The optimizer applies a rectified step size when the variance statistic exceeds a threshold (`N_sma_threshhold`), and periodically “looks ahead” by interpolating fast weights toward a slow weight buffer every `k` steps. Gradient Centralization is applied either to convolutional layers only or to all multi-dimensional gradients, controlled by `use_gc`, `gc_conv_only`, and `gc_loc` flags.
-
-**Parameters**:
-
-* **`learning_rate`** *(float, default=1e-3)*: Base step size for updates.
-* **`beta1`** *(float, default=0.95)*: Decay rate for the first moment estimates (`exp_avg`).
-* **`beta2`** *(float, default=0.999)*: Decay rate for the second moment estimates (`exp_avg_sq`).
-* **`epsilon`** *(float, default=1e-5)*: Small constant for numerical stability in denominator.
-* **`weight_decay`** *(float, default=0)*: L2 regularization coefficient applied to gradients after moment computation.
-* **`alpha`** *(float, default=0.5)*: Lookahead interpolation factor—how much the slow buffer moves toward the fast weights at each synchronization.
-* **`k`** *(int, default=6)*: Number of steps between Lookahead synchronization events.
-* **`N_sma_threshhold`** *(int, default=5)*: Minimum variance statistic (N\_sma) required to use the rectified adaptive step; below this threshold, uses unrectified update.
-* **`use_gc`** *(bool, default=True)*: Whether to apply Gradient Centralization.
-* **`gc_conv_only`** *(bool, default=False)*: If `True`, apply GC only to convolutional kernels (tensors with rank > 3); if `False`, apply GC to all tensors with rank > 1.
-* **`gc_loc`** *(bool, default=True)*: If `True`, apply GC to input gradients before moment updates; if `False`, apply GC to the computed update direction instead.
-* **`subset_size`** *(int, default=-1)*: Desired subset length for Subset Normalization. If > 0, used directly; if ≤ 0, a divisor near sqrt(tensor\_size) is computed.
-* **`sn`** *(bool, default=True)*: If `True`, enable Subset Normalization—group-wise second-moment computation over subsets of gradients; if `False`, falls back to element-wise squared gradients.
-* **`clipnorm`** *(float, optional)*: Clip each gradient tensor by its L2 norm before any update.
-* **`clipvalue`** *(float, optional)*: Clip gradient values element-wise to \[–clipvalue, clipvalue] before any update.
-* **`global_clipnorm`** *(float, optional)*: Clip the global norm of all gradients before any update.
-* **`use_ema`** *(bool, default=False)*: If `True`, maintain an Exponential Moving Average of model weights.
-* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA updates when `use_ema=True`.
-* **`ema_overwrite_frequency`** *(int, optional)*: Steps between overwriting model weights with EMA weights.
-* **`loss_scale_factor`** *(float, optional)*: Scaling factor for the loss in mixed-precision training.
-* **`gradient_accumulation_steps`** *(int, optional)*: Number of micro-batches to accumulate before applying an update.
-* **`name`** *(str, default="ranger2020\_sn")*: Optional name prefix for optimizer variables.
-
-**Example Usage**:
-
-```python
-import tensorflow as tf
-from optimizers.ranger2020_sn import Ranger_sn
-
-# Instantiate Ranger_sn with Subset Normalization and GC on convolution layers only
-optimizer = Ranger_sn(
-    learning_rate=1e-3,
-    beta1=0.95,
-    beta2=0.999,
-    epsilon=1e-5,
-    weight_decay=1e-4,
-    alpha=0.5,
-    k=6,
-    N_sma_threshhold=5,
-    use_gc=True,
-    gc_conv_only=True,
-    gc_loc=True,
-    subset_size=256,
-    sn=True,
-    use_ema=True,
-    ema_momentum=0.99,
-    gradient_accumulation_steps=2
-)
-
-# Build a simple convolutional model
-model = tf.keras.Sequential([
-    tf.keras.layers.Conv2D(32, 3, activation='relu'),
-    tf.keras.layers.Flatten(),
-    tf.keras.layers.Dense(10, activation='softmax')
-])
-
-# Compile with Ranger_sn
-model.compile(
-    optimizer=optimizer,
-    loss='sparse_categorical_crossentropy',
-    metrics=['accuracy']
-)
-
-# Train the model
-model.fit(train_dataset, validation_data=val_dataset, epochs=20)
 ```
 
 # RangerQH_sn
@@ -7787,11 +7630,11 @@ for epoch in range(3):
         loss_value = train_step(x_batch, y_batch)
 ```
 
-# Ranger_
+# Ranger_e
 
 **Overview**:
 
-`Ranger_` is a hybrid optimizer that combines RAdam-style rectified adaptive updates with Lookahead, optional Gradient Centralization (GC), optional subset-normalization (SN) for memory-efficient second-moment estimates, and an optional D-Adapt automatic step-size controller. It is intended for robust, stable training across architectures: when `use_gc` is enabled it recenters gradients (useful for convolutional and/or fully-connected layers), `sn=True` groups elements to reduce second-moment memory, Lookahead (slow buffer + interpolation) improves stability, and `DAdapt` automatically adjusts an internal scaling `d0` from observed gradient statistics.
+`Ranger_e` is a hybrid optimizer that combines RAdam-style rectified adaptive updates with Lookahead, optional Gradient Centralization (GC), optional subset-normalization (SN) for memory-efficient second-moment estimates, and an optional D-Adapt automatic step-size controller. It is intended for robust, stable training across architectures: when `use_gc` is enabled it recenters gradients (useful for convolutional and/or fully-connected layers), `sn=True` groups elements to reduce second-moment memory, Lookahead (slow buffer + interpolation) improves stability, and `DAdapt` automatically adjusts an internal scaling `d0` from observed gradient statistics.
 
 **Parameters**:
 
@@ -7816,7 +7659,7 @@ for epoch in range(3):
 * **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting weights from EMA (when used).
 * **`loss_scale_factor`** *(float, optional)*: Loss scaling factor for mixed-precision workflows.
 * **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an optimizer update.
-* **`name`** *(str, default="ranger\_")*: Name of the optimizer.
+* **`name`** *(str, default="ranger_e")*: Name of the optimizer.
 
 **Behavior & Notes**:
 
@@ -7832,16 +7675,9 @@ for epoch in range(3):
 
 ```python
 import tensorflow as tf
-# from optimizers.ranger_ import Ranger_  # adjust the import path as needed
+from optimizers.ranger_e import Ranger_e
 
-# Define a simple model
-model = tf.keras.Sequential([
-    tf.keras.layers.Dense(512, activation='relu', input_shape=(784,)),
-    tf.keras.layers.Dense(10)
-])
-
-# Instantiate the Ranger_ optimizer
-optimizer = Ranger_(
+optimizer = Ranger_e(
     learning_rate=1e-3,
     beta1=0.95,
     beta2=0.999,
@@ -7857,21 +7693,239 @@ optimizer = Ranger_(
     growth_rate=1e6
 )
 
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# Ranger2020_e
+
+**Overview**:
+
+`Ranger2020_e` is a hybrid optimizer combining RAdam-style rectified adaptive updates with Lookahead, optional Gradient Centralization (GC) (with local/global modes), optional subset-normalization (SN) to reduce second-moment memory, and an optional D-Adapt automatic step-size controller. It is designed to be robust across architectures: GC recenters gradients for convolutional and/or fully-connected layers, SN groups elements to reduce memory for second moments, Lookahead stabilizes optimization via a slow buffer, and D-Adapt adapts an internal scaling `d0` from observed gradient statistics.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base learning rate (global multiplier). Effective per-step scale may be modulated by D-Adapt when enabled.
+* **`beta1`** *(float, default=0.95)*: Decay for the first moment (moving average of gradients).
+* **`beta2`** *(float, default=0.999)*: Decay for the second moment (moving average of squared gradients or grouped second moments when SN is enabled).
+* **`epsilon`** *(float, default=1e-5)*: Small constant added for numerical stability in denominators.
+* **`weight_decay`** *(float, default=0)*: L2 weight decay coefficient (applied inside the update step if non-zero).
+* **`alpha`** *(float, default=0.5)*: Lookahead interpolation factor between slow and fast weights (`slow += alpha * (fast - slow)`).
+* **`k`** *(int, default=6)*: Lookahead synchronization period (apply slow/fast interpolation every `k` steps).
+* **`N_sma_threshhold`** *(int, default=5)*: Threshold controlling rectified (RAdam) vs. unrectified behavior.
+* **`use_gc`** *(bool, default=True)*: Enable Gradient Centralization (GC).
+* **`gc_conv_only`** *(bool, default=False)*: If `True`, apply GC only to convolution-like gradients (determined by gradient rank).
+* **`gc_loc`** *(bool, default=True)*: If `True`, GC is applied locally on the raw gradient; if `False`, GC may be applied to the computed update (alternate placement).
+* **`subset_size`** *(int, default=-1)*: Subset size hint for subset-normalization (SN). `-1` uses an automatic heuristic (sqrt of tensor size).
+* **`sn`** *(bool, default=True)*: Enable subset-normalization: group elements into subsets and compute grouped second moments to reduce memory.
+* **`d0`** *(float, default=1e-6)*: Initial D-Adapt scalar (when `DAdapt=True`) that multiplies the global `learning_rate`.
+* **`growth_rate`** *(float, default=inf)*: Maximum multiplicative growth allowed for `d0` per adapt step.
+* **`DAdapt`** *(bool, default=True)*: Enable the D-Adapt automatic step-size controller that adjusts `d0` from accumulated statistics.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard gradient clipping options forwarded to the base optimizer.
+* **`use_ema`** *(bool, default=False)*: Whether to maintain exponential moving averages of parameters.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum if `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting model weights from EMA (when enabled).
+* **`loss_scale_factor`** *(float, optional)*: Loss scaling factor for mixed-precision workflows.
+* **`gradient_accumulation_steps`** *(int, optional)*: Steps to accumulate gradients before applying an optimizer update.
+* **`name`** *(str, default="ranger2020_e")*: Name of the optimizer.
+
+**Behavior & Notes**:
+
+* Gradient Centralization (GC): when `use_gc=True` the optimizer will subtract the mean across feature axes for gradients (either locally on raw gradients if `gc_loc=True`, or on computed updates otherwise). Use `gc_conv_only=True` to restrict GC to convolution-like gradients.
+* Subset-Normalization (SN): when `sn=True` grouped second-moment statistics are stored per-subset rather than per-element. The optimizer chooses a practical subset size (heuristic: `sqrt(size)` unless `subset_size` is provided) and computes grouped squared norms to reduce memory footprint.
+* Lookahead: the optimizer maintains `slow_buffer` (slow weights) and every `k` steps performs `slow += alpha * (fast - slow)` and copies slow weights back to the fast parameters.
+* RAdam rectification: updates are rectified using the `N_sma` schedule; when `N_sma <= N_sma_threshhold` the optimizer falls back to an unrectified style update.
+* D-Adapt: when `DAdapt=True` the optimizer gathers per-step statistics to adapt an internal scalar `d0` that rescales the effective step size automatically.
+* Mixed precision: internal accumulators are maintained in float32; gradients and parameters are cast as needed for numerical stability.
+* Sparse gradients are **not supported**; the optimizer will raise if a sparse gradient is passed.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.ranger2020_e import Ranger_e
+
+optimizer = Ranger_e(
+    learning_rate=1e-3,
+    beta1=0.95,
+    beta2=0.999,
+    epsilon=1e-5,
+    alpha=0.5,
+    k=6,
+    use_gc=True,
+    gc_conv_only=False,
+    gc_loc=True,
+    sn=True,
+    subset_size=-1,
+    DAdapt=True,
+    d0=1e-6,
+    growth_rate=1e6
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# Ranger21_e
+
+**Overview**:
+
+`Ranger21_e` is a composite optimizer that integrates many modern optimization techniques into a single, flexible optimizer. It combines AdamW-style adaptive updates (with optional Adam-debias), adaptive gradient clipping (AGC), gradient centralization, gradient normalization, positive–negative momentum (PN-momentum), subset-based second-moment estimation (subset normalization) to reduce memory, Lookahead, softplus transformation of denominators, stable weight decay, norm-based parameter regularization, linear warm-up / warm-down schedules, and an optional D-Adapt automatic step-size controller. It is intended for advanced use where many stability and performance improvements are desired together.
+
+**Parameters**:
+
+* **`num_iterations`** *(int, required)*: Total number of optimizer iterations (used to build warm-up / warm-down scheduling).
+* **`learning_rate`** *(float, default=1e-3)*: Base learning rate (global multiplier).
+* **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability in denominators.
+* **`weight_decay`** *(float, default=1e-4)*: L2 weight decay coefficient (stable / decoupled application is supported).
+* **`beta0`** *(float, default=0.9)*: Additional beta parameter (reserved / used internally; e.g., for noise normalization).
+* **`betas`** *(tuple, default=(0.9, 0.999))*: (beta1, beta2) pair for first- and second-moment moving averages.
+* **`use_softplus`** *(bool, default=True)*: If `True`, applies a softplus transform to the denominator (improves stability).
+* **`beta_softplus`** *(float, default=50.0)*: Softplus `beta` parameter when `use_softplus=True`.
+* **`disable_lr_scheduler`** *(bool, default=False)*: Disable warm-up / warm-down LR scheduling when `True`.
+* **`num_warm_up_iterations`** *(int, optional)*: Number of warm-up iterations (auto-computed if `None`).
+* **`num_warm_down_iterations`** *(int, optional)*: Number of warm-down iterations (auto-computed if `None`).
+* **`warm_down_min_lr`** *(float, default=3e-5)*: Minimum LR at the end of warm-down.
+* **`agc_clipping_value`** *(float, default=1e-2)*: Clipping value used by Adaptive Gradient Clipping.
+* **`agc_eps`** *(float, default=1e-3)*: Small epsilon for AGC unit-wise norm robustness.
+* **`centralize_gradients`** *(bool, default=True)*: Enable gradient centralization.
+* **`normalize_gradients`** *(bool, default=True)*: Enable gradient normalization (per-tensor standardization where applied).
+* **`lookahead_merge_time`** *(int, default=5)*: Lookahead synchronization period (every `k` steps).
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Lookahead interpolation factor (`slow += alpha * (fast - slow)`).
+* **`weight_decouple`** *(bool, default=True)*: Use decoupled weight decay (AdamW style) when `True`.
+* **`fixed_decay`** *(bool, default=False)*: If `True` apply fixed decay instead of scaling by LR.
+* **`norm_loss_factor`** *(float, default=1e-4)*: Factor controlling the "norm loss" regularization applied to parameters.
+* **`adam_debias`** *(bool, default=False)*: If `True`, apply Adam-style debiasing to the step-size.
+* **`subset_size`** *(int, default=-1)*: Subset size hint for subset-normalization (SN). `-1` uses automatic heuristic (sqrt of tensor size).
+* **`sn`** *(bool, default=True)*: Enable subset-based second-moment estimation (reduces memory by grouping elements).
+* **`d0`** *(float, default=1e-6)*: Initial D-Adapt scalar when `DAdapt=True` (internal step-size scaler).
+* **`growth_rate`** *(float, default=inf)*: Maximum allowed multiplicative growth for the D-Adapt scalar between updates.
+* **`DAdapt`** *(bool, default=True)*: Enable D-Adapt automatic step-size controller.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard gradient clipping parameters forwarded to base optimizer.
+* **`use_ema`** *(bool, default=False)*: Maintain exponential moving averages of parameters when enabled.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA if used.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting model weights from EMA snapshot.
+* **`loss_scale_factor`** *(float, optional)*: Loss scaling factor for mixed precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying updates.
+* **`name`** *(str, default="ranger21_e")*: Optimizer name used by Keras.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.ranger2020_e import Ranger_e
+
+optimizer = Ranger21_e(
+    num_iterations=total_iterations,
+    learning_rate=1e-3,
+    betas=(0.9, 0.999),
+    epsilon=1e-8,
+    weight_decay=1e-4,
+    use_softplus=True,
+    beta_softplus=50.0,
+    agc_clipping_value=1e-2,
+    agc_eps=1e-3,
+    centralize_gradients=True,
+    normalize_gradients=True,
+    lookahead_merge_time=5,
+    lookahead_blending_alpha=0.5,
+    sn=True,
+    subset_size=-1,
+    DAdapt=True,
+    d0=1e-6,
+    growth_rate=1e6
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# Ranger25
+
+**Overview**:
+
+`Ranger25` is a feature-rich, experimental optimizer that mixes many modern optimization techniques into a single algorithm. It combines orthogonalized gradients (OrthoGrad), adaptive gradient clipping (AGC), stable AdamW-style updates (or atan2-based alternative), positive/negative and slow/fast momentum mixtures, Lookahead, subset-based second-moment estimation (subset normalization, SN) for memory efficiency, cautious masking, and optional D-Adapt automatic step-size adaptation. It is intended for advanced users who want to experiment with many stability and performance components together.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base learning rate (global multiplier).
+* **`betas`** *(tuple of three floats, default=(0.9, 0.98, 0.9999))*: Momentum coefficients. Interpreted as `(beta1, beta2, beta3)` where `beta1`/`beta2` are used for first/second moment behavior and `beta3` is used for the slow (lookahead / slow-moving) momentum blending.
+* **`epsilon`** *(float, default=1e-8)*: Small number added to denominators for numerical stability.
+* **`weight_decay`** *(float, default=1e-3)*: L2 weight decay coefficient; applied either decoupled (AdamW-style) or in-place depending on other flags.
+* **`alpha`** *(float, default=5.0)*: Lookahead / slow-momentum blending coefficient (or positive/negative momentum scale depending on internals).
+* **`t_alpha_beta3`** *(int or None, default=None)*: Time horizon used to schedule `alpha` and `beta3`. When `None` scheduling is disabled and fixed `alpha`/`beta3` are used.
+* **`lookahead_merge_time`** *(int, default=5)*: Number of steps between Lookahead slow/fast parameter merges.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Lookahead interpolation factor when merging slow and fast weights.
+* **`cautious`** *(bool, default=True)*: Enable cautious masking that reduces updates that disagree in sign with gradients (helps stability).
+* **`stable_adamw`** *(bool, default=True)*: Use the stable / normalized AdamW step-size scaling (instead of a plain AdamW update). When `False`, an alternate update (e.g. atan2-style) may be used where implemented.
+* **`orthograd`** *(bool, default=True)*: Apply OrthoGrad (project gradient to be orthogonal to parameter direction) to reduce harmful alignment between weights and their gradients.
+* **`weight_decouple`** *(bool, default=True)*: Use decoupled weight decay (AdamW-style) if `True`; otherwise apply standard L2-style decay.
+* **`fixed_decay`** *(bool, default=False)*: When `True`, apply fixed (non-LR-scaled) decay; otherwise decay may be scaled by LR.
+* **`subset_size`** *(int, default=-1)*: Hint for subset size used by subset-based second-moment estimation (SN). `-1` uses the automatic heuristic (sqrt of tensor size).
+* **`sn`** *(bool, default=True)*: Enable subset-based second-moment estimation (Subset Normalization) to reduce memory for second-moment buffers.
+* **`d0`** *(float, default=1e-6)*: Initial `d0` scalar for D-Adapt (initial adaptive multiplier).
+* **`growth_rate`** *(float, default=inf)*: Maximum allowed multiplicative growth per D-Adapt update for the internal scale.
+* **`DAdapt`** *(bool, default=True)*: Enable D-Adapt automatic step-size controller (adapts an internal scalar `d0_`).
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard gradient clipping parameters forwarded to the base optimizer.
+* **`use_ema`** *(bool, default=False)*: Maintain exponential moving averages of parameters when enabled.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA if `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency to overwrite model weights from EMA snapshot (if used).
+* **`loss_scale_factor`** *(float, optional)*: Loss scaling factor for mixed precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Steps to accumulate gradients before applying an update.
+* **`name`** *(str, default="ranger25")*: Optimizer name used by Keras.
+
+**Notes & caveats**:
+
+* Sparse gradients are **not** supported; the optimizer will raise an error if it encounters them.
+* Many per-parameter statistics are stored in float32 for numerical stability. Mixed-precision training should be tested carefully and may require `loss_scale_factor`.
+* When `sn=True`, per-variable subset sizes are selected automatically and stored in `optimizer.subset_size_` after `build()` — inspect this if you need deterministic grouping.
+* `DAdapt=True` exposes an internal scalar `optimizer.d0_` which automatically adapts; monitoring it can be helpful to debug step-size behavior.
+* `orthograd=True` alters gradients to be orthogonal to parameter vectors — this can help generalization in some cases but may change training dynamics.
+* This optimizer integrates many experimental features; enable/disable components selectively to diagnose behavior for your model and dataset.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.ranger25 import Ranger25  # adjust import path as needed
+
+# Create a model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(512, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10)
+])
+
 loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 
-# Training step using tf.GradientTape
-@tf.function
-def train_step(x, y):
-    with tf.GradientTape() as tape:
-        logits = model(x, training=True)
-        loss = loss_fn(y, logits)
-    grads = tape.gradient(loss, model.trainable_variables)
-    # apply_gradients expects an iterable of (grad, var) pairs
-    optimizer.apply_gradients(zip(grads, model.trainable_variables))
-    return loss
+# Instantiate optimizer
+optimizer = Ranger25(
+    learning_rate=1e-3,
+    betas=(0.9, 0.98, 0.9999),
+    epsilon=1e-8,
+    weight_decay=1e-3,
+    alpha=5.0,
+    lookahead_merge_time=5,
+    lookahead_blending_alpha=0.5,
+    cautious=True,
+    stable_adamw=True,
+    orthograd=True,
+    subset_size=-1,
+    sn=True,
+    DAdapt=True,
+    d0=1e-6,
+    growth_rate=1e6
+)
 
-# Example loop (dataset yields (x, y))
-for epoch in range(3):
-    for x_batch, y_batch in train_dataset:
-        loss_value = train_step(x_batch, y_batch)
+# Compile and train
+model.compile(optimizer=optimizer, loss=loss_fn, metrics=["accuracy"])
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
