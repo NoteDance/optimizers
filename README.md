@@ -7929,3 +7929,84 @@ optimizer = Ranger25(
 model.compile(optimizer=optimizer, loss=loss_fn, metrics=["accuracy"])
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# SophiaH_e
+
+**Overview**:
+
+`SophiaH_e` is an experimental second-order inspired optimizer that estimates diagonal Hessian-like information using Hutchinson’s method and combines it with momentum variations (positive/negative momentum), optional orthogonalized gradients, and Lookahead. It supports subset-based second-moment estimation (SN) for memory efficiency and offers decoupled (AdamW-style) or fixed weight decay. The optimizer is intended for advanced use-cases where low-cost curvature information and more sophisticated momentum schemes can improve stability and convergence.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=6e-2)*: Base step size for parameter updates.
+* **`beta1`** *(float, default=0.96)*: Exponential decay rate for the first moment (momentum) estimates.
+* **`beta2`** *(float, default=0.99)*: Exponential decay rate for the Hessian (second-moment / curvature) moving average.
+* **`epsilon`** *(float, default=1e-12)*: Small constant added to denominators for numerical stability.
+* **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 weight decay.
+* **`weight_decouple`** *(bool, default=True)*: Use decoupled weight decay (AdamW-style) when `True`; otherwise standard L2-style decay is applied.
+* **`fixed_decay`** *(bool, default=False)*: When `True`, apply fixed weight decay (not scaled by the learning rate); otherwise decay may be scaled by the learning rate.
+* **`p`** *(float, default=1e-2)*: Small damping/regularization scalar used internally (applied to curvature / update clipping behavior).
+* **`update_period`** *(int, default=10)*: How often (in iterations) Hutchinson Hessian estimation is computed/accumulated.
+* **`num_samples`** *(int, default=1)*: Number of Hutchinson samples to use per curvature estimation step.
+* **`hessian_distribution`** *(str, default='gaussian')*: Distribution used for Hutchinson probes. Supported values: `'gaussian'` or `'rademacher'`.
+* **`orthograd`** *(bool, default=True)*: Apply OrthoGrad — project gradients to be orthogonal to parameter vectors before other updates.
+* **`lookahead_merge_time`** *(int, default=5)*: Number of steps between Lookahead slow/fast parameter merges.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Interpolation factor used when merging fast and slow (lookahead) parameters.
+* **`lookahead`** *(bool, default=True)*: Enable Lookahead slow/fast parameter mechanism.
+* **`pnm`** *(bool, default=True)*: Use Positive-Negative momentum (separate positive/negative momentum tracks) instead of a single momentum buffer.
+* **`subset_size`** *(int, default=-1)*: Hint for subset size used by subset-based second-moment estimation (SN). `-1` uses an automatic heuristic.
+* **`sn`** *(bool, default=True)*: Enable subset-based second-moment estimation (Subset Normalization) to reduce memory for curvature buffers.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard gradient clipping parameters forwarded to the base optimizer.
+* **`use_ema`** *(bool, default=False)*: Maintain an exponential moving average of model weights when enabled.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum used for EMA when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency (steps) for overwriting model weights from the EMA snapshot.
+* **`loss_scale_factor`** *(float, optional)*: Loss scaling factor for mixed precision / dynamic loss scaling.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an update.
+* **`name`** *(str, default="sophiah\_e")*: Name of the optimizer (Keras serialization).
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.sophia import SophiaH_e
+
+# Define model and loss
+model = tf.keras.Sequential([...])
+loss_fn = tf.keras.losses.MeanSquaredError()
+
+# Instantiate optimizer
+optimizer = SophiaH_e(
+    learning_rate=6e-2,
+    beta1=0.96,
+    beta2=0.99,
+    epsilon=1e-12,
+    weight_decay=0.0,
+    weight_decouple=True,
+    fixed_decay=False,
+    p=1e-2,
+    update_period=10,
+    num_samples=1,
+    hessian_distribution='gaussian',
+    orthograd=True,
+    lookahead_merge_time=5,
+    lookahead_blending_alpha=0.5,
+    lookahead=True,
+    pnm=True,
+    subset_size=-1,
+    sn=True
+)
+
+# Training step
+@tf.function
+def train_step(x, y, model, optimizer):
+    with tf.GradientTape(persistent=True) as tape:
+        predictions = model(x, training=True)
+        loss = loss_fn(y, predictions)
+        gradients = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables), tape)
+
+# Training loop
+for epoch in range(epochs):
+    for x_batch, y_batch in dataset:
+        train_step(x_batch, y_batch, model, optimizer)
+```
