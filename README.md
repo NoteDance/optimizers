@@ -7934,35 +7934,43 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 
 **Overview**:
 
-`SophiaH_e` is an experimental second-order inspired optimizer that estimates diagonal Hessian-like information using Hutchinson’s method and combines it with momentum variations (positive/negative momentum), optional orthogonalized gradients, and Lookahead. It supports subset-based second-moment estimation (SN) for memory efficiency and offers decoupled (AdamW-style) or fixed weight decay. The optimizer is intended for advanced use-cases where low-cost curvature information and more sophisticated momentum schemes can improve stability and convergence.
+The `SophiaH_e` optimizer is a hybrid second-order / momentum optimizer that blends Hutchinson-style approximate Hessian information with advanced first-order techniques. It integrates Hutchinson Hessian estimation, optional subset-based second-moment estimation (SN) for memory/compute efficiency, positive–negative momentum (PNM), adaptive gradient clipping (AGC), orthogonal gradient projection, lookahead-style slow/fast weight blending, and several stability options (decoupled weight decay, cautious updates, AEM-style slow momentum mixing). It is intended for use when you want curvature-aware, robust updates with many practical stability controls for large-scale or noisy training.
 
 **Parameters**:
 
 * **`learning_rate`** *(float, default=6e-2)*: Base step size for parameter updates.
-* **`beta1`** *(float, default=0.96)*: Exponential decay rate for the first moment (momentum) estimates.
-* **`beta2`** *(float, default=0.99)*: Exponential decay rate for the Hessian (second-moment / curvature) moving average.
+* **`beta1`** *(float, default=0.96)*: Exponential decay rate for the (positive) momentum / first moment estimator.
+* **`beta2`** *(float, default=0.99)*: Exponential decay rate used for Hutchinson Hessian accumulation and some internal second-moment smoothing.
+* **`beta3`** *(float, default=0.9999)*: (Optional) decay used by AEM / slow-momentum mixing when enabled.
 * **`epsilon`** *(float, default=1e-12)*: Small constant added to denominators for numerical stability.
-* **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 weight decay.
-* **`weight_decouple`** *(bool, default=True)*: Use decoupled weight decay (AdamW-style) when `True`; otherwise standard L2-style decay is applied.
-* **`fixed_decay`** *(bool, default=False)*: When `True`, apply fixed weight decay (not scaled by the learning rate); otherwise decay may be scaled by the learning rate.
-* **`p`** *(float, default=1e-2)*: Small damping/regularization scalar used internally (applied to curvature / update clipping behavior).
-* **`update_period`** *(int, default=10)*: How often (in iterations) Hutchinson Hessian estimation is computed/accumulated.
-* **`num_samples`** *(int, default=1)*: Number of Hutchinson samples to use per curvature estimation step.
-* **`hessian_distribution`** *(str, default='gaussian')*: Distribution used for Hutchinson probes. Supported values: `'gaussian'` or `'rademacher'`.
-* **`orthograd`** *(bool, default=True)*: Apply OrthoGrad — project gradients to be orthogonal to parameter vectors before other updates.
-* **`lookahead_merge_time`** *(int, default=5)*: Number of steps between Lookahead slow/fast parameter merges.
-* **`lookahead_blending_alpha`** *(float, default=0.5)*: Interpolation factor used when merging fast and slow (lookahead) parameters.
-* **`lookahead`** *(bool, default=True)*: Enable Lookahead slow/fast parameter mechanism.
-* **`pnm`** *(bool, default=True)*: Use Positive-Negative momentum (separate positive/negative momentum tracks) instead of a single momentum buffer.
-* **`subset_size`** *(int, default=-1)*: Hint for subset size used by subset-based second-moment estimation (SN). `-1` uses an automatic heuristic.
-* **`sn`** *(bool, default=True)*: Enable subset-based second-moment estimation (Subset Normalization) to reduce memory for curvature buffers.
-* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard gradient clipping parameters forwarded to the base optimizer.
-* **`use_ema`** *(bool, default=False)*: Maintain an exponential moving average of model weights when enabled.
-* **`ema_momentum`** *(float, default=0.99)*: Momentum used for EMA when `use_ema=True`.
-* **`ema_overwrite_frequency`** *(int, optional)*: Frequency (steps) for overwriting model weights from the EMA snapshot.
-* **`loss_scale_factor`** *(float, optional)*: Loss scaling factor for mixed precision / dynamic loss scaling.
-* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an update.
-* **`name`** *(str, default="sophiah\_e")*: Name of the optimizer (Keras serialization).
+* **`weight_decay`** *(float, default=0.0)*: Weight decay coefficient applied either decoupled (when `weight_decouple=True`) or as classic L2 on gradients.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, apply decoupled weight decay (AdamW style) before the parameter update.
+* **`fixed_decay`** *(bool, default=False)*: If `True`, use fixed weight decay scaling; otherwise scale decay with learning rate when decoupled.
+* **`p`** *(float, default=1e-2)*: Generic damping / regularization constant (kept for backward compatibility / internal heuristics).
+* **`update_period`** *(int, default=10)*: How often (number of steps) to compute / refresh the Hutchinson Hessian estimates; lowers cost by reusing estimates for `update_period` steps.
+* **`num_samples`** *(int, default=1)*: Number of Hutchinson probe samples per Hessian estimation step (higher → better estimate at higher cost).
+* **`hessian_distribution`** *(str, default='gaussian')*: Distribution to sample Hutchinson probes from; accepted values: `'gaussian'` or `'rademacher'`.
+* **`orthograd`** *(bool, default=True)*: If `True`, orthogonally project gradients relative to parameters (OrthoGrad-style) to encourage exploration in orthogonal subspaces.
+* **`lookahead_merge_time`** *(int, default=5)*: Steps between lookahead slow/fast parameter blending (if `lookahead=True`).
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending factor α used when merging fast and slow weights in lookahead.
+* **`lookahead`** *(bool, default=True)*: Enable lookahead-style slow/fast weight mixing.
+* **`pnm`** *(bool, default=True)*: Enable positive–negative momentum (PNM) update rule (alternating positive and negative momentum streams).
+* **`subset_size`** *(int, default=-1)*: If >0 or -1 semantics used, controls subset size for subset-based second-moment estimation (SN). Use -1 to auto-derive subsets.
+* **`sn`** *(bool, default=True)*: Enable subset-based second-moment (SN) estimation. When enabled, second moments (and Hutchinson estimates) are computed over smaller sub-blocks to reduce memory and compute.
+* **`agc`** *(bool, default=True)*: Whether to apply Adaptive Gradient Clipping (AGC) to each parameter’s gradient before accumulation.
+* **`cautious`** *(bool, default=True)*: When enabled, apply a caution mask that reduces updates that disagree in sign with the gradient (helps stability when using momentum variants).
+* **`aem`** *(bool, default=True)*: If `True`, apply AEM / slow-momentum mixing (adds a slow-moving momentum term mixed into updates).
+* **`alpha`** *(float, default=5.0)*: Mixing factor used by AEM-style slow momentum when enabled.
+* **`t_alpha_beta3`** *(Optional\[int], default=None)*: Schedule endpoint for gradually increasing `alpha` / scheduling `beta3` if desired; if `None` scheduling is disabled and constants are used.
+* **`clipnorm`** *(float, optional)*: Clip gradients by global norm if set.
+* **`clipvalue`** *(float, optional)*: Clip gradients by value if set.
+* **`global_clipnorm`** *(float, optional)*: Alternative global clipnorm (overrides `clipnorm` if provided).
+* **`use_ema`** *(bool, default=False)*: Whether to maintain an exponential moving average (EMA) of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for the EMA.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency to overwrite model weights from EMA (if used).
+* **`loss_scale_factor`** *(float, optional)*: Loss scaling factor for mixed-precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: How many steps to accumulate gradients before applying an update (if using gradient accumulation).
+* **`name`** *(str, default="sophiah\_e")*: Name of the optimizer instance.
 
 **Example Usage**:
 
@@ -7979,21 +7987,24 @@ optimizer = SophiaH_e(
     learning_rate=6e-2,
     beta1=0.96,
     beta2=0.99,
+    beta3=0.9999,
     epsilon=1e-12,
-    weight_decay=0.0,
-    weight_decouple=True,
-    fixed_decay=False,
-    p=1e-2,
+    weight_decay=1e-4,
     update_period=10,
-    num_samples=1,
+    num_samples=2,
     hessian_distribution='gaussian',
     orthograd=True,
+    lookahead=True,
     lookahead_merge_time=5,
     lookahead_blending_alpha=0.5,
-    lookahead=True,
     pnm=True,
     subset_size=-1,
-    sn=True
+    sn=True,
+    agc=True,
+    cautious=True,
+    aem=True,
+    alpha=5.0,
+    t_alpha_beta3=None
 )
 
 # Training step
