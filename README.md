@@ -8021,3 +8021,147 @@ for epoch in range(epochs):
     for x_batch, y_batch in dataset:
         train_step(x_batch, y_batch, model, optimizer)
 ```
+
+# SophiaG
+
+**Overview**:
+
+The `SophiaG` optimizer is a variant of second-moment / Hessian-aware optimizers that combines first-moment momentum with a per-parameter curvature estimate (here stored in `hessian`) to produce curvature-normalized updates. It supports decoupled weight decay, optional fixed decay scaling, and an option to maximize the objective (gradient ascent). It is a compact, efficient optimizer intended for scenarios where light curvature information improves stability and step sizing.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-4)*: The base step size for parameter updates.
+* **`beta1`** *(float, default=0.965)*: Exponential decay rate for the first moment (momentum) estimates.
+* **`beta2`** *(float, default=0.99)*: Exponential decay rate for the second moment / hessian moving average.
+* **`rho`** *(float, default=0.04)*: Small scaling factor used to stabilize curvature normalization (appears in denominator `rho * hessian + eps`).
+* **`weight_decay`** *(float, default=1e-1)*: Coefficient for weight decay. If `weight_decouple` is enabled, decay is applied as decoupled step (AdamW-style).
+* **`weight_decouple`** *(bool, default=True)*: Whether to apply decoupled weight decay (preferred for adaptive optimizers).
+* **`fixed_decay`** *(bool, default=False)*: If True, apply decay with a fixed factor instead of scaling by the learning rate.
+* **`maximize`** *(bool, default=False)*: If True, the optimizer will maximize the objective (i.e., apply gradient ascent).
+* **`clipnorm`** *(float, optional)*: Clip gradients by norm before applying updates.
+* **`clipvalue`** *(float, optional)*: Clip gradients by value before applying updates.
+* **`global_clipnorm`** *(float, optional)*: Clip gradients by a global norm across parameters.
+* **`use_ema`** *(bool, default=False)*: Whether to maintain an exponential moving average (EMA) of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum (decay) used by the EMA when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency (steps) to overwrite model weights with EMA weights if desired.
+* **`loss_scale_factor`** *(float, optional)*: Factor to scale the loss (useful with mixed precision).
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an update.
+* **`name`** *(str, default="sophiag")*: Name of the optimizer instance.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.sophia import SophiaG
+
+# Define model and loss
+model = tf.keras.Sequential([...])
+loss_fn = tf.keras.losses.MeanSquaredError()
+
+# Instantiate optimizer
+optimizer = SophiaG(
+    learning_rate=1e-4,
+    beta1=0.965,
+    beta2=0.99,
+    rho=0.04,
+    weight_decay=1e-1,
+    weight_decouple=True,
+    fixed_decay=False
+)
+
+# Training step
+@tf.function
+def train_step(x, y, model, optimizer):
+    with tf.GradientTape(persistent=True) as tape:
+        predictions = model(x, training=True)
+        loss = loss_fn(y, predictions)
+        gradients = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables), tape)
+
+# Training loop
+for epoch in range(epochs):
+    for x_batch, y_batch in dataset:
+        train_step(x_batch, y_batch, model, optimizer)
+```
+
+# SophiaG_e
+
+**Overview**:
+
+`SophiaG_e` is an enhanced Sophia-style optimizer that extends the core curvature-normalized update with many practical training improvements: orthogonalized gradients (Orthogonal Gradient), optional adaptive gradient clipping (AGC), positive-negative momentum (PNM), subset-based second-moment estimation (SN) for memory/compute efficiency, optional lookahead blending, AEM (exponential moving average on momentum), cautious masking, and hooks for curved-step scheduling (`alpha`, `beta3` scheduling). It is intended for researchers and practitioners who want a rich, configurable optimizer combining curvature adaptation and stability heuristics.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-4)*: The base step size for parameter updates.
+* **`beta1`** *(float, default=0.965)*: Decay for first-moment (momentum) estimates.
+* **`beta2`** *(float, default=0.99)*: Decay for second-moment / hessian moving average.
+* **`rho`** *(float, default=0.04)*: Stabilization constant used in curvature normalization (`rho * hessian + eps`).
+* **`weight_decay`** *(float, default=1e-1)*: Weight decay coefficient; applied decoupled when `weight_decouple=True`.
+* **`weight_decouple`** *(bool, default=True)*: Use decoupled weight decay (AdamW style).
+* **`fixed_decay`** *(bool, default=False)*: If True, apply decay as a fixed factor rather than scaling by lr.
+* **`maximize`** *(bool, default=False)*: If True, perform gradient ascent.
+* **`orthograd`** *(bool, default=True)*: Apply orthogonalization of gradients w\.r.t. parameters (OrthoGrad).
+* **`lookahead_merge_time`** *(int, default=5)*: Number of steps between lookahead merges.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending factor for lookahead interpolation.
+* **`lookahead`** *(bool, default=True)*: Enable lookahead style slow/fast weight interpolation.
+* **`pnm`** *(bool, default=True)*: Enable Positive-Negative Momentum (PNM) variant for momentum updates.
+* **`subset_size`** *(int, default=-1)*: Subset size hint for subset-based second-moment estimation (SN). If `-1` it uses heuristic to compute a divisor.
+* **`sn`** *(bool, default=True)*: Enable subset-normalization (subset-based second-moment estimation) to reduce memory/compute for very large tensors.
+* **`agc`** *(bool, default=True)*: Enable Adaptive Gradient Clipping.
+* **`cautious`** *(bool, default=True)*: Apply cautious masking to prevent sign-mismatched updates (reduces risky steps).
+* **`aem`** *(bool, default=True)*: Use AEM (momentum slow EMA) and related scheduling.
+* **`alpha`** *(float, default=5.0)*: Mixing coefficient used when AEM is active (applied to slow momentum).
+* **`t_alpha_beta3`** *(float or None, default=None)*: Time constant (steps) controlling schedule for `alpha` and `beta3` when provided.
+* **`clipnorm`** *(float, optional)*: Clip gradients by norm.
+* **`clipvalue`** *(float, optional)*: Clip gradients by value.
+* **`global_clipnorm`** *(float, optional)*: Clip gradients by a global norm across parameters.
+* **`use_ema`** *(bool, default=False)*: Maintain EMA of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency to overwrite model weights with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Loss scaling factor for mixed precision.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before update.
+* **`name`** *(str, default="sophiag\_e")*: Name of the optimizer instance.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.sophia import SophiaG_e
+
+# Define model and loss
+model = tf.keras.Sequential([...])
+loss_fn = tf.keras.losses.MeanSquaredError()
+
+# Instantiate the enhanced optimizer
+optimizer = SophiaG_e(
+    learning_rate=1e-4,
+    beta1=0.965,
+    beta2=0.99,
+    rho=0.04,
+    weight_decay=0.05,
+    orthograd=True,
+    lookahead=True,
+    lookahead_merge_time=5,
+    lookahead_blending_alpha=0.5,
+    pnm=True,
+    sn=True,
+    agc=True,
+    cautious=True,
+    aem=True,
+    alpha=5.0
+)
+
+# Training step
+@tf.function
+def train_step(x, y, model, optimizer):
+    with tf.GradientTape(persistent=True) as tape:
+        predictions = model(x, training=True)
+        loss = loss_fn(y, predictions)
+        gradients = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables), tape)
+
+# Training loop
+for epoch in range(epochs):
+    for x_batch, y_batch in dataset:
+        train_step(x_batch, y_batch, model, optimizer)
+```
