@@ -8165,3 +8165,187 @@ for epoch in range(epochs):
     for x_batch, y_batch in dataset:
         train_step(x_batch, y_batch, model, optimizer)
 ```
+
+# SOAP_e
+
+**Overview**:
+
+The `SOAP_e` optimizer is an advanced second-order-aware optimizer that combines Shampoo-style preconditioning with modern first-order stabilization and regularization techniques. It maintains per-dimension preconditioner matrices (with optional dimension merging) to precondition gradients, and integrates Adaptive Gradient Clipping (AGC), Positive–Negative Momentum (PNM), subset-based second-moment estimation (SN), cautious masking, an Adaptive Exponential-Moving (AEM) enhancement, bias correction, optional gradient normalization, and Lookahead. `SOAP_e` is designed for more stable and efficient training of deep models (especially large or ill-conditioned layers) while offering many knobs to tradeoff memory/compute for curvature-aware updates.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=3e-3)*: Base step size for parameter updates (used together with preconditioning and bias correction).
+* **`beta1`** *(float, default=0.95)*: Exponential decay rate for the first-moment (momentum/PNM) estimates.
+* **`beta2`** *(float, default=0.95)*: Exponential decay rate used for Shampoo-style second-moment accumulation (preconditioner / variance running averages).
+* **`epsilon`** *(float, default=1e-8)*: Small constant added to denominators for numerical stability.
+* **`weight_decay`** *(float, default=1e-2)*: Weight-decay coefficient applied to parameters (can be applied after update as implemented).
+* **`shampoo_beta`** *(float or None, default=None)*: Beta used specifically for Shampoo preconditioner updates. If `None`, falls back to `beta2`.
+* **`precondition_frequency`** *(int, default=10)*: How often (in steps) to compute/update the preconditioner eigen-bases / orthogonalization (heavy operation).
+* **`max_precondition_dim`** *(int, default=10000)*: Maximum dimension threshold for constructing dense preconditioner matrices; dims larger than this will be skipped or reduced.
+* **`merge_dims`** *(bool, default=False)*: If True merge small tensor dimensions before forming preconditioners (reduces number of matrices and improves compute efficiency).
+* **`precondition_1d`** *(bool, default=False)*: Whether to build 1-D preconditioners for vector parameters (when small enough).
+* **`correct_bias`** *(bool, default=True)*: Apply bias-correction factors to the step size (Adam-style corrections for first/second moments).
+* **`normalize_gradient`** *(bool, default=False)*: If True apply gradient normalization (rescaling updates by their RMS) before applying them.
+* **`data_format`** *(str, default='channels\_last')*: Data format used when merging / projecting convolutional parameter dimensions.
+* **`lookahead_merge_time`** *(int, default=5)*: Lookahead period (number of steps between slow/fast parameter blending).
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending coefficient for lookahead interpolation of slow and fast parameters.
+* **`lookahead`** *(bool, default=True)*: Enable Lookahead-style slow/fast parameter interpolation.
+* **`pnm`** *(bool, default=True)*: Enable Positive–Negative Momentum (PNM) instead of standard momentum (alternating positive/negative momentum for noise robustness).
+* **`subset_size`** *(int, default=-1)*: Subset size used for subset-based second-moment estimation (SN). Use -1 to let the optimizer pick a default divisor (√size heuristic).
+* **`sn`** *(bool, default=True)*: Enable subset-based second-moment estimation (subset normalization) to reduce second-moment memory or enable block-wise statistics.
+* **`agc`** *(bool, default=True)*: Enable Adaptive Gradient Clipping (AGC) to clip gradients by parameter unit-wise norm.
+* **`cautious`** *(bool, default=True)*: Enable cautious masking that down-weights update components that conflict with the current gradient direction.
+* **`aem`** *(bool, default=True)*: Enable Adaptive Exponential-Moving enhancement (AEM) — an extra slow-moving momentum term that can be blended with the main update.
+* **`alpha`** *(float, default=5.0)*: Scaling factor used by the AEM slow momentum when `aem=True`.
+* **`t_alpha_beta3`** *(optional, default=None)*: Schedule horizon for alpha / beta3 scheduling used by AEM (if provided).
+* **`clipnorm`** *(float, optional)*: Clip gradients by norm (Keras-compatible).
+* **`clipvalue`** *(float, optional)*: Clip gradients by value (Keras-compatible).
+* **`global_clipnorm`** *(float, optional)*: Global gradient-norm clipping across parameters.
+* **`use_ema`** *(bool, default=False)*: Maintain exponential moving average (EMA) of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Decay for EMA when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency to overwrite model weights with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Loss scale factor for mixed-precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying update.
+* **`name`** *(str, default="soap\_e")*: Name for the optimizer instance.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.soap import SOAP_e
+
+# Instantiate optimizer
+optimizer = SOAP_e(
+    learning_rate=3e-3,
+    beta1=0.95,
+    beta2=0.95,
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    shampoo_beta=0.98,
+    precondition_frequency=20,
+    max_precondition_dim=4096,
+    merge_dims=True,
+    precondition_1d=True,
+    correct_bias=True,
+    normalize_gradient=False,
+    lookahead=True,
+    lookahead_merge_time=5,
+    lookahead_blending_alpha=0.5,
+    pnm=True,
+    subset_size=-1,
+    sn=True,
+    agc=True,
+    cautious=True,
+    aem=True,
+    alpha=5.0
+)
+
+# Compile a model
+model = tf.keras.Sequential([
+    tf.keras.layers.Conv2D(32, 3, activation="relu", input_shape=(32, 32, 3)),
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(10)
+])
+
+model.compile(
+    optimizer=optimizer,
+    loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+    metrics=["accuracy"]
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+```
+
+# SOAP_e
+
+**Overview**:
+
+The `SOAP_e` optimizer is a hybrid optimizer that combines Shampoo-style preconditioning (per-dimension preconditioners and optional dimension merging) with modern first-order stabilization and regularization techniques. It integrates Adaptive Gradient Clipping (AGC), Positive–Negative Momentum (PNM), subset-based second-moment estimation (SN), an Adaptive Exponential-Moving enhancement (AEM), cautious masking, bias correction, optional gradient normalization, Lookahead, and configurable Shampoo preconditioner update frequency and dimensionality limits. `SOAP_e` is designed to provide curvature-aware updates for ill-conditioned layers while offering knobs to trade memory/compute for better stability and convergence.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=3e-3)*: Base step size for parameter updates.
+* **`beta1`** *(float, default=0.95)*: Exponential decay rate for the first-moment (momentum / PNM) estimates.
+* **`beta2`** *(float, default=0.95)*: Exponential decay rate used for Shampoo-style second-moment accumulation (preconditioner / variance running averages).
+* **`beta3`** *(float, default=0.9999)*: Decay used for the slow AEM momentum (if `aem=True`) / scheduling horizon for AEM.
+* **`epsilon`** *(float, default=1e-8)*: Small constant added to denominators for numerical stability.
+* **`weight_decay`** *(float, default=1e-2)*: Weight-decay coefficient applied to parameters (can be applied as step or decoupled depending on how you use it).
+* **`shampoo_beta`** *(float or None, default=None)*: Beta used specifically for Shampoo preconditioner updates; if `None` falls back to `beta2`.
+* **`precondition_frequency`** *(int, default=10)*: How often (in steps) to compute/update preconditioner eigen-bases / orthogonalization (expensive operation).
+* **`max_precondition_dim`** *(int, default=10000)*: Maximum dimension threshold for constructing dense preconditioner matrices; dims larger than this are skipped or treated as scalars.
+* **`merge_dims`** *(bool, default=False)*: If True, merge small tensor dimensions before forming preconditioners (reduces number of matrices and can improve compute efficiency).
+* **`precondition_1d`** *(bool, default=False)*: Whether to build 1-D preconditioners for vector parameters (when their size ≤ `max_precondition_dim`).
+* **`correct_bias`** *(bool, default=True)*: Apply Adam-style bias-correction factors to the step size for more accurate early updates.
+* **`normalize_gradient`** *(bool, default=False)*: If True, apply extra gradient normalization (rescaling updates by their RMS) before applying them.
+* **`data_format`** *(str, default="channels\_last")*: Data format used when merging/projecting convolutional parameter dimensions for Shampoo.
+* **`lookahead_merge_time`** *(int, default=5)*: Lookahead period (number of steps between slow/fast parameter blending).
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending coefficient for lookahead interpolation of slow and fast parameters.
+* **`lookahead`** *(bool, default=True)*: Enable Lookahead-style slow/fast parameter interpolation.
+* **`pnm`** *(bool, default=True)*: Enable Positive–Negative Momentum (PNM) instead of standard single momentum (alternating positive/negative momentum for noise robustness).
+* **`subset_size`** *(int, default=-1)*: Subset size used for subset-based second-moment estimation (SN). Use -1 to let the optimizer choose a heuristic divisor (√size).
+* **`sn`** *(bool, default=True)*: Enable subset-based second-moment estimation (subset normalization) to reduce second-moment state or compute block-wise statistics.
+* **`agc`** *(bool, default=True)*: Enable Adaptive Gradient Clipping (AGC) to clip gradients by unit-wise parameter norm.
+* **`cautious`** *(bool, default=True)*: Enable cautious masking to reduce updates that conflict with gradient direction.
+* **`aem`** *(bool, default=True)*: Enable Adaptive Exponential-Moving enhancement (AEM) — an extra slow-moving momentum term that can be blended with the main update.
+* **`alpha`** *(float, default=5.0)*: Scaling factor used by the AEM slow momentum when `aem=True`.
+* **`t_alpha_beta3`** *(optional, default=None)*: Schedule horizon for alpha / beta3 scheduling used by AEM (if provided).
+* **`clipnorm`** *(float, optional)*: Clip gradients by norm (Keras-compatible).
+* **`clipvalue`** *(float, optional)*: Clip gradients by value (Keras-compatible).
+* **`global_clipnorm`** *(float, optional)*: Global gradient-norm clipping across parameters.
+* **`use_ema`** *(bool, default=False)*: Maintain exponential moving average (EMA) of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Decay for EMA when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency to overwrite model weights with EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Loss scale factor for mixed-precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying updates.
+* **`name`** *(str, default="soap\_e")*: Name for the optimizer instance.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.soap import SOAP_e
+
+# Instantiate optimizer
+optimizer = SOAP_e(
+    learning_rate=3e-3,
+    beta1=0.95,
+    beta2=0.95,
+    beta3=0.9999,
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    shampoo_beta=0.98,
+    precondition_frequency=20,
+    max_precondition_dim=4096,
+    merge_dims=True,
+    precondition_1d=True,
+    correct_bias=True,
+    normalize_gradient=False,
+    lookahead=True,
+    lookahead_merge_time=5,
+    lookahead_blending_alpha=0.5,
+    pnm=True,
+    subset_size=-1,
+    sn=True,
+    agc=True,
+    cautious=True,
+    aem=True,
+    alpha=5.0
+)
+
+# Compile a model
+model = tf.keras.Sequential([
+    tf.keras.layers.Conv2D(32, 3, activation="relu", input_shape=(32, 32, 3)),
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(10)
+])
+
+model.compile(
+    optimizer=optimizer,
+    loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+    metrics=["accuracy"]
+)
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+```
