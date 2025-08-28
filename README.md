@@ -8261,23 +8261,23 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=20)
 
 **Overview**:
 
-The `SOAP_e` optimizer is a hybrid optimizer that combines Shampoo-style preconditioning (per-dimension preconditioners and optional dimension merging) with modern first-order stabilization and regularization techniques. It integrates Adaptive Gradient Clipping (AGC), Positive–Negative Momentum (PNM), subset-based second-moment estimation (SN), an Adaptive Exponential-Moving enhancement (AEM), cautious masking, bias correction, optional gradient normalization, Lookahead, and configurable Shampoo preconditioner update frequency and dimensionality limits. `SOAP_e` is designed to provide curvature-aware updates for ill-conditioned layers while offering knobs to trade memory/compute for better stability and convergence.
+The `SOAP_e` optimizer combines Shampoo-style preconditioning (per-dimension preconditioners with optional dimension merging) with a suite of modern first-order stabilization and regularization techniques. It integrates Adaptive Gradient Clipping (AGC), Positive–Negative Momentum (PNM), subset-based second-moment estimation (SN), an Adaptive Exponential-Moving enhancement (AEM), cautious masking, bias correction, optional gradient normalization, Lookahead, and an optional D-Adapt style automatic global step-size estimator. `SOAP_e` is intended for robust, curvature-aware updates on ill-conditioned layers while providing knobs to trade memory/compute for stability and speed.
 
 **Parameters**:
 
 * **`learning_rate`** *(float, default=3e-3)*: Base step size for parameter updates.
-* **`beta1`** *(float, default=0.95)*: Exponential decay rate for the first-moment (momentum / PNM) estimates.
+* **`beta1`** *(float, default=0.95)*: Exponential decay rate for first-moment (momentum / PNM) estimates.
 * **`beta2`** *(float, default=0.95)*: Exponential decay rate used for Shampoo-style second-moment accumulation (preconditioner / variance running averages).
 * **`beta3`** *(float, default=0.9999)*: Decay used for the slow AEM momentum (if `aem=True`) / scheduling horizon for AEM.
 * **`epsilon`** *(float, default=1e-8)*: Small constant added to denominators for numerical stability.
-* **`weight_decay`** *(float, default=1e-2)*: Weight-decay coefficient applied to parameters (can be applied as step or decoupled depending on how you use it).
+* **`weight_decay`** *(float, default=1e-2)*: Weight-decay coefficient applied to parameters.
 * **`shampoo_beta`** *(float or None, default=None)*: Beta used specifically for Shampoo preconditioner updates; if `None` falls back to `beta2`.
 * **`precondition_frequency`** *(int, default=10)*: How often (in steps) to compute/update preconditioner eigen-bases / orthogonalization (expensive operation).
 * **`max_precondition_dim`** *(int, default=10000)*: Maximum dimension threshold for constructing dense preconditioner matrices; dims larger than this are skipped or treated as scalars.
-* **`merge_dims`** *(bool, default=False)*: If True, merge small tensor dimensions before forming preconditioners (reduces number of matrices and can improve compute efficiency).
+* **`merge_dims`** *(bool, default=False)*: If True, merge small tensor dimensions before forming preconditioners (reduces number of matrices and compute).
 * **`precondition_1d`** *(bool, default=False)*: Whether to build 1-D preconditioners for vector parameters (when their size ≤ `max_precondition_dim`).
-* **`correct_bias`** *(bool, default=True)*: Apply Adam-style bias-correction factors to the step size for more accurate early updates.
-* **`normalize_gradient`** *(bool, default=False)*: If True, apply extra gradient normalization (rescaling updates by their RMS) before applying them.
+* **`correct_bias`** *(bool, default=True)*: Apply bias-correction factors (Adam-style) to the step size for more accurate early updates.
+* **`normalize_gradient`** *(bool, default=False)*: If True, apply extra gradient normalization (RMS-style rescaling) to updates.
 * **`data_format`** *(str, default="channels\_last")*: Data format used when merging/projecting convolutional parameter dimensions for Shampoo.
 * **`lookahead_merge_time`** *(int, default=5)*: Lookahead period (number of steps between slow/fast parameter blending).
 * **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending coefficient for lookahead interpolation of slow and fast parameters.
@@ -8286,10 +8286,13 @@ The `SOAP_e` optimizer is a hybrid optimizer that combines Shampoo-style precond
 * **`subset_size`** *(int, default=-1)*: Subset size used for subset-based second-moment estimation (SN). Use -1 to let the optimizer choose a heuristic divisor (√size).
 * **`sn`** *(bool, default=True)*: Enable subset-based second-moment estimation (subset normalization) to reduce second-moment state or compute block-wise statistics.
 * **`agc`** *(bool, default=True)*: Enable Adaptive Gradient Clipping (AGC) to clip gradients by unit-wise parameter norm.
-* **`cautious`** *(bool, default=True)*: Enable cautious masking to reduce updates that conflict with gradient direction.
+* **`cautious`** *(bool, default=True)*: Enable cautious masking to reduce updates that conflict with instantaneous gradient direction.
 * **`aem`** *(bool, default=True)*: Enable Adaptive Exponential-Moving enhancement (AEM) — an extra slow-moving momentum term that can be blended with the main update.
 * **`alpha`** *(float, default=5.0)*: Scaling factor used by the AEM slow momentum when `aem=True`.
-* **`t_alpha_beta3`** *(optional, default=None)*: Schedule horizon for alpha / beta3 scheduling used by AEM (if provided).
+* **`t_alpha_beta3`** *(optional, default=None)*: Optional schedule horizon for alpha / beta3 scheduling used by AEM.
+* **`d0`** *(float, default=1e-6)*: Initial D-Adapt scalar (initial global scale) when `DAdapt=True`.
+* **`growth_rate`** *(float, default=inf)*: Maximum multiplicative growth of the D-Adapt scalar per update (clamps d to ≤ `d0 * growth_rate`).
+* **`DAdapt`** *(bool, default=True)*: Enable D-Adapt style automatic estimator for a global multiplicative learning-rate (`d0` adjustment).
 * **`clipnorm`** *(float, optional)*: Clip gradients by norm (Keras-compatible).
 * **`clipvalue`** *(float, optional)*: Clip gradients by value (Keras-compatible).
 * **`global_clipnorm`** *(float, optional)*: Global gradient-norm clipping across parameters.
@@ -8330,7 +8333,9 @@ optimizer = SOAP_e(
     agc=True,
     cautious=True,
     aem=True,
-    alpha=5.0
+    alpha=5.0,
+    DAdapt=True,
+    d0=1e-6
 )
 
 # Compile a model
