@@ -8189,108 +8189,286 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=20)
 
 **Overview**:
 
-The `Muon_e` optimizer is a hybrid optimizer that combines a MuOn-style matrix-aware update for large (≥2-D) parameters with an AdamW-like adaptive update for the remaining parameters. For large matrix parameters the optimizer computes a matrix-aware momentum buffer, optionally applies Nesterov correction and a Newton–Schulz zero-power normalization, and uses these normalized updates (optionally with an adjusted per-parameter learning rate) to step parameters. For the non-Muon parameters it applies an AdamW-style moment/variance normalization and (optionally) Sophia-style Hutchinson Hessian preconditioning. `Muon_e` includes many stabilizing and performance features commonly used in modern training: Positive–Negative Momentum (PNM), subset-based second moments (SN), Adaptive Gradient Clipping (AGC), Lookahead, AEM (adaptive exponential mixing), cautious masking, Sophia Hutchinson Hessian estimates, DAdapt automatic step-size adaptation, and distributed sharding of Muon updates with `WORLD_SIZE`/`RANK`.
+The `Muon_e` optimizer is a hybrid optimizer that combines a Muon-style matrix-aware momentum update for matrix-like parameters with an AdamW-style adaptive branch for other tensors. It supports advanced features often used in large-scale training: per-parameter adjusted learning rates for matrix parameters, Nesterov-style correction, Newton–Schulz zero-power normalization for stable matrix updates, stochastic normalization (SN) for blockwise second-moment estimation, projected-normal-momentum (PNM) alternatives, adaptive exponential mixing (AEM) of slow/fast moments, Hutchinson-based Sophia-style Hessian estimation, D-Adapt automatic global step-size adaptation (DAdapt), adaptive clipping / cautious updates, adaptive gradient clipping (AGC), and lookahead-style slow weight blending. It also contains options for distributed/sharded Muon updates via `WORLD_SIZE`/`RANK`.
 
 **Parameters**:
 
-* **`params`** *(list, required)*: List of model variables to consider. Parameters with rank ≥ 2 are treated by the Muon branch (matrix-aware updates). If `adamw_params` is provided those parameters will be appended to this list.
-* **`learning_rate`** *(float, default=2e-2)*: Base learning rate for the Muon branch. The AdamW branch uses `adamw_lr`.
-* **`beta1`** *(float, default=0.9)*: Exponential decay rate for first-moment estimates (and used by PNM logic).
-* **`beta2`** *(float, default=0.95)*: Exponential decay rate for second-moment (variance / squared-grad) estimates.
-* **`beta3`** *(float, default=0.9999)*: Beta used by AEM / slow-moment mixing when `aem=True`.
-* **`weight_decay`** *(float, default=1e-2)*: Global weight-decay coefficient applied (decoupled when `weight_decouple=True`).
-* **`momentum`** *(float, default=0.95)*: Classical momentum used by the Muon branch momentum buffer.
-* **`weight_decouple`** *(bool, default=True)*: If True apply decoupled (AdamW-style) weight decay rather than adding decay to the gradient.
-* **`nesterov`** *(bool, default=True)*: Use Nesterov-style correction in the Muon momentum update.
-* **`ns_steps`** *(int, default=5)*: Number of Newton–Schulz iterations used by the zero-power normalization helper (`zero_power_via_newton_schulz_5`).
-* **`use_adjusted_lr`** *(bool, default=False)*: If True adjust Muon branch LR per-parameter using the internal `get_adjusted_lr` heuristic.
-* **`adamw_params`** *(list, optional)*: Parameters that should use the AdamW-style branch (these will be appended to `params` when provided).
-* **`adamw_lr`** *(float, default=3e-4)*: Base learning rate used by the AdamW branch.
-* **`adamw_wd`** *(float, default=0.0)*: Weight decay applied to AdamW-branch parameters (subject to `weight_decouple`).
-* **`adamw_eps`** *(float, default=1e-8)*: Epsilon used for numerical stability in AdamW-style normalization or Sophia denominators.
-* **`subset_size`** *(int, default=-1)*: Block size used when `sn=True` to compute subset-based second moments; `-1` triggers a heuristic (sqrt-based) block size.
-* **`sn`** *(bool, default=True)*: Use subset-based second-moment statistics (reduces memory by aggregating squared-grad stats in blocks).
-* **`lookahead_merge_time`** *(int, default=5)*: Frequency (in steps) to merge lookahead slow parameters into fast parameters.
-* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending factor for lookahead; `slow += alpha * (fast - slow)` then `fast := slow`.
-* **`lookahead`** *(bool, default=True)*: Enable lookahead slow/fast parameter updates.
-* **`pnm`** *(bool, default=True)*: Enable Positive–Negative Momentum (two buffers) for lower-variance first-moment estimation.
-* **`agc`** *(bool, default=True)*: Enable Adaptive Gradient Clipping (AGC) to clip gradients relative to parameter norms.
-* **`cautious`** *(bool, default=True)*: Apply cautious masking that scales updates based on sign agreement with raw gradients (reduces harmful sign flips).
-* **`aem`** *(bool, default=True)*: Enable Adaptive Exponential Mixing (AEM) slow momentum augmentation.
-* **`alpha`** *(float, default=5.0)*: Mixing coefficient used by AEM when `aem=True`.
-* **`t_alpha_beta3`** *(int or None, default=None)*: Optional schedule horizon used to ramp `alpha`/`beta3` (passed to schedule helpers).
-* **`sophia`** *(bool, default=True)*: If True use Sophia-style Hutchinson Hessian estimates and `hessian_moment` for AdamW denominators instead of plain squared moments.
-* **`p`** *(float, default=1e-2)*: Sophia/Hutchinson-related scalar used when `sophia=True` (kept for compatibility and configuration).
-* **`update_period`** *(int, default=10)*: How often (in steps) Hutchinson Hessian / Sophia preconditioner updates run.
-* **`num_samples`** *(int, default=1)*: Number of Hutchinson samples per Hessian estimation step.
-* **`hessian_distribution`** *(str, default='gaussian')*: Distribution for Hutchinson probes; one of `'gaussian'` or `'rademacher'`.
-* **`d0`** *(float, default=1e-6)*: Initial DAdapt base step-size multiplier (when `DAdapt=True`).
-* **`growth_rate`** *(float, default=float('inf'))*: Growth cap factor for the DAdapt scaling (max allowed growth of `d0` per update).
-* **`DAdapt`** *(bool, default=True)*: Enable DAdapt automatic adaptation for an internal step-size multiplier `d0`.
-* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard Keras gradient clipping options.
-* **`use_ema`** *(bool, default=False)*: Maintain an exponential moving average of model weights.
-* **`ema_momentum`** *(float, default=0.99)*: EMA decay factor.
+* **`learning_rate`** *(float, default=2e-2)*: Base learning rate used by the Muon (matrix-aware) branch.
+* **`beta1`** *(float, default=0.9)*: Exponential decay rate used for first-moment (momentum) updates and for certain projected/PNM calculations.
+* **`beta2`** *(float, default=0.95)*: Exponential decay rate used for second-moment / variance running averages and for some Sophia/Hessian moment updates.
+* **`beta3`** *(float, default=0.9999)*: Third-moment / slow-momentum decay used by the AEM slow-moving average (if `aem=True`).
+* **`weight_decay`** *(float, default=1e-2)*: Global weight decay coefficient. When `weight_decouple=True` it is applied as decoupled (AdamW-style) weight decay.
+* **`momentum`** *(float, default=0.95)*: Muon branch momentum coefficient used for the Muon momentum buffer.
+* **`weight_decouple`** *(bool, default=True)*: Use decoupled weight decay (apply multiplicative decay to parameters) instead of adding the scaled parameter to gradients.
+* **`nesterov`** *(bool, default=True)*: Apply Nesterov-style correction to Muon momentum updates.
+* **`ns_steps`** *(int, default=5)*: Number of Newton–Schulz iterations performed by the zero-power normalization helper used in Muon updates.
+* **`use_adjusted_lr`** *(bool, default=False)*: When True use the alternate `get_adjusted_lr` heuristic (shape-aware ratio) for per-parameter learning-rate adjustment on the Muon branch.
+* **`adamw_lr`** *(float, default=3e-4)*: Learning rate used by the AdamW-style branch (when a parameter is not handled by Muon branch).
+* **`adamw_wd`** *(float, default=0.0)*: Weight decay used for the AdamW-style branch (applied decoupled if `weight_decouple=True`).
+* **`adamw_eps`** *(float, default=1e-8)*: Epsilon used for numerical stability in AdamW-style denominators.
+* **`use_muon`** *(bool, default=True)*: If True, matrix-like parameters (rank ≥ 2) are updated using the Muon matrix-aware logic; otherwise the optimizer behaves like the AdamW-style branch.
+* **`subset_size`** *(int, default=-1)*: Block size for stochastic normalization (SN). When >0 uses given subset size; when -1 a heuristic determines block size.
+* **`sn`** *(bool, default=True)*: Enable stochastic normalization / blockwise second-moment estimation to reduce memory for second-moment statistics.
+* **`lookahead_merge_time`** *(int, default=5)*: How many steps between lookahead slow/fast parameter merges.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending coefficient used by lookahead when merging slow and fast weights.
+* **`lookahead`** *(bool, default=True)*: Enable lookahead-style slow parameter averaging for improved stability/convergence.
+* **`pnm`** *(bool, default=True)*: Use projected-normal-momentum (PNM) variant instead of a plain exp-moving-average for first-moment storage.
+* **`agc`** *(bool, default=True)*: Apply Adaptive Gradient Clipping (AGC) to gradients before updates.
+* **`cautious`** *(bool, default=True)*: Apply cautious masking that reduces updates which disagree in sign with the raw gradient (safety heuristic).
+* **`aem`** *(bool, default=False)*: Use Adaptive Exponential Mixing — keep a slow-moving average of gradients and mix into updates.
+* **`alpha`** *(float, default=5.0)*: Scale applied to the slow-moving AEM term when `aem=True`.
+* **`t_alpha_beta3`** *(float or None, default=None)*: Schedule length used to ramp `alpha` and `beta3` when provided (time-dependent scheduling).
+* **`sophia`** *(bool, default=True)*: Enable Sophia-style Hutchinson Hessian estimation and associated clipping / Hessian-scaled normalization for the AdamW branch.
+* **`p`** *(float, default=1e-2)*: Sophia-specific damping/probability parameter used for Hutchinson sampling (algorithmic hyperparameter).
+* **`update_period`** *(int, default=10)*: Frequency (in steps) to update Sophia/Hessian moments when `sophia=True`.
+* **`num_samples`** *(int, default=1)*: Number of Hutchinson probe samples for Sophia Hessian estimation.
+* **`hessian_distribution`** *(str, default='gaussian')*: Distribution used for Hutchinson probes: `'gaussian'` or `'rademacher'`.
+* **`d0`** *(float, default=1e-6)*: Initial D-Adapt base step length used by DAdapt when enabled.
+* **`growth_rate`** *(float, default=float('inf'))*: Maximum multiplicative growth for D-Adapt's internal scale.
+* **`DAdapt`** *(bool, default=True)*: Enable D-Adapt automatic global step-size adaptation (tracks alignment to scale global step length).
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard Keras gradient clipping parameters.
+* **`use_ema`** *(bool, default=False)*: Maintain exponential moving average (EMA) of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: EMA decay (momentum) used when `use_ema=True`.
 * **`ema_overwrite_frequency`** *(int, optional)*: Frequency to overwrite model weights with EMA weights.
-* **`loss_scale_factor`**, **`gradient_accumulation_steps`** *(optional)*: Loss scaling and gradient accumulation support for mixed-precision or large-batch workflows.
+* **`loss_scale_factor`**, **`gradient_accumulation_steps`** *(optional)*: Support for loss scaling and gradient accumulation in mixed precision / multi-step training.
 * **`name`** *(str, default="muon\_e")*: Name for the optimizer instance.
-* **Distributed support**: `Muon_e` respects `WORLD_SIZE` and `RANK` environment variables to shard Muon updates across processes and optionally reduce `updates_flat` across replicas.
+* **Distributed support**: `Muon_e` respects `WORLD_SIZE` and `RANK` environment variables to shard Muon updates across workers (used in large-scale sharded update builds).
 
 **Example Usage**:
 
 ```python
 import tensorflow as tf
-from optimizers.muon import Muon_e
+from optimizers.muon_e import Muon_e
 
-# 1. Define model and parameters
-model = tf.keras.Sequential([
-    tf.keras.layers.Dense(512, activation='relu'),
-    tf.keras.layers.Dense(10)
-])
-params = model.trainable_variables
-
-# params = list(model.trainable_variables) or custom lists for Muon / AdamW split
-optimizer = Muon_e(
-    params=params,
+# Instantiate optimizer
+opt = Muon_e(
     learning_rate=2e-2,
     beta1=0.9,
     beta2=0.95,
-    beta3=0.9999,
+    momentum=0.95,
+    weight_decouple=True,
+    nesterov=True,
+    ns_steps=5,
+    use_adjusted_lr=False,
+    adamw_lr=3e-4,
+    adamw_wd=1e-3,
+    adamw_eps=1e-8,
+    use_muon=True,
+    subset_size=256,
+    sn=True,
+    lookahead=True,
+    lookahead_merge_time=5,
+    lookahead_blending_alpha=0.5,
+    pnm=True,
+    agc=True,
+    cautious=True,
+    aem=False,
+    sophia=True,
+    update_period=10,
+    num_samples=1,
+    hessian_distribution="gaussian",
+    DAdapt=True,
+    d0=1e-6
+)
+
+model.compile(optimizer=opt, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+model.fit(train_ds, validation_data=val_ds, epochs=20)
+```
+
+# DistributedMuon\_e
+
+**Overview**:
+
+The `DistributedMuon_e` optimizer is a distributed-aware hybrid optimizer that extends Muon-style matrix-aware updates to multi-replica training. It combines a Muon-style momentum / Newton–Schulz normalized matrix update for matrix-like parameters with an AdamW-style adaptive branch for other tensors. It includes distributed gathering/sharding support, blockwise stochastic normalization (SN), projected-normal-momentum (PNM), Adaptive Gradient Clipping (AGC), Sophia-style Hutchinson Hessian estimation, Adaptive Exponential Mixing (AEM), D-Adapt automatic global step-size adaptation, cautious update masking, lookahead slow/fast weight blending, and numerous configuration knobs for large-scale stable training.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=2e-2)*: Base learning rate for the Muon (matrix-aware) branch.
+* **`weight_decay`** *(float, default=0.0)*: Global weight decay coefficient (applied decoupled when `weight_decouple=True`).
+* **`momentum`** *(float, default=0.95)*: Momentum coefficient used by the Muon branch.
+* **`weight_decouple`** *(bool, default=True)*: Apply decoupled weight decay (AdamW-style) instead of adding parameter-weight to gradient.
+* **`nesterov`** *(bool, default=True)*: Use Nesterov-style correction in Muon momentum updates.
+* **`ns_steps`** *(int, default=5)*: Number of Newton–Schulz iterations for zero-power normalization used in Muon updates.
+* **`use_adjusted_lr`** *(bool, default=False)*: When True use the alternative shape-aware per-parameter LR adjustment heuristic.
+* **`adamw_lr`** *(float, default=3e-4)*: Learning rate for the AdamW-style branch (non-matrix parameters).
+* **`adamw_betas`** *(tuple, default=(0.9, 0.95))*: Beta coefficients used by the AdamW-style branch.
+* **`adamw_wd`** *(float, default=0.0)*: Weight decay used specifically by the AdamW branch.
+* **`adamw_eps`** *(float, default=1e-10)*: Epsilon for numerical stability in AdamW denominators.
+* **`use_muon`** *(bool, default=True)*: If True, parameters with rank ≥ 2 use the Muon (matrix-aware) branch; otherwise all parameters use the AdamW-style branch.
+* **`cautious`** *(bool, default=False)*: Enable cautious masking that scales updates whose sign disagrees with the raw gradient.
+* **`subset_size`** *(int, default=-1)*: Block size for stochastic normalization (SN). When >0 uses that size; otherwise a heuristic is used.
+* **`sn`** *(bool, default=True)*: Enable stochastic/blockwise second-moment estimation to save memory.
+* **`lookahead_merge_time`** *(int, default=5)*: Number of steps between lookahead merges.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending coefficient for lookahead slow/fast weights.
+* **`lookahead`** *(bool, default=True)*: Enable lookahead slow weight averaging.
+* **`pnm`** *(bool, default=True)*: Use projected-normal-momentum variant for first-moment storage (PNM) when enabled.
+* **`agc`** *(bool, default=True)*: Apply Adaptive Gradient Clipping (AGC) before parameter updates.
+* **`aem`** *(bool, default=False)*: Use Adaptive Exponential Mixing (AEM) to mix a slow-moving average into updates.
+* **`alpha`** *(float, default=5.0)*: Scale for the AEM slow-moving term if `aem=True`.
+* **`t_alpha_beta3`** *(float or None, default=None)*: Optional schedule length to ramp `alpha` and `beta3` over time.
+* **`sophia`** *(bool, default=True)*: Enable Sophia-style Hutchinson Hessian estimation for Hessian-scaled normalization on the AdamW branch.
+* **`p`** *(float, default=1e-2)*: Sophia-specific damping/probability parameter used for Hutchinson estimation.
+* **`update_period`** *(int, default=10)*: Frequency (in steps) to update Sophia/Hessian moments.
+* **`num_samples`** *(int, default=1)*: Number of Hutchinson probe samples for Sophia estimation.
+* **`hessian_distribution`** *(str, default='gaussian')*: Distribution of Hutchinson probes: `'gaussian'` or `'rademacher'`.
+* **`d0`** *(float, default=1e-6)*: D-Adapt initial base step length.
+* **`growth_rate`** *(float, default=float('inf'))*: Maximum multiplicative growth allowed by D-Adapt.
+* **`DAdapt`** *(bool, default=True)*: Enable D-Adapt automatic global step-size adaptation.
+* **`maximize`** *(bool, default=False)*: If True, the optimizer performs gradient ascent instead of descent.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Keras-style gradient clipping parameters.
+* **`use_ema`** *(bool, default=False)*: Maintain exponential moving average of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum when `use_ema=True`.
+* **`ema_overwrite_frequency`**, **`loss_scale_factor`**, **`gradient_accumulation_steps`** *(optional)*: Additional training integration helpers.
+* **Distributed specifics**: `DistributedMuon_e` reads the current `tf.distribute` strategy to determine `world_size` (replica count) and uses replica context to determine local `rank`. It performs per-replica gathering and sharded Muon updates across the `world_size` ensemble.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.distributedmuon_e import DistributedMuon_e
+
+# Create optimizer (will use current tf.distribute strategy automatically)
+opt = DistributedMuon_e(
+    learning_rate=2e-2,
+    weight_decay=1e-3,
+    momentum=0.95,
+    weight_decouple=True,
+    nesterov=True,
+    ns_steps=5,
+    use_adjusted_lr=False,
+    adamw_lr=3e-4,
+    adamw_betas=(0.9, 0.95),
+    adamw_wd=1e-3,
+    adamw_eps=1e-10,
+    use_muon=True,
+    subset_size=256,
+    sn=True,
+    lookahead=True,
+    lookahead_merge_time=5,
+    lookahead_blending_alpha=0.5,
+    pnm=True,
+    agc=True,
+    aem=False,
+    sophia=True,
+    update_period=10,
+    num_samples=1,
+    hessian_distribution="gaussian",
+    DAdapt=True,
+    d0=1e-6
+)
+
+# Compile and train under a tf.distribute strategy
+strategy = tf.distribute.MirroredStrategy()
+with strategy.scope():
+    model = ...  # build model
+    model.compile(optimizer=opt, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+model.fit(train_dataset, epochs=10, validation_data=val_dataset)
+```
+
+# Muon
+
+**Overview**:
+
+The `Muon` optimizer implements a matrix-aware "MuOn" style update for dense matrix-like parameters and a standard AdamW-style adaptive update for other tensors. For the Muon branch (when `use_muon=True`) it maintains a momentum buffer per-parameter, optionally applies Nesterov correction, and uses a Newton–Schulz based zero-power normalization to produce stable matrix-aware updates. For the non-Muon branch it applies an AdamW-like moment/variance normalization. `Muon` supports decoupled weight decay, optional per-parameter LR adjustment heuristics for matrix parameters, and simple distributed sharding of Muon updates via `WORLD_SIZE`/`RANK` environment variables.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=2e-2)*: Base learning rate used by the Muon branch.
+* **`beta1`** *(float, default=0.9)*: Exponential decay rate used for first-moment (momentum) estimation in Adam-like updates and used by some Muon momentum logic.
+* **`beta2`** *(float, default=0.95)*: Exponential decay rate used for second-moment (variance) estimation in Adam-like updates.
+* **`weight_decay`** *(float, default=1e-2)*: Weight decay coefficient. When `weight_decouple=True` this is applied as decoupled (AdamW-style) weight decay.
+* **`momentum`** *(float, default=0.95)*: Momentum coefficient used by the Muon momentum buffer.
+* **`weight_decouple`** *(bool, default=True)*: Use decoupled weight decay (AdamW-style) instead of adding decay to the gradients.
+* **`nesterov`** *(bool, default=True)*: Apply Nesterov-style correction to the Muon momentum (fast-slow momentum correction).
+* **`ns_steps`** *(int, default=5)*: Number of Newton–Schulz iterations executed by the zero-power normalization helper (`zero_power_via_newton_schulz_5`).
+* **`use_adjusted_lr`** *(bool, default=False)*: If True apply a per-parameter LR adjustment heuristic for Muon branch (recommended for some matrix shapes).
+* **`adamw_lr`** *(float, default=3e-4)*: Learning rate used by the AdamW-style branch (when `use_muon=False`).
+* **`adamw_wd`** *(float, default=0.0)*: Weight decay applied to the AdamW branch parameters (subject to `weight_decouple`).
+* **`adamw_eps`** *(float, default=1e-8)*: Epsilon for numerical stability in AdamW-style denominators.
+* **`use_muon`** *(bool, default=True)*: If True run the Muon matrix-aware branch. If False the optimizer behaves like an AdamW-style optimizer.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard Keras gradient clipping options.
+* **`use_ema`** *(bool, default=False)*: Maintain exponential moving average (EMA) of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum / decay.
+* **`ema_overwrite_frequency`** *(int, optional)*: How often to overwrite model weights with EMA weights.
+* **`loss_scale_factor`**, **`gradient_accumulation_steps`** *(optional)*: Support for loss scaling and gradient accumulation.
+* **`name`** *(str, default="muon")*: Name of the optimizer instance.
+* **Distributed support**: `Muon` will shard the Muon-branch updates across processes using `WORLD_SIZE` and `RANK` environment variables when present.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.muon import Muon
+
+optimizer = Muon(
+    learning_rate=2e-2,
+    beta1=0.9,
+    beta2=0.95,
     weight_decay=1e-2,
     momentum=0.95,
+    weight_decouple=True,
     nesterov=True,
     ns_steps=5,
     use_adjusted_lr=False,
     adamw_lr=3e-4,
     adamw_wd=0.0,
     adamw_eps=1e-8,
-    subset_size=-1,
-    sn=True,
-    pnm=True,
-    agc=True,
-    cautious=True,
-    lookahead=True,
-    lookahead_merge_time=5,
-    lookahead_blending_alpha=0.5,
-    aem=True,
-    alpha=5.0,
-    t_alpha_beta3=None,
-    sophia=True,
-    update_period=10,
-    num_samples=1,
-    hessian_distribution='gaussian',
+    use_muon=True
 )
 
-# Training step
-@tf.function
-def train_step(x, y, model, optimizer):
-    with tf.GradientTape(persistent=True) as tape:
-        predictions = model(x, training=True)
-        loss = loss_fn(y, predictions)
-        gradients = tape.gradient(loss, model.trainable_variables)
-    optimizer.apply_gradients(zip(gradients, model.trainable_variables), tape)
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
 
-# Training loop
-for epoch in range(epochs):
-    for x_batch, y_batch in dataset:
-        train_step(x_batch, y_batch, model, optimizer)
+# AdaMuon
+
+**Overview**:
+
+`AdaMuon` is a hybrid optimizer that blends a Muon-style matrix-aware update with adaptive normalization inspired by Adam. For matrix-like parameters the optimizer computes Muon-style momentum buffers, performs Newton–Schulz zero-power normalization on the momentum, and uses a variance-normalized update built from a running `v` that mirrors Adam's second-moment estimate but flattened per-parameter. For non-Muon parameters `AdaMuon` falls back to an Adam-style update (exp moving average `m` and second moment `v`). `AdaMuon` offers decoupled weight decay, optional per-parameter LR adjustment, and distributed sharding for Muon updates.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base learning rate used by the Muon branch; non-Muon branch uses `adamw_lr`/`adamw_betas` semantics.
+* **`beta1`** *(float, default=0.9)*: Decay rate for first-moment estimation (used in Muon momentum updates and Adam branch).
+* **`beta2`** *(float, default=0.999)*: Decay rate for second-moment estimation (used in v updates).
+* **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability in denominators.
+* **`weight_decouple`** *(bool, default=True)*: Apply decoupled weight decay (AdamW-style) if True.
+* **`nesterov`** *(bool, default=True)*: Use Nesterov-like correction for Muon momentum updates.
+* **`ns_steps`** *(int, default=5)*: Number of Newton–Schulz iterations for zero-power normalization.
+* **`use_adjusted_lr`** *(bool, default=False)*: If True use per-parameter LR adjustment heuristic for Muon branch.
+* **`adamw_betas`** *(tuple, default=(0.9, 0.999))*: Beta pair used for Adam-like branch when `use_muon=False`.
+* **`adamw_lr`** *(float, default=3e-4)*: Learning rate for the Adam-like branch when `use_muon=False`.
+* **`adamw_wd`** *(float, default=0.0)*: Weight decay for Adam-like branch.
+* **`use_muon`** *(bool, default=True)*: Toggle to enable Muon branch; when False `AdaMuon` behaves like AdamW (with small differences).
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Keras gradient clipping options.
+* **`use_ema`** *(bool, default=False)*: Maintain EMA of weights.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum.
+* **`loss_scale_factor`**, **`gradient_accumulation_steps`** *(optional)*: Loss scaling and gradient accumulation support.
+* **`name`** *(str, default="adamuon")*: Name of the optimizer instance.
+* **Distributed support**: `AdaMuon` respects `WORLD_SIZE` and `RANK` environment variables to shard Muon updates across processes.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.muon import AdaMuon
+
+optimizer = AdaMuon(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-8,
+    weight_decouple=True,
+    nesterov=True,
+    ns_steps=5,
+    use_adjusted_lr=False,
+    adamw_betas=(0.9, 0.999),
+    adamw_lr=3e-4,
+    adamw_wd=0.0,
+    use_muon=True
+)
+
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
