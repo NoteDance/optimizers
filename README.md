@@ -8232,7 +8232,6 @@ The `Muon_e` optimizer is a hybrid optimizer that combines a Muon-style matrix-a
 * **`ema_overwrite_frequency`** *(int, optional)*: Frequency to overwrite model weights with EMA weights.
 * **`loss_scale_factor`**, **`gradient_accumulation_steps`** *(optional)*: Support for loss scaling and gradient accumulation in mixed precision / multi-step training.
 * **`name`** *(str, default="muon\_e")*: Name for the optimizer instance.
-* **Distributed support**: `Muon_e` respects `WORLD_SIZE` and `RANK` environment variables to shard Muon updates across workers (used in large-scale sharded update builds).
 
 **Example Usage**:
 
@@ -8319,7 +8318,6 @@ The `DistributedMuon_e` optimizer is a distributed-aware hybrid optimizer that e
 * **`use_ema`** *(bool, default=False)*: Maintain exponential moving average of model weights.
 * **`ema_momentum`** *(float, default=0.99)*: EMA momentum when `use_ema=True`.
 * **`ema_overwrite_frequency`**, **`loss_scale_factor`**, **`gradient_accumulation_steps`** *(optional)*: Additional training integration helpers.
-* **Distributed specifics**: `DistributedMuon_e` reads the current `tf.distribute` strategy to determine `world_size` (replica count) and uses replica context to determine local `rank`. It performs per-replica gathering and sharded Muon updates across the `world_size` ensemble.
 
 **Example Usage**:
 
@@ -8393,7 +8391,6 @@ The `Muon` optimizer implements a matrix-aware "MuOn" style update for dense mat
 * **`ema_overwrite_frequency`** *(int, optional)*: How often to overwrite model weights with EMA weights.
 * **`loss_scale_factor`**, **`gradient_accumulation_steps`** *(optional)*: Support for loss scaling and gradient accumulation.
 * **`name`** *(str, default="muon")*: Name of the optimizer instance.
-* **Distributed support**: `Muon` will shard the Muon-branch updates across processes using `WORLD_SIZE` and `RANK` environment variables when present.
 
 **Example Usage**:
 
@@ -8446,7 +8443,6 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 * **`ema_momentum`** *(float, default=0.99)*: EMA momentum.
 * **`loss_scale_factor`**, **`gradient_accumulation_steps`** *(optional)*: Loss scaling and gradient accumulation support.
 * **`name`** *(str, default="adamuon")*: Name of the optimizer instance.
-* **Distributed support**: `AdaMuon` respects `WORLD_SIZE` and `RANK` environment variables to shard Muon updates across processes.
 
 **Example Usage**:
 
