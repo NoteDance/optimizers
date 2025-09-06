@@ -7672,41 +7672,41 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 
 **Overview**:
 
-The `SophiaH_e` optimizer is a second-order aware adaptive optimizer that combines Hutchinson-style Hessian (diagonal / subset) estimates with first-moment momentum, optional Positive–Negative Momentum (PNM), orthogonal gradient projection (Orthograd), Adaptive Gradient Clipping (AGC), a cautious masking heuristic, Lookahead, and an optional D-Adapt style automatic step-size estimator (DAdapt). It accumulates Hutchinson samples periodically to estimate curvature (Hessian-vector products) and uses those estimates to scale momentum updates (similar in spirit to second-order / quasi-Newton methods). The optimizer exposes many switches to trade compute / memory for stability and adaptivity (subset-based second moments, PNM, orthograd, lookahead, AGC, cautious, and DAdapt automatic scaling).
+The `SophiaH_e` optimizer implements a Sophia-style second-order-aware optimizer with Hutchinson Hessian estimation combined with several practical stabilization and performance features. It supports orthogonal gradient projection (Orthograd), projected-normal-momentum (PNM) first-moment variants, blockwise stochastic second-moment estimation (SN), Adaptive Gradient Clipping (AGC), cautious update masking, D-Adapt automatic global step-size adaptation, optional trust-ratio layer-wise scaling, lookahead slow/fast weight blending, and optional EMA integration. It is designed for stable, large-step training with approximate curvature information from Hutchinson probes.
 
 **Parameters**:
 
-* **`learning_rate`** *(float, default=6e-2)*: Base learning rate for parameter updates (scalar applied to final update).
-* **`beta1`** *(float, default=0.96)*: Exponential decay rate for the first moment (momentum / PNM) estimates.
-* **`beta2`** *(float, default=0.99)*: Exponential decay rate for the running second-moment of Hessian estimates (used to stabilize curvature).
-* **`epsilon`** *(float, default=1e-12)*: Small constant to avoid division by zero when normalizing by Hessian moments.
-* **`weight_decay`** *(float, default=0.0)*: Weight-decay coefficient. When `weight_decouple=True` the decay is applied in a decoupled (AdamW-style) manner.
-* **`weight_decouple`** *(bool, default=True)*: If True apply decoupled weight decay (multiply parameters by `(1 - wd * lr)` or `(1 - wd)` depending on `fixed_decay`).
-* **`fixed_decay`** *(bool, default=False)*: When True treats weight decay as a fixed multiplicative factor (not scaled by learning rate).
-* **`p`** *(float, default=1e-2)*: Clip bound used in some update formulations (keeps updates within ±p \* parameter).
-* **`update_period`** *(int, default=10)*: Number of steps between Hessian (Hutchinson) accumulation / hessian\_moment updates. Hutchinson samples are collected only when `iterations % update_period == 0`.
-* **`num_samples`** *(int, default=1)*: Number of Hutchinson random samples per accumulation (tradeoff: variance vs compute).
-* **`hessian_distribution`** *(str, default='gaussian')*: Distribution used for Hutchinson probes: `'gaussian'` or `'rademacher'`.
-* **`orthograd`** *(bool, default=True)*: If True apply orthogonal gradient projection (remove gradient component parallel to parameter) before other processing — can improve stability for homogeneous layers.
-* **`lookahead_merge_time`** *(int, default=5)*: Frequency (steps) at which lookahead slow parameters are blended into fast parameters.
-* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending factor used by lookahead: `slow = slow + alpha * (fast - slow)` then `fast := slow`.
-* **`lookahead`** *(bool, default=True)*: Enable Lookahead slow/fast parameter blending.
-* **`pnm`** *(bool, default=True)*: Enable Positive–Negative Momentum (PNM) variant of momentum (separate positive/negative buffers used to reduce noise).
-* **`subset_size`** *(int, default=-1)*: If SN (subset-based second-moment) is enabled, this is the suggested subset size; `-1` lets the optimizer choose a heuristic (≈√size).
-* **`sn`** *(bool, default=True)*: Enable subset-based second-moment (SN) / subset Hessian accumulation — stores and updates second moments in blocks to reduce memory & compute.
-* **`agc`** *(bool, default=True)*: Enable Adaptive Gradient Clipping (AGC) to bound gradient size relative to parameter norm.
-* **`cautious`** *(bool, default=True)*: When True apply a cautious mask that scales updates that are aligned in sign with the raw gradient — a heuristic that reduces harmful sign flips.
-* **`d0`** *(float, default=1e-6)*: Initial DAdapt base scale (when `DAdapt=True`) for automatic step-size / multiplier estimation.
-* **`growth_rate`** *(float, default=inf)*: Maximum allowed growth factor for the DAdapt multiplier between updates (clips DAdapt growth).
-* **`DAdapt`** *(bool, default=True)*: Enable a D-Adapt style automatic per-optimizer multiplicative scalar (estimates a good base step magnitude from recent gradient·scaled-state inner products).
-* **`clipnorm`** *(float, optional)*: Clip gradients by norm (Keras API).
-* **`clipvalue`** *(float, optional)*: Clip gradients by value (Keras API).
-* **`global_clipnorm`** *(float, optional)*: Clip gradients by a global norm across all parameters.
-* **`use_ema`** *(bool, default=False)*: Maintain an exponential moving average of model weights for evaluation.
-* **`ema_momentum`** *(float, default=0.99)*: Decay used when `use_ema=True`.
-* **`ema_overwrite_frequency`** *(int, optional)*: Frequency of overwriting model weights with EMA weights (if used).
-* **`loss_scale_factor`** *(float, optional)*: Factor used for loss scaling in mixed-precision training.
-* **`gradient_accumulation_steps`** *(int, optional)*: Number of mini-steps to accumulate gradients before applying an optimizer step.
+* **`learning_rate`** *(float, default=6e-2)*: Base step size for parameter updates.
+* **`beta1`** *(float, default=0.96)*: Exponential decay rate for the first moment (momentum) estimates.
+* **`beta2`** *(float, default=0.99)*: Exponential decay rate for second moment / Hessian moment estimates.
+* **`epsilon`** *(float, default=1e-12)*: Small constant for numerical stability when dividing by second-moment / Hessian terms.
+* **`weight_decay`** *(float, default=0.0)*: Weight decay coefficient applied either decoupled (when `weight_decouple=True`) or added to gradients.
+* **`weight_decouple`** *(bool, default=True)*: Use decoupled weight decay (AdamW-style) instead of adding parameter values to gradients.
+* **`fixed_decay`** *(bool, default=False)*: When True use fixed decay factor (not scaled by learning rate).
+* **`p`** *(float, default=1e-2)*: Sophia/Hutchinson damping / probe scaling hyperparameter (used by Hutchinson estimator logic).
+* **`update_period`** *(int, default=10)*: Frequency (in steps) to update Sophia / Hessian moments from Hutchinson probes.
+* **`num_samples`** *(int, default=1)*: Number of Hutchinson probe samples per Hessian update.
+* **`hessian_distribution`** *(str, default='gaussian')*: Distribution of Hutchinson probes; either `'gaussian'` or `'rademacher'`.
+* **`orthograd`** *(bool, default=True)*: Apply orthogonal gradient projection to remove components aligned with the parameter vector.
+* **`lookahead_merge_time`** *(int, default=5)*: Number of steps between lookahead merges (slow/fast weight blending).
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending coefficient for lookahead slow/fast weights.
+* **`lookahead`** *(bool, default=True)*: Enable lookahead slow/fast parameter averaging.
+* **`pnm`** *(bool, default=True)*: Use projected-normal-momentum (PNM) variant for first moment storage and updates.
+* **`subset_size`** *(int, default=-1)*: Block size for stochastic/blockwise normalization (SN). If `-1` a heuristic is used.
+* **`sn`** *(bool, default=True)*: Enable stochastic (blockwise) second moment / Hessian estimation to reduce memory.
+* **`agc`** *(bool, default=True)*: Apply Adaptive Gradient Clipping (AGC) to gradients before updates.
+* **`cautious`** *(bool, default=True)*: Use cautious masking that downscales updates whose sign disagrees with the raw gradient.
+* **`d0`** *(float, default=1e-6)*: Initial base D-Adapt scalar used to compute adaptive global step-length.
+* **`growth_rate`** *(float, default=float('inf'))*: Maximum allowed multiplicative growth for the D-Adapt scalar.
+* **`DAdapt`** *(bool, default=True)*: Enable D-Adapt automatic global step-length adaptation logic.
+* **`trust_ratio`** *(bool, default=False)*: Apply layer-wise trust-ratio scaling (parameter norm / update norm) to updates.
+* **`trust_clip`** *(bool, default=False)*: If enabled clip the trust ratio to at most 1.0.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Gradient clipping options compatible with Keras optimizers.
+* **`use_ema`** *(bool, default=False)*: Maintain an exponential moving average (EMA) of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum factor when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights (if used).
+* **`loss_scale_factor`** *(float, optional)*: Optional loss scaling factor for mixed precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for gradient accumulation.
 * **`name`** *(str, default="sophiah\_e")*: Name of the optimizer instance.
 
 **Example Usage**:
@@ -7728,21 +7728,23 @@ optimizer = SophiaH_e(
     weight_decay=1e-3,
     weight_decouple=True,
     fixed_decay=False,
+    p=1e-2,
     update_period=10,
     num_samples=2,
-    hessian_distribution='gaussian',
+    hessian_distribution="gaussian",
     orthograd=True,
     lookahead=True,
     lookahead_merge_time=5,
     lookahead_blending_alpha=0.5,
     pnm=True,
-    subset_size=-1,
+    subset_size=256,
     sn=True,
     agc=True,
     cautious=True,
     DAdapt=True,
     d0=1e-6,
-    growth_rate=10.0
+    trust_ratio=True,
+    trust_clip=True
 )
 
 # Training step
@@ -7826,38 +7828,38 @@ for epoch in range(epochs):
 
 **Overview**:
 
-The `SophiaG_e` optimizer is a curvature-aware adaptive optimizer that blends first-moment momentum with running estimates of per-parameter second moments (Hessian / squared-grad aggregates), optional Positive–Negative Momentum (PNM), orthogonal gradient projection (Orthograd), Adaptive Gradient Clipping (AGC), a cautious masking heuristic, Lookahead, and an optional D-Adapt style automatic scalar (`DAdapt`) for adaptive global scaling. It normalizes momentum by a running Hessian estimate (or subset-based blocks) and supports multiple stability/performance tweaks (PNM, SN subset second moments, AGC, orthograd, lookahead, cautious masking). `SophiaG_e` targets scenarios where curvature-aware normalization and extra stability heuristics improve training of large / sensitive models.
+The `SophiaG_e` optimizer is a curvature-aware optimizer in the Sophia family that combines first-moment momentum variants with blockwise second-moment (Hessian) estimation and practical stabilization features. It supports orthogonal gradient projection (Orthograd), projected-normal-momentum (PNM), stochastic/blockwise second-moment estimation (SN), Adaptive Gradient Clipping (AGC), cautious update masking, optional D-Adapt automatic global step-size adaptation, optional layer-wise trust-ratio scaling, and lookahead slow/fast weight blending. It is intended for stable large-step training while leveraging approximate curvature (Hessian) information.
 
 **Parameters**:
 
-* **`learning_rate`** *(float, default=1e-4)*: Base learning rate used to compute step sizes for parameter updates.
-* **`beta1`** *(float, default=0.965)*: Exponential decay rate for the first-moment (momentum / PNM) estimates.
-* **`beta2`** *(float, default=0.99)*: Exponential decay rate for the running second-moment (Hessian / squared-grad) estimates.
-* **`rho`** *(float, default=0.04)*: Small scaling / regularization factor used when dividing by the (rho \* hessian + eps) denominator.
-* **`weight_decay`** *(float, default=1e-1)*: Weight-decay coefficient. When `weight_decouple=True` decay is applied in a decoupled (AdamW-style) manner.
-* **`weight_decouple`** *(bool, default=True)*: If True apply decoupled weight decay (multiply parameters by `(1 - wd * lr)` or `(1 - wd)` depending on `fixed_decay`).
-* **`fixed_decay`** *(bool, default=False)*: When True applies weight decay as a fixed multiplicative factor (not scaled by learning rate).
-* **`maximize`** *(bool, default=False)*: If True the optimizer maximizes the objective (negates gradients before update).
-* **`orthograd`** *(bool, default=True)*: If True apply orthogonal gradient projection (remove gradient component parallel to parameter) before further processing.
-* **`lookahead_merge_time`** *(int, default=5)*: Frequency (steps) at which lookahead slow parameters are blended into fast parameters.
-* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending factor used by lookahead: `slow = slow + alpha * (fast - slow)` then `fast := slow`.
-* **`lookahead`** *(bool, default=True)*: Enable Lookahead slow/fast parameter blending.
-* **`pnm`** *(bool, default=True)*: Enable Positive–Negative Momentum (PNM) which uses separate positive and negative momentum buffers to reduce variance.
-* **`subset_size`** *(int, default=-1)*: Suggested subset size for subset-based second-moment (SN); `-1` uses a √size heuristic.
-* **`sn`** *(bool, default=True)*: Enable subset-based second-moment (SN) storage and updates — reduces memory/compute by aggregating squared-grad stats over blocks.
-* **`agc`** *(bool, default=True)*: Enable Adaptive Gradient Clipping (AGC) to keep gradient magnitudes relative to parameter norms.
-* **`cautious`** *(bool, default=True)*: When True applies a cautious masking heuristic that scales updates depending on sign alignment with raw gradients (reduces harmful sign flips).
-* **`d0`** *(float, default=1e-6)*: Initial D-Adapt base scalar (when `DAdapt=True`) used for automatic multiplicative scaling of the effective step.
-* **`growth_rate`** *(float, default=inf)*: Maximum allowed growth factor for the DAdapt scalar between updates (clips DAdapt growth).
-* **`DAdapt`** *(bool, default=True)*: Enable D-Adapt style automatic scalar estimation (estimates a global multiplicative step factor from inner-products of gradients and scaled states).
-* **`clipnorm`** *(float, optional)*: Clip individual gradient tensors by norm (Keras API).
-* **`clipvalue`** *(float, optional)*: Clip gradients by value (Keras API).
-* **`global_clipnorm`** *(float, optional)*: Clip gradients by a global norm across all parameters.
-* **`use_ema`** *(bool, default=False)*: Maintain an exponential moving average of model weights for evaluation.
-* **`ema_momentum`** *(float, default=0.99)*: EMA decay used when `use_ema=True`.
-* **`ema_overwrite_frequency`** *(int, optional)*: Frequency of overwriting model weights with EMA weights (if used).
-* **`loss_scale_factor`** *(float, optional)*: Factor used for loss scaling in mixed-precision training.
-* **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients before applying an optimizer step.
+* **`learning_rate`** *(float, default=1e-4)*: The base step size for parameter updates.
+* **`beta1`** *(float, default=0.965)*: Exponential decay rate for the first moment (momentum) estimates.
+* **`beta2`** *(float, default=0.99)*: Exponential decay rate for second moment / Hessian tracking.
+* **`rho`** *(float, default=0.04)*: Sophia/G-specific curvature scaling factor used with Hessian terms.
+* **`weight_decay`** *(float, default=1e-1)*: Coefficient for weight decay. Applied decoupled (AdamW-style) when `weight_decouple=True` or added to gradients otherwise.
+* **`weight_decouple`** *(bool, default=True)*: Use decoupled weight decay instead of adding parameter values to gradients.
+* **`fixed_decay`** *(bool, default=False)*: When True, use a fixed decay factor (not scaled by the learning rate).
+* **`maximize`** *(bool, default=False)*: If True, performs gradient ascent (useful for maximization objectives).
+* **`orthograd`** *(bool, default=True)*: Apply orthogonal gradient projection to remove components aligned with the parameter vector.
+* **`lookahead_merge_time`** *(int, default=5)*: Number of steps between lookahead slow/fast parameter merges.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending coefficient for lookahead slow/fast weights.
+* **`lookahead`** *(bool, default=True)*: Enable lookahead slow/fast parameter averaging.
+* **`pnm`** *(bool, default=True)*: Use projected-normal-momentum (PNM) variant for first-moment storage and updates (an alternative to a single momentum buffer).
+* **`subset_size`** *(int, default=-1)*: Block size for stochastic/blockwise normalization (SN). If `-1` a heuristic is used to pick block size.
+* **`sn`** *(bool, default=True)*: Enable stochastic (blockwise) second-moment / Hessian estimation to reduce memory and compute.
+* **`agc`** *(bool, default=True)*: Apply Adaptive Gradient Clipping (AGC) to gradients before updates.
+* **`cautious`** *(bool, default=True)*: Use cautious masking that downscales updates whose sign disagrees with the raw gradient.
+* **`d0`** *(float, default=1e-6)*: Initial base D-Adapt scalar used as a starting point for adaptive global step-length (when `DAdapt=True`).
+* **`growth_rate`** *(float, default=float('inf'))*: Maximum allowed multiplicative growth for the D-Adapt scalar.
+* **`DAdapt`** *(bool, default=True)*: Enable D-Adapt automatic global step-length adaptation logic (tracks a global scale d0).
+* **`trust_ratio`** *(bool, default=False)*: Apply layer-wise trust-ratio scaling (parameter norm / update norm) to the update (similar conceptually to LARS/LAMB).
+* **`trust_clip`** *(bool, default=False)*: When True, clip the computed trust ratio to at most 1.0.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Gradient clipping options interoperable with Keras optimizers.
+* **`use_ema`** *(bool, default=False)*: Maintain an exponential moving average (EMA) of model weights if enabled.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum factor when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights (if used).
+* **`loss_scale_factor`** *(float, optional)*: Optional loss scaling for mixed precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for gradient accumulation.
 * **`name`** *(str, default="sophiag\_e")*: Name of the optimizer instance.
 
 **Example Usage**:
@@ -7876,7 +7878,7 @@ optimizer = SophiaG_e(
     beta1=0.965,
     beta2=0.99,
     rho=0.04,
-    weight_decay=1e-2,
+    weight_decay=1e-1,
     weight_decouple=True,
     fixed_decay=False,
     maximize=False,
@@ -7885,13 +7887,15 @@ optimizer = SophiaG_e(
     lookahead_merge_time=5,
     lookahead_blending_alpha=0.5,
     pnm=True,
-    subset_size=-1,
+    subset_size=256,
     sn=True,
     agc=True,
     cautious=True,
     DAdapt=True,
     d0=1e-6,
-    growth_rate=10.0
+    trust_ratio=True,
+    trust_clip=True,
+    name="sophiag_e"
 )
 
 # Training step
@@ -7913,47 +7917,47 @@ for epoch in range(epochs):
 
 **Overview**:
 
-The `SOAP_e` optimizer combines Shampoo-style preconditioning (per-dimension preconditioners with optional dimension merging) with a suite of modern first-order stabilization and regularization techniques. It integrates Adaptive Gradient Clipping (AGC), Positive–Negative Momentum (PNM), subset-based second-moment estimation (SN), an Adaptive Exponential-Moving enhancement (AEM), cautious masking, bias correction, optional gradient normalization, Lookahead, and an optional D-Adapt style automatic global step-size estimator. `SOAP_e` is intended for robust, curvature-aware updates on ill-conditioned layers while providing knobs to trade memory/compute for stability and speed.
+The `SOAP_e` optimizer is a hybrid curvature-aware optimizer that combines Shampoo-style preconditioning, Sophia-like blockwise normalization, and practical stabilizers. It maintains blockwise preconditioners (Shampoo/GG and their eigen-bases), supports projection of gradients into preconditioned spaces, stochastic/blockwise second-moment estimation (SN), projected-normal-momentum (PNM), Adaptive Gradient Clipping (AGC), cautious masking, optional AEM-style slow averages, D-Adapt automatic global step-size adaptation, optional layer-wise trust-ratio scaling, and an optional lookahead slow/fast weight blending. `SOAP_e` is intended for stable large-step training while leveraging approximate curvature and block preconditioning to improve convergence on large models.
 
 **Parameters**:
 
 * **`learning_rate`** *(float, default=3e-3)*: Base step size for parameter updates.
-* **`beta1`** *(float, default=0.95)*: Exponential decay rate for first-moment (momentum / PNM) estimates.
-* **`beta2`** *(float, default=0.95)*: Exponential decay rate used for Shampoo-style second-moment accumulation (preconditioner / variance running averages).
-* **`beta3`** *(float, default=0.9999)*: Decay used for the slow AEM momentum (if `aem=True`) / scheduling horizon for AEM.
-* **`epsilon`** *(float, default=1e-8)*: Small constant added to denominators for numerical stability.
-* **`weight_decay`** *(float, default=1e-2)*: Weight-decay coefficient applied to parameters.
-* **`shampoo_beta`** *(float or None, default=None)*: Beta used specifically for Shampoo preconditioner updates; if `None` falls back to `beta2`.
-* **`precondition_frequency`** *(int, default=10)*: How often (in steps) to compute/update preconditioner eigen-bases / orthogonalization (expensive operation).
-* **`max_precondition_dim`** *(int, default=10000)*: Maximum dimension threshold for constructing dense preconditioner matrices; dims larger than this are skipped or treated as scalars.
-* **`merge_dims`** *(bool, default=False)*: If True, merge small tensor dimensions before forming preconditioners (reduces number of matrices and compute).
-* **`precondition_1d`** *(bool, default=False)*: Whether to build 1-D preconditioners for vector parameters (when their size ≤ `max_precondition_dim`).
-* **`correct_bias`** *(bool, default=True)*: Apply bias-correction factors (Adam-style) to the step size for more accurate early updates.
-* **`normalize_gradient`** *(bool, default=False)*: If True, apply extra gradient normalization (RMS-style rescaling) to updates.
-* **`data_format`** *(str, default="channels\_last")*: Data format used when merging/projecting convolutional parameter dimensions for Shampoo.
-* **`lookahead_merge_time`** *(int, default=5)*: Lookahead period (number of steps between slow/fast parameter blending).
-* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending coefficient for lookahead interpolation of slow and fast parameters.
-* **`lookahead`** *(bool, default=True)*: Enable Lookahead-style slow/fast parameter interpolation.
-* **`pnm`** *(bool, default=True)*: Enable Positive–Negative Momentum (PNM) instead of standard single momentum (alternating positive/negative momentum for noise robustness).
-* **`subset_size`** *(int, default=-1)*: Subset size used for subset-based second-moment estimation (SN). Use -1 to let the optimizer choose a heuristic divisor (√size).
-* **`sn`** *(bool, default=True)*: Enable subset-based second-moment estimation (subset normalization) to reduce second-moment state or compute block-wise statistics.
-* **`agc`** *(bool, default=True)*: Enable Adaptive Gradient Clipping (AGC) to clip gradients by unit-wise parameter norm.
-* **`cautious`** *(bool, default=True)*: Enable cautious masking to reduce updates that conflict with instantaneous gradient direction.
-* **`aem`** *(bool, default=True)*: Enable Adaptive Exponential-Moving enhancement (AEM) — an extra slow-moving momentum term that can be blended with the main update.
-* **`alpha`** *(float, default=5.0)*: Scaling factor used by the AEM slow momentum when `aem=True`.
-* **`t_alpha_beta3`** *(optional, default=None)*: Optional schedule horizon for alpha / beta3 scheduling used by AEM.
-* **`d0`** *(float, default=1e-6)*: Initial D-Adapt scalar (initial global scale) when `DAdapt=True`.
-* **`growth_rate`** *(float, default=inf)*: Maximum multiplicative growth of the D-Adapt scalar per update (clamps d to ≤ `d0 * growth_rate`).
-* **`DAdapt`** *(bool, default=True)*: Enable D-Adapt style automatic estimator for a global multiplicative learning-rate (`d0` adjustment).
-* **`clipnorm`** *(float, optional)*: Clip gradients by norm (Keras-compatible).
-* **`clipvalue`** *(float, optional)*: Clip gradients by value (Keras-compatible).
-* **`global_clipnorm`** *(float, optional)*: Global gradient-norm clipping across parameters.
-* **`use_ema`** *(bool, default=False)*: Maintain exponential moving average (EMA) of model weights.
-* **`ema_momentum`** *(float, default=0.99)*: Decay for EMA when `use_ema=True`.
-* **`ema_overwrite_frequency`** *(int, optional)*: Frequency to overwrite model weights with EMA weights.
-* **`loss_scale_factor`** *(float, optional)*: Loss scale factor for mixed-precision training.
-* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying updates.
-* **`name`** *(str, default="soap\_e")*: Name for the optimizer instance.
+* **`beta1`** *(float, default=0.95)*: Exponential decay rate for the first-moment (momentum) estimates.
+* **`beta2`** *(float, default=0.95)*: Exponential decay rate used for second-moment / Shampoo accumulation.
+* **`beta3`** *(float, default=0.9999)*: (AEM) decay for slow exponential averages when `aem=True`.
+* **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability in denominators.
+* **`weight_decay`** *(float, default=1e-2)*: Weight decay coefficient. Applied decoupled (multiplicative) when used as shown in the implementation.
+* **`shampoo_beta`** *(float or None, default=None)*: Beta for Shampoo preconditioner updates; if `None` falls back to `beta2`.
+* **`precondition_frequency`** *(int, default=10)*: How often (in steps) to recompute eigen-bases / orthogonal matrices for preconditioning.
+* **`max_precondition_dim`** *(int, default=10000)*: Maximum dimension for which full preconditioner matrices are maintained. Larger dims are skipped or simplified.
+* **`merge_dims`** *(bool, default=False)*: Merge small dimensions to keep preconditioner matrix sizes manageable.
+* **`precondition_1d`** *(bool, default=False)*: Enable 1D preconditioning for vector parameters when appropriate.
+* **`correct_bias`** *(bool, default=True)*: Apply bias-correction factors to step sizes (similar to Adam/AdamW bias correction).
+* **`normalize_gradient`** *(bool, default=False)*: Optionally normalize the final projected update before applying it.
+* **`data_format`** *(str, default='channels\_last')*: Tensor layout used when merging / projecting convolutional parameter axes (`'channels_last'` or `'channels_first'`).
+* **`lookahead_merge_time`** *(int, default=5)*: Number of steps between lookahead slow/fast parameter merges.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending coefficient for lookahead slow/fast weights.
+* **`lookahead`** *(bool, default=True)*: Enable lookahead slow/fast parameter averaging.
+* **`pnm`** *(bool, default=True)*: Use projected-normal-momentum (PNM) variant for first-moment representation (pos/neg momentum) instead of a single buffer.
+* **`subset_size`** *(int, default=-1)*: Block size hint for stochastic/blockwise normalization. If negative, a heuristic is used.
+* **`sn`** *(bool, default=True)*: Enable stochastic (blockwise) second-moment / block estimates to reduce memory and compute.
+* **`agc`** *(bool, default=True)*: Apply Adaptive Gradient Clipping (AGC) to gradients before updates.
+* **`cautious`** *(bool, default=True)*: Use cautious masking that reduces updates whose sign disagrees with the raw gradient.
+* **`aem`** *(bool, default=True)*: Enable AEM-style extra slow exponential averages which can be added to the main first moment.
+* **`alpha`** *(float, default=5.0)*: Blending coefficient used by the AEM slow-average when `aem=True`.
+* **`t_alpha_beta3`** *(int or None, default=None)*: Steps over which to schedule `alpha`/`beta3` (when provided).
+* **`d0`** *(float, default=1e-6)*: Initial D-Adapt scalar (base global step-size factor) used when `DAdapt=True`.
+* **`growth_rate`** *(float, default=float('inf'))*: Maximum allowed multiplicative growth of the D-Adapt scalar between updates.
+* **`DAdapt`** *(bool, default=True)*: Enable D-Adapt automatic global step-size adaptation (tracks a global `d0_` and updates it).
+* **`trust_ratio`** *(bool, default=False)*: Apply layer-wise trust-ratio scaling (parameter norm / update norm) similar to LARS/LAMB.
+* **`trust_clip`** *(bool, default=False)*: If True, clip the trust ratio to at most 1.0.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard gradient clipping options forwarded to the base `tf.keras` optimizer machinery.
+* **`use_ema`** *(bool, default=False)*: Maintain an exponential moving average (EMA) of model weights if enabled.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum factor when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights (if used).
+* **`loss_scale_factor`** *(float, optional)*: Optional loss scaling factor for mixed precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an update.
+* **`name`** *(str, default="soap\_e")*: Name of the optimizer instance.
 
 **Example Usage**:
 
@@ -7969,25 +7973,29 @@ optimizer = SOAP_e(
     beta3=0.9999,
     epsilon=1e-8,
     weight_decay=1e-2,
-    shampoo_beta=0.98,
-    precondition_frequency=20,
-    max_precondition_dim=4096,
-    merge_dims=True,
-    precondition_1d=True,
+    shampoo_beta=None,
+    precondition_frequency=10,
+    max_precondition_dim=10000,
+    merge_dims=False,
+    precondition_1d=False,
     correct_bias=True,
     normalize_gradient=False,
+    data_format='channels_last',
     lookahead=True,
     lookahead_merge_time=5,
     lookahead_blending_alpha=0.5,
     pnm=True,
-    subset_size=-1,
+    subset_size=256,
     sn=True,
     agc=True,
     cautious=True,
     aem=True,
     alpha=5.0,
     DAdapt=True,
-    d0=1e-6
+    d0=1e-6,
+    trust_ratio=False,
+    trust_clip=False,
+    name="soap_e"
 )
 
 # Compile a model
@@ -8011,49 +8019,52 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=20)
 
 **Overview**:
 
-The `Muon_e` optimizer is a hybrid optimizer that combines a Muon-style matrix-aware momentum update for matrix-like parameters with an AdamW-style adaptive branch for other tensors. It supports advanced features often used in large-scale training: per-parameter adjusted learning rates for matrix parameters, Nesterov-style correction, Newton–Schulz zero-power normalization for stable matrix updates, stochastic normalization (SN) for blockwise second-moment estimation, projected-normal-momentum (PNM) alternatives, adaptive exponential mixing (AEM) of slow/fast moments, Hutchinson-based Sophia-style Hessian estimation, D-Adapt automatic global step-size adaptation (DAdapt), adaptive clipping / cautious updates, adaptive gradient clipping (AGC), and lookahead-style slow weight blending. It also contains options for distributed/sharded Muon updates via `WORLD_SIZE`/`RANK`.
+The `Muon_e` optimizer is a hybrid, highly configurable optimizer that blends large-step momentum-based updates for matrix-like parameters ("Muon" mode) with AdamW / Sophia-style second-order-aware updates for small or non-matrix parameters. It supports projected-normal-momentum (PNM), stochastic blockwise second-moment estimates (SN), Adaptive Gradient Clipping (AGC), cautious masking, optional AEM slow averages, Hutchinson Hessian estimation for Sophia-style curvature, D-Adapt automatic global step-size adaptation, optional layer-wise trust-ratio scaling, and a lookahead slow/fast weight blending. Use `use_muon=True` to enable the Muon-style flattened-momentum pipeline; set it to `False` to use the AdamW/Sophia path.
 
 **Parameters**:
 
-* **`learning_rate`** *(float, default=2e-2)*: Base learning rate used by the Muon (matrix-aware) branch.
-* **`beta1`** *(float, default=0.9)*: Exponential decay rate used for first-moment (momentum) updates and for certain projected/PNM calculations.
-* **`beta2`** *(float, default=0.95)*: Exponential decay rate used for second-moment / variance running averages and for some Sophia/Hessian moment updates.
-* **`beta3`** *(float, default=0.9999)*: Third-moment / slow-momentum decay used by the AEM slow-moving average (if `aem=True`).
-* **`weight_decay`** *(float, default=1e-2)*: Global weight decay coefficient. When `weight_decouple=True` it is applied as decoupled (AdamW-style) weight decay.
-* **`momentum`** *(float, default=0.95)*: Muon branch momentum coefficient used for the Muon momentum buffer.
-* **`weight_decouple`** *(bool, default=True)*: Use decoupled weight decay (apply multiplicative decay to parameters) instead of adding the scaled parameter to gradients.
-* **`nesterov`** *(bool, default=True)*: Apply Nesterov-style correction to Muon momentum updates.
-* **`ns_steps`** *(int, default=5)*: Number of Newton–Schulz iterations performed by the zero-power normalization helper used in Muon updates.
-* **`use_adjusted_lr`** *(bool, default=False)*: When True use the alternate `get_adjusted_lr` heuristic (shape-aware ratio) for per-parameter learning-rate adjustment on the Muon branch.
-* **`adamw_lr`** *(float, default=3e-4)*: Learning rate used by the AdamW-style branch (when a parameter is not handled by Muon branch).
-* **`adamw_wd`** *(float, default=0.0)*: Weight decay used for the AdamW-style branch (applied decoupled if `weight_decouple=True`).
-* **`adamw_eps`** *(float, default=1e-8)*: Epsilon used for numerical stability in AdamW-style denominators.
-* **`use_muon`** *(bool, default=True)*: If True, matrix-like parameters (rank ≥ 2) are updated using the Muon matrix-aware logic; otherwise the optimizer behaves like the AdamW-style branch.
-* **`subset_size`** *(int, default=-1)*: Block size for stochastic normalization (SN). When >0 uses given subset size; when -1 a heuristic determines block size.
-* **`sn`** *(bool, default=True)*: Enable stochastic normalization / blockwise second-moment estimation to reduce memory for second-moment statistics.
-* **`lookahead_merge_time`** *(int, default=5)*: How many steps between lookahead slow/fast parameter merges.
-* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending coefficient used by lookahead when merging slow and fast weights.
-* **`lookahead`** *(bool, default=True)*: Enable lookahead-style slow parameter averaging for improved stability/convergence.
-* **`pnm`** *(bool, default=True)*: Use projected-normal-momentum (PNM) variant instead of a plain exp-moving-average for first-moment storage.
-* **`agc`** *(bool, default=True)*: Apply Adaptive Gradient Clipping (AGC) to gradients before updates.
-* **`cautious`** *(bool, default=True)*: Apply cautious masking that reduces updates which disagree in sign with the raw gradient (safety heuristic).
-* **`aem`** *(bool, default=False)*: Use Adaptive Exponential Mixing — keep a slow-moving average of gradients and mix into updates.
-* **`alpha`** *(float, default=5.0)*: Scale applied to the slow-moving AEM term when `aem=True`.
-* **`t_alpha_beta3`** *(float or None, default=None)*: Schedule length used to ramp `alpha` and `beta3` when provided (time-dependent scheduling).
-* **`sophia`** *(bool, default=True)*: Enable Sophia-style Hutchinson Hessian estimation and associated clipping / Hessian-scaled normalization for the AdamW branch.
-* **`p`** *(float, default=1e-2)*: Sophia-specific damping/probability parameter used for Hutchinson sampling (algorithmic hyperparameter).
-* **`update_period`** *(int, default=10)*: Frequency (in steps) to update Sophia/Hessian moments when `sophia=True`.
-* **`num_samples`** *(int, default=1)*: Number of Hutchinson probe samples for Sophia Hessian estimation.
-* **`hessian_distribution`** *(str, default='gaussian')*: Distribution used for Hutchinson probes: `'gaussian'` or `'rademacher'`.
-* **`d0`** *(float, default=1e-6)*: Initial D-Adapt base step length used by DAdapt when enabled.
-* **`growth_rate`** *(float, default=float('inf'))*: Maximum multiplicative growth for D-Adapt's internal scale.
-* **`DAdapt`** *(bool, default=True)*: Enable D-Adapt automatic global step-size adaptation (tracks alignment to scale global step length).
-* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard Keras gradient clipping parameters.
-* **`use_ema`** *(bool, default=False)*: Maintain exponential moving average (EMA) of model weights.
-* **`ema_momentum`** *(float, default=0.99)*: EMA decay (momentum) used when `use_ema=True`.
-* **`ema_overwrite_frequency`** *(int, optional)*: Frequency to overwrite model weights with EMA weights.
-* **`loss_scale_factor`**, **`gradient_accumulation_steps`** *(optional)*: Support for loss scaling and gradient accumulation in mixed precision / multi-step training.
-* **`name`** *(str, default="muon\_e")*: Name for the optimizer instance.
+* **`learning_rate`** *(float, default=2e-2)*: Base learning rate for Muon-style updates (or effective learning-rate scaling for the optimizer).
+* **`beta1`** *(float, default=0.9)*: Exponential decay rate for first-moment / momentum estimates.
+* **`beta2`** *(float, default=0.95)*: Exponential decay rate for second-moment / variance or related smoothing.
+* **`beta3`** *(float, default=0.9999)*: (AEM) decay for the slow exponential average when `aem=True`.
+* **`weight_decay`** *(float, default=1e-2)*: Weight decay coefficient; applied as decoupled multiplicative decay when enabled.
+* **`momentum`** *(float, default=0.95)*: Momentum factor used by the Muon momentum buffer path.
+* **`weight_decouple`** *(bool, default=True)*: When True, apply decoupled (AdamW-style) weight decay; otherwise apply standard L2-style decay to gradients.
+* **`nesterov`** *(bool, default=True)*: Use Nesterov-style correction (lookahead on the momentum buffer) in Muon updates.
+* **`ns_steps`** *(int, default=5)*: Number of Newton–Schulz iterations used by the "zero-power" normalization routine applied to momentum updates.
+* **`use_adjusted_lr`** *(bool, default=False)*: If True, adjust learning rate per-parameter by shape-based ratio; otherwise use a simpler heuristic.
+* **`adamw_lr`** *(float, default=3e-4)*: Learning rate used by the AdamW / Sophia path (when `use_muon=False`).
+* **`adamw_wd`** *(float, default=0.0)*: Weight-decay coefficient applied in the AdamW path (separate from `weight_decay` for Muon branch).
+* **`adamw_eps`** *(float, default=1e-8)*: Small epsilon used in denominators for AdamW/Sophia-style updates.
+* **`use_muon`** *(bool, default=True)*: Enable Muon flattened-momentum pipeline for (typically) matrix-like parameters. When False, optimizer uses the AdamW / Sophia-style branch.
+* **`subset_size`** *(int, default=-1)*: Block size hint for stochastic/blockwise normalization (SN). Negative means heuristic selection.
+* **`sn`** *(bool, default=True)*: Enable stochastic (blockwise) second-moment estimation to reduce memory & compute for large tensors.
+* **`lookahead_merge_time`** *(int, default=5)*: Steps between lookahead slow/fast parameter merges.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending factor for lookahead slow/fast weights.
+* **`lookahead`** *(bool, default=True)*: Enable lookahead slow/fast parameter averaging.
+* **`pnm`** *(bool, default=True)*: Use projected-normal-momentum (PNM) representation (pos/neg momentum) instead of a single first-moment buffer.
+* **`agc`** *(bool, default=True)*: Apply Adaptive Gradient Clipping to gradients before computing updates.
+* **`cautious`** *(bool, default=True)*: Use cautious masking that downscales updates whose sign disagrees with the raw gradient.
+* **`aem`** *(bool, default=False)*: Enable AEM-style additional slow exponential averages (can be mixed into first-moment).
+* **`alpha`** *(float, default=5.0)*: Blending coefficient for the AEM slow-average when `aem=True`.
+* **`t_alpha_beta3`** *(int or None, default=None)*: Number of steps over which to schedule `alpha`/`beta3`; if `None` no schedule is used.
+* **`sophia`** *(bool, default=True)*: Enable Sophia-style Hessian-moment and curvature-aware updates on the AdamW path (when `use_muon=False`).
+* **`p`** *(float, default=1e-2)*: Sophia-style clipping / scaling parameter (algorithm-specific).
+* **`update_period`** *(int, default=10)*: Frequency (in steps) to update Sophia / Hessian moments or Hutchinson estimates.
+* **`num_samples`** *(int, default=1)*: Number of Hutchinson samples used to estimate Hessian-vector products when `sophia=True`.
+* **`hessian_distribution`** *(str, default='gaussian')*: Distribution for Hutchinson estimation (`'gaussian'` or `'rademacher'`).
+* **`d0`** *(float, default=1e-6)*: Initial D-Adapt scalar used by automatic step-size adaptation when `DAdapt=True`.
+* **`growth_rate`** *(float, default=float('inf'))*: Maximum allowed growth factor for the D-Adapt scalar between updates.
+* **`DAdapt`** *(bool, default=True)*: Enable D-Adapt automatic global step-size adaptation (maintains and updates a scalar `d0_`).
+* **`trust_ratio`** *(bool, default=False)*: Apply layer-wise trust-ratio scaling (parameter norm / update norm) similar to LARS/LAMB.
+* **`trust_clip`** *(bool, default=False)*: If True, clip computed trust ratio to a maximum of 1.0.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard gradient clipping options forwarded to the base `tf.keras` optimizer machinery.
+* **`use_ema`** *(bool, default=False)*: Maintain exponential moving average (EMA) of model weights if enabled.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum factor (used when `use_ema=True`).
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights (if specified).
+* **`loss_scale_factor`** *(float, optional)*: Optional loss scaling factor for mixed-precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an update.
+* **`name`** *(str, default="muon\_e")*: Name of the optimizer instance.
 
 **Example Usage**:
 
@@ -8089,7 +8100,9 @@ opt = Muon_e(
     num_samples=1,
     hessian_distribution="gaussian",
     DAdapt=True,
-    d0=1e-6
+    d0=1e-6,
+    trust_ratio=False,
+    trust_clip=False,
 )
 
 # Training step
@@ -8111,46 +8124,51 @@ for epoch in range(epochs):
 
 **Overview**:
 
-The `DistributedMuon_e` optimizer is a distributed-aware hybrid optimizer that extends Muon-style matrix-aware updates to multi-replica training. It combines a Muon-style momentum / Newton–Schulz normalized matrix update for matrix-like parameters with an AdamW-style adaptive branch for other tensors. It includes distributed gathering/sharding support, blockwise stochastic normalization (SN), projected-normal-momentum (PNM), Adaptive Gradient Clipping (AGC), Sophia-style Hutchinson Hessian estimation, Adaptive Exponential Mixing (AEM), D-Adapt automatic global step-size adaptation, cautious update masking, lookahead slow/fast weight blending, and numerous configuration knobs for large-scale stable training.
+The `DistributedMuon_e` optimizer is a distributed-aware, hybrid optimizer that extends the Muon/E-inspired family to multi-replica (tf.distribute) training. It blends flattened momentum updates for large / matrix-like parameters with AdamW / Sophia-style curvature-aware updates for smaller parameters, while providing distributed synchronization (all-gather / per-replica sharding), optional projected-normal-momentum (PNM), stochastic blockwise second-moment estimates (SN), Adaptive Gradient Clipping (AGC), Hutchinson Hessian estimation (Sophia), D-Adapt automatic global step-size adaptation, layer-wise trust-ratio scaling, lookahead slow/fast blending, and several practical controls for numerical stability. Use `use_muon=True` to enable the Muon flattened-momentum path for matrix-like parameters; set it to `False` to run the AdamW/Sophia path across replicas.
 
 **Parameters**:
 
-* **`learning_rate`** *(float, default=2e-2)*: Base learning rate for the Muon (matrix-aware) branch.
-* **`weight_decay`** *(float, default=0.0)*: Global weight decay coefficient (applied decoupled when `weight_decouple=True`).
-* **`momentum`** *(float, default=0.95)*: Momentum coefficient used by the Muon branch.
-* **`weight_decouple`** *(bool, default=True)*: Apply decoupled weight decay (AdamW-style) instead of adding parameter-weight to gradient.
-* **`nesterov`** *(bool, default=True)*: Use Nesterov-style correction in Muon momentum updates.
-* **`ns_steps`** *(int, default=5)*: Number of Newton–Schulz iterations for zero-power normalization used in Muon updates.
-* **`use_adjusted_lr`** *(bool, default=False)*: When True use the alternative shape-aware per-parameter LR adjustment heuristic.
-* **`adamw_lr`** *(float, default=3e-4)*: Learning rate for the AdamW-style branch (non-matrix parameters).
-* **`adamw_betas`** *(tuple, default=(0.9, 0.95))*: Beta coefficients used by the AdamW-style branch.
-* **`adamw_wd`** *(float, default=0.0)*: Weight decay used specifically by the AdamW branch.
-* **`adamw_eps`** *(float, default=1e-10)*: Epsilon for numerical stability in AdamW denominators.
-* **`use_muon`** *(bool, default=True)*: If True, parameters with rank ≥ 2 use the Muon (matrix-aware) branch; otherwise all parameters use the AdamW-style branch.
-* **`cautious`** *(bool, default=False)*: Enable cautious masking that scales updates whose sign disagrees with the raw gradient.
-* **`subset_size`** *(int, default=-1)*: Block size for stochastic normalization (SN). When >0 uses that size; otherwise a heuristic is used.
-* **`sn`** *(bool, default=True)*: Enable stochastic/blockwise second-moment estimation to save memory.
-* **`lookahead_merge_time`** *(int, default=5)*: Number of steps between lookahead merges.
-* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending coefficient for lookahead slow/fast weights.
-* **`lookahead`** *(bool, default=True)*: Enable lookahead slow weight averaging.
-* **`pnm`** *(bool, default=True)*: Use projected-normal-momentum variant for first-moment storage (PNM) when enabled.
-* **`agc`** *(bool, default=True)*: Apply Adaptive Gradient Clipping (AGC) before parameter updates.
-* **`aem`** *(bool, default=False)*: Use Adaptive Exponential Mixing (AEM) to mix a slow-moving average into updates.
-* **`alpha`** *(float, default=5.0)*: Scale for the AEM slow-moving term if `aem=True`.
-* **`t_alpha_beta3`** *(float or None, default=None)*: Optional schedule length to ramp `alpha` and `beta3` over time.
-* **`sophia`** *(bool, default=True)*: Enable Sophia-style Hutchinson Hessian estimation for Hessian-scaled normalization on the AdamW branch.
-* **`p`** *(float, default=1e-2)*: Sophia-specific damping/probability parameter used for Hutchinson estimation.
-* **`update_period`** *(int, default=10)*: Frequency (in steps) to update Sophia/Hessian moments.
-* **`num_samples`** *(int, default=1)*: Number of Hutchinson probe samples for Sophia estimation.
-* **`hessian_distribution`** *(str, default='gaussian')*: Distribution of Hutchinson probes: `'gaussian'` or `'rademacher'`.
-* **`d0`** *(float, default=1e-6)*: D-Adapt initial base step length.
-* **`growth_rate`** *(float, default=float('inf'))*: Maximum multiplicative growth allowed by D-Adapt.
-* **`DAdapt`** *(bool, default=True)*: Enable D-Adapt automatic global step-size adaptation.
-* **`maximize`** *(bool, default=False)*: If True, the optimizer performs gradient ascent instead of descent.
-* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Keras-style gradient clipping parameters.
-* **`use_ema`** *(bool, default=False)*: Maintain exponential moving average of model weights.
-* **`ema_momentum`** *(float, default=0.99)*: EMA momentum when `use_ema=True`.
-* **`ema_overwrite_frequency`**, **`loss_scale_factor`**, **`gradient_accumulation_steps`** *(optional)*: Additional training integration helpers.
+* **`learning_rate`** *(float, default=2e-2)*: Base learning rate for Muon-style updates (or overall learning-rate scale).
+* **`weight_decay`** *(float, default=0.0)*: Weight decay coefficient (L2 / multiplicative depending on `weight_decouple` / branch).
+* **`momentum`** *(float, default=0.95)*: Momentum factor for Muon flattened-momentum buffers.
+* **`weight_decouple`** *(bool, default=True)*: Use decoupled (AdamW-style) multiplicative weight decay when True; otherwise apply standard L2-style decay onto gradients.
+* **`nesterov`** *(bool, default=True)*: Apply Nesterov-style correction to the momentum buffer (in Muon path).
+* **`ns_steps`** *(int, default=5)*: Number of Newton–Schulz iterations used by the zero-power normalization routine applied to Muon updates.
+* **`use_adjusted_lr`** *(bool, default=False)*: Whether to apply the per-parameter shape-based adjusted LR heuristic.
+* **`adamw_lr`** *(float, default=3e-4)*: Learning rate used by the AdamW / Sophia-style branch (when `use_muon=False`).
+* **`adamw_betas`** *(tuple(float, float), default=(0.9, 0.95))*: Beta coefficients (beta1, beta2) used by the AdamW-style updates.
+* **`adamw_wd`** *(float, default=0.0)*: AdamW weight decay coefficient used on the AdamW branch.
+* **`adamw_eps`** *(float, default=1e-10)*: Small epsilon added to denominators for numerical stability in the AdamW/Sophia path.
+* **`use_muon`** *(bool, default=True)*: Enable Muon flattened-momentum pipeline for (typically) matrix-like / large parameters. When False, optimizer runs the AdamW / Sophia branch across replicas.
+* **`cautious`** *(bool, default=False)*: When True, apply cautious masking that scales updates whose sign disagrees with raw gradients.
+* **`subset_size`** *(int, default=-1)*: Block size hint for stochastic / blockwise normalization (SN). Negative means the optimizer chooses a heuristic block size.
+* **`sn`** *(bool, default=True)*: Use stochastic (blockwise) second-moment estimation to save memory & compute on large tensors.
+* **`lookahead_merge_time`** *(int, default=5)*: Steps between lookahead slow/fast parameter merges.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending factor used when performing lookahead slow/fast weight updates.
+* **`lookahead`** *(bool, default=True)*: Enable lookahead slow/fast parameter averaging.
+* **`pnm`** *(bool, default=True)*: Use projected-normal-momentum (pos/neg momentum) representation instead of a single first-moment buffer.
+* **`agc`** *(bool, default=True)*: Apply Adaptive Gradient Clipping to gradients prior to updates.
+* **`aem`** *(bool, default=False)*: Enable AEM-style additional slow exponential averages (can be mixed into first-moment).
+* **`alpha`** *(float, default=5.0)*: Blending coefficient for the AEM slow-average when `aem=True`.
+* **`t_alpha_beta3`** *(int or None, default=None)*: Number of steps to schedule `alpha`/`beta3`; if `None` no schedule is used.
+* **`sophia`** *(bool, default=True)*: Enable Sophia-style Hessian-moment / curvature-aware updates (Hutchinson estimates) on the AdamW branch.
+* **`p`** *(float, default=1e-2)*: Sophia-style clipping/scaling parameter (algorithm specific).
+* **`update_period`** *(int, default=10)*: Frequency (in steps) to update Sophia / Hessian moments or perform Hutchinson estimation.
+* **`num_samples`** *(int, default=1)*: Number of Hutchinson samples used to estimate Hessian-vector products for Sophia.
+* **`hessian_distribution`** *(str, default='gaussian')*: Distribution for Hutchinson estimation: `'gaussian'` or `'rademacher'`.
+* **`d0`** *(float, default=1e-6)*: Initial D-Adapt scalar used by automatic step-size adaptation (D-Adapt).
+* **`growth_rate`** *(float, default=float('inf'))*: Maximum growth factor allowed for the D-Adapt scalar between updates.
+* **`DAdapt`** *(bool, default=True)*: Enable D-Adapt automatic global step-size adaptation (maintains and updates a scalar `d0_`).
+* **`trust_ratio`** *(bool, default=False)*: Apply layer-wise trust-ratio scaling (parameter norm / update norm) like LARS/LAMB.
+* **`trust_clip`** *(bool, default=False)*: If True, clip computed trust ratio to a maximum of 1.0.
+* **`maximize`** *(bool, default=False)*: If True, the optimizer will maximize the objective (useful for e.g. adversarial inner loops).
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard TF gradient clipping options forwarded to base optimizer.
+* **`use_ema`** *(bool, default=False)*: Maintain Exponential Moving Average (EMA) of model weights if enabled.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum factor (when `use_ema=True`).
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights (if specified).
+* **`loss_scale_factor`** *(float, optional)*: Optional loss scaling factor for mixed-precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Steps to accumulate gradients before applying an update.
+* **`name`** *(str, default="distributedmuon\_e")*: Name of the optimizer instance.
 
 **Example Usage**:
 
@@ -8158,35 +8176,36 @@ The `DistributedMuon_e` optimizer is a distributed-aware hybrid optimizer that e
 import tensorflow as tf
 from optimizers.distributedmuon_e import DistributedMuon_e
 
-# Create optimizer (will use current tf.distribute strategy automatically)
-opt = DistributedMuon_e(
-    learning_rate=2e-2,
-    weight_decay=1e-3,
-    momentum=0.95,
-    weight_decouple=True,
-    nesterov=True,
-    ns_steps=5,
-    use_adjusted_lr=False,
-    adamw_lr=3e-4,
-    adamw_betas=(0.9, 0.95),
-    adamw_wd=1e-3,
-    adamw_eps=1e-10,
-    use_muon=True,
-    subset_size=256,
-    sn=True,
-    lookahead=True,
-    lookahead_merge_time=5,
-    lookahead_blending_alpha=0.5,
-    pnm=True,
-    agc=True,
-    aem=False,
-    sophia=True,
-    update_period=10,
-    num_samples=1,
-    hessian_distribution="gaussian",
-    DAdapt=True,
-    d0=1e-6
-)
+# Create a distributed strategy
+strategy = tf.distribute.MirroredStrategy()
+
+with strategy.scope():
+    optimizer = DistributedMuon_e(
+        learning_rate=2e-2,
+        weight_decay=1e-3,
+        momentum=0.95,
+        use_muon=True,
+        ns_steps=5,
+        use_adjusted_lr=False,
+        adamw_lr=3e-4,
+        adamw_betas=(0.9, 0.95),
+        adamw_wd=0.0,
+        adamw_eps=1e-10,
+        subset_size=256,
+        sn=True,
+        pnm=True,
+        agc=True,
+        sophia=True,
+        update_period=10,
+        num_samples=1,
+        hessian_distribution='gaussian',
+        DAdapt=True,
+        d0=1e-6,
+        lookahead=True,
+        lookahead_merge_time=5,
+        lookahead_blending_alpha=0.5,
+        name="distributedmuon_e",
+    )
 
 # Training step
 @tf.function
@@ -8303,7 +8322,105 @@ optimizer = AdaMuon(
     adamw_wd=0.0,
     use_muon=True
 )
-```
+
 model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# AdaMuon\_e
+
+**Overview**:
+
+The `AdaMuon_e` optimizer is a hybrid optimizer that combines Muon-style flattened-momentum updates (for large/matrix-like parameters) with AdamW-style adaptive updates and optional Sophia-style curvature-aware elements. It supports projected-normal-momentum (PNM), stochastic blockwise second-moment estimation (SN), Adaptive Gradient Clipping (AGC), lookahead slow/fast blending, per-parameter shape-based adjusted learning rates, D-Adapt automatic global step-size adaptation, Hutchinson Hessian estimation, and layer-wise trust-ratio scaling. Use `use_muon=True` to prefer the Muon flattened-momentum pipeline; set it to `False` to run the AdamW/Sophia-style branch.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base learning rate used by the optimizer (Muon branch uses this; AdamW branch uses `adamw_lr`).
+* **`beta1`** *(float, default=0.9)*: Exponential decay rate (first-moment / momentum coefficient) used in moment updates.
+* **`beta2`** *(float, default=0.999)*: Exponential decay rate for second-moment / variance estimates.
+* **`epsilon`** *(float, default=1e-8)*: Small constant added for numerical stability in denominators.
+* **`weight_decay`** *(float, default=1e-2)*: L2 weight decay coefficient applied (decoupled or added to gradients depending on `weight_decouple`).
+* **`weight_decouple`** *(bool, default=True)*: If `True`, apply decoupled multiplicative weight decay (AdamW-style); otherwise add L2 term to gradients.
+* **`nesterov`** *(bool, default=True)*: Enable Nesterov-style correction for momentum updates in the Muon path.
+* **`ns_steps`** *(int, default=5)*: Number of Newton–Schulz iterations used by the zero-power normalization routine for Muon updates.
+* **`use_adjusted_lr`** *(bool, default=False)*: Use a per-parameter shape-based adjusted learning-rate heuristic for Muon updates.
+* **`adamw_betas`** *(tuple, default=(0.9, 0.999))*: Beta coefficients used by AdamW-style updates (first and second moment).
+* **`adamw_lr`** *(float, default=3e-4)*: Learning rate used by the AdamW / Sophia branch when `use_muon=False`.
+* **`adamw_wd`** *(float, default=0.0)*: Weight decay coefficient used by the AdamW branch.
+* **`use_muon`** *(bool, default=True)*: Choose Muon flattened-momentum pipeline (True) or AdamW/Sophia pipeline (False).
+* **`subset_size`** *(int, default=-1)*: Block size hint for stochastic/blockwise normalization (SN). Negative lets the optimizer pick a heuristic.
+* **`sn`** *(bool, default=True)*: Enable stochastic blockwise second-moment estimation to reduce memory for large tensors.
+* **`lookahead_merge_time`** *(int, default=5)*: Frequency (in steps) to merge lookahead slow/fast weights.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending factor used by lookahead slow/fast updates.
+* **`lookahead`** *(bool, default=True)*: Enable lookahead slow/fast parameter averaging.
+* **`pnm`** *(bool, default=True)*: Use projected-normal-momentum (pos/neg momentum pair) instead of a single first-moment buffer.
+* **`agc`** *(bool, default=True)*: Apply Adaptive Gradient Clipping to scale/clamp gradients before updates.
+* **`cautious`** *(bool, default=True)*: Apply cautious masking that scales updates whose sign disagrees with raw gradients (reduces risky updates).
+* **`aem`** *(bool, default=False)*: Maintain an auxiliary slow exponential moving average and optionally mix it into the first-moment.
+* **`alpha`** *(float, default=5.0)*: Blending coefficient used by the auxiliary EMA when `aem=True`.
+* **`t_alpha_beta3`** *(int or None, default=None)*: Scheduling length (steps) to warm up `alpha`/`beta3`. If `None`, no schedule is used.
+* **`sophia`** *(bool, default=True)*: Enable Sophia-style curvature-aware components (Hessian-moment using Hutchinson estimation) on the AdamW branch.
+* **`p`** *(float, default=1e-2)*: Sophia-style clipping/scaling parameter (algorithm-specific).
+* **`update_period`** *(int, default=10)*: Frequency (in steps) to compute or integrate Sophia/Hessian updates (Hutchinson sampling frequency).
+* **`num_samples`** *(int, default=1)*: Number of Hutchinson samples to estimate Hessian-vector products for Sophia.
+* **`hessian_distribution`** *(str, default='gaussian')*: Distribution for Hutchinson estimation: `'gaussian'` or `'rademacher'`.
+* **`d0`** *(float, default=1e-6)*: Initial scalar used by the D-Adapt automatic step-size adaptation routine.
+* **`growth_rate`** *(float, default=float('inf'))*: Maximum allowed multiplicative growth of the D-Adapt scalar between updates.
+* **`DAdapt`** *(bool, default=True)*: Enable D-Adapt automatic global step-size adaptation (maintains `d0_`, accumulators).
+* **`trust_ratio`** *(bool, default=False)*: Apply layer-wise trust-ratio scaling (parameter norm / update norm) similar to LARS/LAMB.
+* **`trust_clip`** *(bool, default=False)*: If True, clip the trust ratio to at most 1.0.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard TensorFlow gradient clipping options, forwarded to the base optimizer.
+* **`use_ema`** *(bool, default=False)*: Maintain an Exponential Moving Average (EMA) of model weights if enabled.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum factor (when `use_ema=True`).
+* **`ema_overwrite_frequency`** *(int or None, default=None)*: Frequency for overwriting EMA weights (if specified).
+* **`loss_scale_factor`** *(float or None, default=None)*: Optional static loss scaling for mixed-precision training.
+* **`gradient_accumulation_steps`** *(int or None, default=None)*: Number of steps to accumulate gradients before applying an update (if used).
+* **`name`** *(str, default="adamuon\_e")*: Name of the optimizer instance.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.adamuon_e import AdaMuon_e
+
+# Instantiate optimizer
+optimizer = AdaMuon_e(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-8,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    nesterov=True,
+    ns_steps=5,
+    use_adjusted_lr=False,
+    adamw_betas=(0.9, 0.999),
+    adamw_lr=3e-4,
+    adamw_wd=0.0,
+    use_muon=True,
+    subset_size=256,
+    sn=True,
+    pnm=True,
+    agc=True,
+    sophia=True,
+    update_period=10,
+    num_samples=1,
+    hessian_distribution='gaussian',
+    DAdapt=True,
+    d0=1e-6,
+)
+
+# Training step
+@tf.function
+def train_step(x, y, model, optimizer):
+    with tf.GradientTape(persistent=True) as tape:
+        predictions = model(x, training=True)
+        loss = loss_fn(y, predictions)
+        gradients = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables), tape)
+
+# Training loop
+for epoch in range(epochs):
+    for x_batch, y_batch in dataset:
+        train_step(x_batch, y_batch, model, optimizer)
 ```
