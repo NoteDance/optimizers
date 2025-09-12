@@ -8424,3 +8424,70 @@ for epoch in range(epochs):
     for x_batch, y_batch in dataset:
         train_step(x_batch, y_batch, model, optimizer)
 ```
+
+# AdaGO
+
+**Overview**:
+
+The `AdaGO` optimizer is a hybrid optimizer that blends Muon-style momentum normalization for large/matrix-like parameters with an AdamW-style adaptive update branch. It uses a normalized Newton–Schulz zero-power routine for stable direction normalization, supports optional Nesterov momentum, per-parameter shape-based adjusted learning rates, multiplicative (decoupled) weight decay, and a guarded adaptive step-size mechanism that rescales learning by gradient norms and a running curvature accumulator. Switch between the Muon pipeline (`use_muon=True`) and the AdamW-style adaptive branch (`use_muon=False`) depending on your parameter shapes and preferences.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=5e-2)*: Base learning rate for Muon updates (AdamW branch uses `adamw_lr`).
+* **`epsilon`** *(float, default=5e-4)*: Small constant used in denominator or as a lower bound to avoid division by zero in the Muon update rule.
+* **`weight_decay`** *(float, default=0.0)*: L2 weight decay coefficient applied (when `weight_decouple=True` this is applied as decoupled multiplicative decay).
+* **`momentum`** *(float, default=0.95)*: Momentum coefficient for the Muon momentum buffer.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, apply decoupled multiplicative weight decay; otherwise the L2 term is added to gradients.
+* **`gamma`** *(float, default=10.0)*: Upper bound parameter used to clip or cap gradient norm contribution in the Muon v-accumulator (controls adaptive denominator growth).
+* **`v`** *(float, default=1e-6)*: Initial value used for the running curvature accumulator (prevents tiny denominators).
+* **`nesterov`** *(bool, default=True)*: Enable Nesterov-style correction for momentum updates in the Muon branch.
+* **`ns_steps`** *(int, default=5)*: Number of Newton–Schulz iterations used by the zero-power normalization routine to compute normalized update directions.
+* **`use_adjusted_lr`** *(bool, default=False)*: Use per-parameter shape-based adjusted learning rate heuristic (scales LR according to parameter shape).
+* **`adamw_lr`** *(float, default=3e-4)*: Learning rate used by the AdamW-style adaptive branch.
+* **`adamw_betas`** *(tuple, default=(0.9, 0.95))*: Beta coefficients `(beta1, beta2)` used by the AdamW-style updates.
+* **`adamw_wd`** *(float, default=0.0)*: Weight decay coefficient used by the AdamW branch (applied decoupled if `weight_decouple=True`).
+* **`adamw_eps`** *(float, default=1e-10)*: Epsilon for numerical stability in the AdamW denominator.
+* **`maximize`** *(bool, default=False)*: If `True`, perform gradient ascent (negate gradients).
+* **`cautious`** *(bool, default=False)*: When enabled, apply cautious masking to scale updates whose sign disagrees with raw gradients (reduces risky updates).
+* **`use_muon`** *(bool, default=True)*: Choose Muon flattened-momentum pipeline (True) or AdamW-style adaptive pipeline (False).
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard TensorFlow gradient clipping options forwarded to the base optimizer.
+* **`use_ema`** *(bool, default=False)*: Maintain an Exponential Moving Average (EMA) of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum factor (when `use_ema=True`).
+* **`ema_overwrite_frequency`** *(int or None, default=None)*: Frequency to overwrite EMA weights if specified.
+* **`loss_scale_factor`** *(float or None, default=None)*: Optional static loss scaling factor for mixed-precision training.
+* **`gradient_accumulation_steps`** *(int or None, default=None)*: Number of steps to accumulate gradients before applying an update (if used).
+* **`name`** *(str, default="adago")*: Name of the optimizer instance.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.adago import AdaGO
+
+# Instantiate optimizer
+optimizer = AdaGO(
+    learning_rate=5e-2,
+    epsilon=5e-4,
+    weight_decay=1e-3,
+    momentum=0.95,
+    weight_decouple=True,
+    gamma=10.0,
+    v=1e-6,
+    nesterov=True,
+    ns_steps=5,
+    use_adjusted_lr=False,
+    adamw_lr=3e-4,
+    adamw_betas=(0.9, 0.95),
+    adamw_wd=0.0,
+    adamw_eps=1e-10,
+    use_muon=True,
+    cautious=False,
+)
+
+# Compile a model
+model = ...  # build a tf.keras.Model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
