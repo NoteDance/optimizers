@@ -8491,3 +8491,96 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# AdaGO\_e
+
+**Overview**:
+
+The `AdaGO_e` optimizer is a hybrid optimizer that combines a Muon-style normalized momentum pipeline for large / matrix-like parameters with an AdamW-style adaptive branch. It includes features for normalized direction computation (Newton–Schulz zero-power normalization), optional Nesterov momentum, per-parameter shape-based adjusted learning rates, decoupled weight decay, stochastic-noise momentum (PNM) support, subset normalization (SN) for block-wise second-moment estimation, optional Sophia-style Hessian clipping, adaptive DAdapt scaling, lookahead blending, adaptive element-wise momentum (AEM), gradient clipping/AGC, and optional Hutchinson Hessian estimation. Use `use_muon=True` to prefer the Muon pipeline (normalized-momentum updates) or `use_muon=False` to use the AdamW-style adaptive updates.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=5e-2)*: Base learning rate used by the Muon-style pipeline. The AdamW branch uses `adamw_lr`.
+* **`epsilon`** *(float, default=5e-4)*: Small constant used to stabilize denominators and lower-bound adaptive scalars.
+* **`weight_decay`** *(float, default=0.0)*: Coefficient for L2 weight decay. When `weight_decouple=True`, decay is applied multiplicatively (decoupled).
+* **`momentum`** *(float, default=0.95)*: Momentum coefficient for Muon momentum buffers.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, apply decoupled multiplicative weight decay; otherwise add L2 term to gradients.
+* **`gamma`** *(float, default=10.0)*: Cap parameter (upper bound) used in the Muon branch to limit curvature accumulator growth.
+* **`v`** *(float, default=1e-6)*: Initial value for the running curvature accumulator (prevents tiny denominators).
+* **`nesterov`** *(bool, default=True)*: Enable Nesterov-style correction when computing momentum updates.
+* **`ns_steps`** *(int, default=5)*: Number of Newton–Schulz iterations used by the zero-power normalization routine to form normalized directions.
+* **`use_adjusted_lr`** *(bool, default=False)*: Use a per-parameter shape-based adjusted learning rate heuristic that scales LR by parameter shape.
+* **`adamw_lr`** *(float, default=3e-4)*: Learning rate for the AdamW-style adaptive branch.
+* **`adamw_betas`** *(tuple, default=(0.9, 0.95))*: Beta coefficients `(beta1, beta2)` used by the AdamW-style updates.
+* **`adamw_wd`** *(float, default=0.0)*: Weight decay used by the AdamW branch (decoupled if `weight_decouple=True`).
+* **`adamw_eps`** *(float, default=1e-10)*: Epsilon value for numerical stability in the AdamW denominator.
+* **`maximize`** *(bool, default=False)*: If `True`, perform gradient ascent (negate gradients internally).
+* **`use_muon`** *(bool, default=True)*: Choose Muon normalized-momentum pipeline (`True`) or AdamW-style adaptive pipeline (`False`).
+* **`subset_size`** *(int, default=-1)*: Subset size used for subset normalization (SN). Negative means auto heuristic.
+* **`sn`** *(bool, default=True)*: Enable subset normalization (block-wise second-moment aggregation) to reduce memory and stabilize large tensors.
+* **`lookahead_merge_time`** *(int, default=5)*: Number of steps between lookahead synchronizations.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending factor for lookahead slow weights when merging.
+* **`lookahead`** *(bool, default=True)*: Enable Lookahead-style slow/fast weight blending.
+* **`pnm`** *(bool, default=True)*: Use stochastic-noise momentum (PNM) variant for momentum (alternating pos/neg buffers) for noise-robust momentum.
+* **`agc`** *(bool, default=True)*: Apply Adaptive Gradient Clipping (AGC) to gradient updates.
+* **`cautious`** *(bool, default=True)*: When enabled, apply cautious masking (scale updates whose sign disagrees with raw gradients) to reduce risky updates.
+* **`aem`** *(bool, default=False)*: Apply Adaptive Element-wise Momentum (AEM) machinery (auxiliary slow momentum) to augment updates.
+* **`alpha`** *(float, default=5.0)*: Scaling factor for the AEM contribution (when `aem=True`).
+* **`t_alpha_beta3`** *(int or None, default=None)*: Timescale used to schedule `alpha` and `beta3` when AEM scheduling is desired.
+* **`sophia`** *(bool, default=True)*: Enable Sophia-style Hessian moment tracking / clipping (uses stored Hutchinson estimates or internal Hessian moments to bound updates).
+* **`p`** *(float, default=1e-2)*: Clip bound for Sophia-style clipping (when active).
+* **`update_period`** *(int, default=10)*: Periodicity (in steps) for performing Hutchinson Hessian accumulation or Sophia hessian updates.
+* **`num_samples`** *(int, default=1)*: Number of Hutchinson probe samples for stochastic Hessian estimation (when using Hutchinson).
+* **`hessian_distribution`** *(str, default='gaussian')*: Distribution for Hutchinson probes: `'gaussian'` or `'rademacher'`.
+* **`d0`** *(float, default=1e-6)*: Initial DAdapt base scale (used by the DAdapt automatic scaling mechanism).
+* **`growth_rate`** *(float, default=inf)*: Maximum multiplicative growth factor for the DAdapt scale per update.
+* **`DAdapt`** *(bool, default=True)*: Enable DAdapt — automatic global learning-rate scaling based on accumulated inner products.
+* **`trust_ratio`** *(bool, default=False)*: Enable layer-wise trust ratio (ratio of parameter norm to update norm) scaling.
+* **`trust_clip`** *(bool, default=False)*: Clip trust-ratio to at most 1.0 when `trust_ratio=True`.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard TensorFlow gradient clipping options forwarded to the base optimizer.
+* **`use_ema`** *(bool, default=False)*: Maintain an Exponential Moving Average (EMA) of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum factor for EMA weights (when `use_ema=True`).
+* **`ema_overwrite_frequency`** *(int or None, default=None)*: Frequency to overwrite EMA weights if specified.
+* **`loss_scale_factor`** *(float or None, default=None)*: Optional static loss-scaling factor for mixed-precision training.
+* **`gradient_accumulation_steps`** *(int or None, default=None)*: Steps to accumulate gradients before applying an update (if used).
+* **`name`** *(str, default="adago\_e")*: Name of the optimizer instance.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.adago_e import AdaGO_e
+
+# Instantiate optimizer
+optimizer = AdaGO_e(
+    learning_rate=5e-2,
+    epsilon=5e-4,
+    weight_decay=1e-3,
+    momentum=0.95,
+    use_muon=True,              # Muon-style normalized momentum pipeline
+    use_adjusted_lr=False,      # per-parameter shape LR scaling
+    adamw_lr=3e-4,              # LR for AdamW branch (if used)
+    adamw_betas=(0.9, 0.95),
+    ns_steps=5,
+    pnm=True,                   # stochastic-noise momentum
+    sn=True,                    # subset normalization for large params
+    lookahead=True,
+    aem=False,
+    sophia=True,                # enable Sophia-style Hessian moments
+    DAdapt=True,
+)
+
+# Training step
+@tf.function
+def train_step(x, y, model, optimizer):
+    with tf.GradientTape(persistent=True) as tape:
+        predictions = model(x, training=True)
+        loss = loss_fn(y, predictions)
+        gradients = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables), tape)
+
+# Training loop
+for epoch in range(epochs):
+    for x_batch, y_batch in dataset:
+        train_step(x_batch, y_batch, model, optimizer)
+```
