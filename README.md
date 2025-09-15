@@ -8136,7 +8136,7 @@ The `DistributedMuon_e` optimizer is a distributed-aware, hybrid optimizer that 
 * **`ns_steps`** *(int, default=5)*: Number of Newton–Schulz iterations used by the zero-power normalization routine applied to Muon updates.
 * **`use_adjusted_lr`** *(bool, default=False)*: Whether to apply the per-parameter shape-based adjusted LR heuristic.
 * **`adamw_lr`** *(float, default=3e-4)*: Learning rate used by the AdamW / Sophia-style branch (when `use_muon=False`).
-* **`adamw_betas`** *(tuple(float, float), default=(0.9, 0.95))*: Beta coefficients (beta1, beta2) used by the AdamW-style updates.
+* **`adamw_betas`** *(tuple(float, float), default=(0.9, 0.95, 0.9999))*: Beta coefficients (beta1, beta2, beta3) used by the AdamW-style updates.
 * **`adamw_wd`** *(float, default=0.0)*: AdamW weight decay coefficient used on the AdamW branch.
 * **`adamw_eps`** *(float, default=1e-10)*: Small epsilon added to denominators for numerical stability in the AdamW/Sophia path.
 * **`use_muon`** *(bool, default=True)*: Enable Muon flattened-momentum pipeline for (typically) matrix-like / large parameters. When False, optimizer runs the AdamW / Sophia branch across replicas.
@@ -8338,13 +8338,13 @@ The `AdaMuon_e` optimizer is a hybrid optimizer that combines Muon-style flatten
 * **`learning_rate`** *(float, default=1e-3)*: Base learning rate used by the optimizer (Muon branch uses this; AdamW branch uses `adamw_lr`).
 * **`beta1`** *(float, default=0.9)*: Exponential decay rate (first-moment / momentum coefficient) used in moment updates.
 * **`beta2`** *(float, default=0.999)*: Exponential decay rate for second-moment / variance estimates.
+* **`beta3`** *(float, default=0.9999)*: (AEM) decay for the slow exponential average when `aem=True`.
 * **`epsilon`** *(float, default=1e-8)*: Small constant added for numerical stability in denominators.
 * **`weight_decay`** *(float, default=1e-2)*: L2 weight decay coefficient applied (decoupled or added to gradients depending on `weight_decouple`).
 * **`weight_decouple`** *(bool, default=True)*: If `True`, apply decoupled multiplicative weight decay (AdamW-style); otherwise add L2 term to gradients.
 * **`nesterov`** *(bool, default=True)*: Enable Nesterov-style correction for momentum updates in the Muon path.
 * **`ns_steps`** *(int, default=5)*: Number of Newton–Schulz iterations used by the zero-power normalization routine for Muon updates.
 * **`use_adjusted_lr`** *(bool, default=False)*: Use a per-parameter shape-based adjusted learning-rate heuristic for Muon updates.
-* **`adamw_betas`** *(tuple, default=(0.9, 0.999))*: Beta coefficients used by AdamW-style updates (first and second moment).
 * **`adamw_lr`** *(float, default=3e-4)*: Learning rate used by the AdamW / Sophia branch when `use_muon=False`.
 * **`adamw_wd`** *(float, default=0.0)*: Weight decay coefficient used by the AdamW branch.
 * **`use_muon`** *(bool, default=True)*: Choose Muon flattened-momentum pipeline (True) or AdamW/Sophia pipeline (False).
@@ -8511,7 +8511,7 @@ The `AdaGO_e` optimizer is a hybrid optimizer that combines a Muon-style normali
 * **`ns_steps`** *(int, default=5)*: Number of Newton–Schulz iterations used by the zero-power normalization routine to form normalized directions.
 * **`use_adjusted_lr`** *(bool, default=False)*: Use a per-parameter shape-based adjusted learning rate heuristic that scales LR by parameter shape.
 * **`adamw_lr`** *(float, default=3e-4)*: Learning rate for the AdamW-style adaptive branch.
-* **`adamw_betas`** *(tuple, default=(0.9, 0.95))*: Beta coefficients `(beta1, beta2)` used by the AdamW-style updates.
+* **`adamw_betas`** *(tuple, default=(0.9, 0.95, 0.9999))*: Beta coefficients `(beta1, beta2, beta3)` used by the AdamW-style updates.
 * **`adamw_wd`** *(float, default=0.0)*: Weight decay used by the AdamW branch (decoupled if `weight_decouple=True`).
 * **`adamw_eps`** *(float, default=1e-10)*: Epsilon value for numerical stability in the AdamW denominator.
 * **`maximize`** *(bool, default=False)*: If `True`, perform gradient ascent (negate gradients internally).
