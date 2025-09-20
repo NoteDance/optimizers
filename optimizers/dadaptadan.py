@@ -85,7 +85,7 @@ class DAdaptAdan(optimizer.Optimizer):
         self.beta2 = beta2
         self.beta3 = beta3
         self.epsilon = epsilon
-        self.d0_ = d0
+        self.d0 = d0
         self.growth_rate = growth_rate
         self.weight_decouple = weight_decouple
         self.fixed_decay = fixed_decay
@@ -95,12 +95,12 @@ class DAdaptAdan(optimizer.Optimizer):
         self.sk_sq_weighted = tf.Variable(0.0)
         self.sk_l1 = tf.Variable(0.0)
         self.gsq_weighted = tf.Variable(0.0)
-        self.d0 = tf.Variable(self.d0_)
+        self.d0_ = tf.Variable(self.d0)
         self._track_variable(self.g_sq)
         self._track_variable(self.sk_sq_weighted)
         self._track_variable(self.sk_l1)
         self._track_variable(self.gsq_weighted)
-        self._track_variable(self.d0)
+        self._track_variable(self.d0_)
         self._iterations.assign(0)
         for var in self._trainable_variables:
             self.s[self._get_variable_index(var)] =  self.add_variable_from_reference(
@@ -129,12 +129,12 @@ class DAdaptAdan(optimizer.Optimizer):
         self.sk_sq_weighted = tf.Variable(0.0)
         self.sk_l1 = tf.Variable(0.0)
         self.gsq_weighted = tf.Variable(0.0)
-        self.d0 = tf.Variable(self.d0_)
+        self.d0_ = tf.Variable(self.d0)
         self._track_variable(self.g_sq)
         self._track_variable(self.sk_sq_weighted)
         self._track_variable(self.sk_l1)
         self._track_variable(self.gsq_weighted)
-        self._track_variable(self.d0)
+        self._track_variable(self.d0_)
         for var in var_list:
             self.s.append(self.add_variable_from_reference(
                                 reference_variable=var, name="s"
@@ -159,7 +159,7 @@ class DAdaptAdan(optimizer.Optimizer):
         self.update_step(grads, trainable_variables, learning_rate)
 
     def update_step(self, grads, trainable_variables, learning_rate):
-        d_lr = self.d0 * self.lr
+        d_lr = self.d0_ * learning_rate
             
         for var, grad in zip(trainable_variables, grads):
             if tf.keras.backend.is_sparse(grad):
@@ -208,15 +208,15 @@ class DAdaptAdan(optimizer.Optimizer):
             self.previous_grad[self._get_variable_index(var)].assign(-grad)
         
         def update_fn():
-            d = self.d0
-            d_lr = self.d0 * self.lr
+            d = self.d0_
+            d_lr = self.d0_ * learning_rate
             self.gsq_weighted.assign(self.gsq_weighted * self.beta3 + self.g_sq * (d_lr ** 2) * (1.0 - self.beta3))  # fmt: skip
             
             if self.lr > 0.0:
                 d_hat = (self.sk_sq_weighted / (1.0 - self.beta3) - self.gsq_weighted) / self.sk_l1
-                d = tf.maximum(self.d0, tf.minimum(d_hat, self.d0 * self.growth_rate))
+                d = tf.maximum(self.d0_, tf.minimum(d_hat, self.d0_ * self.growth_rate))
             
-            self.d0.assign(d)
+            self.d0_.assign(d)
             
             for var, grad in zip(trainable_variables, grads):
                 exp_avg = self.exp_avg[self._get_variable_index(var)]
@@ -250,7 +250,7 @@ class DAdaptAdan(optimizer.Optimizer):
                 "beta2": self.beta2,
                 "beta3": self.beta3,
                 "epsilon": self.epsilon,
-                "d0_": self.d0_,
+                "d0": self.d0,
                 "growth_rate": self.growth_rate,
                 "weight_decouple": self.weight_decouple,
                 "fixed_decay": self.fixed_decay,
@@ -307,7 +307,7 @@ class DAdaptAdan_sn(optimizer.Optimizer):
         self.beta2 = beta2
         self.beta3 = beta3
         self.epsilon = epsilon
-        self.d0_ = d0
+        self.d0 = d0
         self.growth_rate = growth_rate
         self.weight_decouple = weight_decouple
         self.fixed_decay = fixed_decay
@@ -321,12 +321,12 @@ class DAdaptAdan_sn(optimizer.Optimizer):
         self.sk_sq_weighted = tf.Variable(0.0)
         self.sk_l1 = tf.Variable(0.0)
         self.gsq_weighted = tf.Variable(0.0)
-        self.d0 = tf.Variable(self.d0_)
+        self.d0_ = tf.Variable(self.d0)
         self._track_variable(self.g_sq)
         self._track_variable(self.sk_sq_weighted)
         self._track_variable(self.sk_l1)
         self._track_variable(self.gsq_weighted)
-        self._track_variable(self.d0)
+        self._track_variable(self.d0_)
         self._iterations.assign(0)
         for var in self._trainable_variables:
             self.s[self._get_variable_index(var)] =  self.add_variable_from_reference(
@@ -374,12 +374,12 @@ class DAdaptAdan_sn(optimizer.Optimizer):
         self.sk_sq_weighted = tf.Variable(0.0)
         self.sk_l1 = tf.Variable(0.0)
         self.gsq_weighted = tf.Variable(0.0)
-        self.d0 = tf.Variable(self.d0_)
+        self.d0_ = tf.Variable(self.d0)
         self._track_variable(self.g_sq)
         self._track_variable(self.sk_sq_weighted)
         self._track_variable(self.sk_l1)
         self._track_variable(self.gsq_weighted)
-        self._track_variable(self.d0)
+        self._track_variable(self.d0_)
         for var in var_list:
             self.s.append(self.add_variable_from_reference(
                                 reference_variable=var, name="s"
@@ -423,7 +423,7 @@ class DAdaptAdan_sn(optimizer.Optimizer):
         self.update_step(grads, trainable_variables, learning_rate)
 
     def update_step(self, grads, trainable_variables, learning_rate):
-        d_lr = self.d0 * self.lr
+        d_lr = self.d0_ * learning_rate
             
         for var, grad in zip(trainable_variables, grads):
             if tf.keras.backend.is_sparse(grad):
@@ -478,15 +478,15 @@ class DAdaptAdan_sn(optimizer.Optimizer):
             self.previous_grad[self._get_variable_index(var)].assign(-grad)
         
         def update_fn():
-            d = self.d0
-            d_lr = self.d0 * self.lr
+            d = self.d0_
+            d_lr = self.d0_ * learning_rate
             self.gsq_weighted.assign(self.gsq_weighted * self.beta3 + self.g_sq * (d_lr ** 2) * (1.0 - self.beta3))  # fmt: skip
             
             if self.lr > 0.0:
                 d_hat = (self.sk_sq_weighted / (1.0 - self.beta3) - self.gsq_weighted) / self.sk_l1
                 d = tf.maximum(self.d0, tf.minimum(d_hat, self.d0 * self.growth_rate))
             
-            self.d0.assign(d)
+            self.d0_.assign(d)
             
             for var, grad in zip(trainable_variables, grads):
                 exp_avg = self.exp_avg[self._get_variable_index(var)]
@@ -528,7 +528,7 @@ class DAdaptAdan_sn(optimizer.Optimizer):
                 "beta2": self.beta2,
                 "beta3": self.beta3,
                 "epsilon": self.epsilon,
-                "d0_": self.d0_,
+                "d0": self.d0,
                 "growth_rate": self.growth_rate,
                 "weight_decouple": self.weight_decouple,
                 "fixed_decay": self.fixed_decay,
