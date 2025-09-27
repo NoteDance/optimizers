@@ -8584,3 +8584,68 @@ for epoch in range(epochs):
     for x_batch, y_batch in dataset:
         train_step(x_batch, y_batch, model, optimizer)
 ```
+
+# DAdaptLion_e
+
+**Overview**:
+
+`DAdaptLion_e` is a Lion-style sign-based optimizer extended with DAdapt (data-dependent automatic scaling), optional orthogonal gradient projection, stochastic-noise momentum (PNM), subset normalization (SN) for large tensors, Adaptive Gradient Clipping (AGC), cautious masking, and Lookahead-style slow/fast weight blending. It supports decoupled (multiplicative) or standard L2 weight decay, optional fixed-decay behavior, and has hooks for complex-valued parameters. The optimizer accumulates inner products to compute a global DAdapt scale (`d0_`) that adapts the effective step size across updates.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1.0)*: Base learning rate (used as a multiplicative factor with the adaptive DAdapt scale).
+* **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first-moment / momentum estimate.
+* **`beta2`** *(float, default=0.999)*: Exponential decay rate used internally for weighted accumulators in DAdapt.
+* **`weight_decay`** *(float, default=0.0)*: L2 weight decay coefficient applied to parameters. If `weight_decouple=True` decay is applied multiplicatively.
+* **`d0`** *(float, default=1e-6)*: Initial DAdapt base scale. DAdapt adjusts this value during training based on accumulated inner products.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, apply decoupled multiplicative weight decay; otherwise add the L2 term to gradients.
+* **`fixed_decay`** *(bool, default=False)*: When `True`, multiplicative weight decay uses a fixed factor independent of the DAdapt scale; otherwise decay is scaled by the current DAdapt step (`d_lr`).
+* **`orthograd`** *(bool, default=True)*: If `True`, apply orthogonal gradient projection (removes the component of each gradient parallel to its parameter) before updates.
+* **`lookahead_merge_time`** *(int, default=5)*: Number of steps between lookahead synchronizations.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Lookahead blending factor for slow weights.
+* **`lookahead`** *(bool, default=True)*: Enable Lookahead slow/fast blending.
+* **`pnm`** *(bool, default=True)*: Enable stochastic-noise momentum (PNM) which uses alternating positive/negative momentum buffers for noise robustness; when `False` a standard exponential moving average is used.
+* **`agc`** *(bool, default=True)*: Apply Adaptive Gradient Clipping to stabilize large gradients relative to parameter norm.
+* **`cautious`** *(bool, default=True)*: Apply cautious masking that scales updates whose sign disagrees with raw gradients to reduce risky update steps.
+* **`subset_size`** *(int, default=-1)*: Subset size used for subset normalization (SN). A negative value enables the automatic heuristic (sqrt-based) selection.
+* **`sn`** *(bool, default=True)*: Enable subset normalization (block-wise second-moment / sign computations) which reduces memory and stabilizes large tensors.
+* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard TensorFlow gradient clipping options forwarded to the base optimizer.
+* **`use_ema`** *(bool, default=False)*: Maintain an Exponential Moving Average (EMA) of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum when `use_ema=True`.
+* **`ema_overwrite_frequency`** *(int or None, default=None)*: Frequency to overwrite EMA weights if specified.
+* **`loss_scale_factor`** *(float or None, default=None)*: Optional static loss-scaling factor for mixed-precision training.
+* **`gradient_accumulation_steps`** *(int or None, default=None)*: Number of steps to accumulate gradients before applying an update.
+* **`name`** *(str, default="dadaptlion_e")*: Name of the optimizer instance.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.dadaptlion_e import DAdaptLion_e
+
+# Instantiate optimizer
+optimizer = DAdaptLion_e(
+    learning_rate=1.0,
+    beta1=0.9,
+    beta2=0.999,
+    weight_decay=1e-3,
+    d0=1e-6,
+    weight_decouple=True,
+    fixed_decay=False,
+    orthograd=True,
+    pnm=True,
+    sn=True,
+    agc=True,
+    cautious=True,
+    lookahead=True,
+    lookahead_merge_time=5,
+    lookahead_blending_alpha=0.5,
+)
+
+# Compile a model
+model = ...  # build a tf.keras.Model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+```
