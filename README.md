@@ -8589,7 +8589,7 @@ for epoch in range(epochs):
 
 **Overview**:
 
-`DAdaptLion_e` is a Lion-style sign-based optimizer extended with DAdapt (data-dependent automatic scaling), optional orthogonal gradient projection, stochastic-noise momentum (PNM), subset normalization (SN) for large tensors, Adaptive Gradient Clipping (AGC), cautious masking, and Lookahead-style slow/fast weight blending. It supports decoupled (multiplicative) or standard L2 weight decay, optional fixed-decay behavior, and has hooks for complex-valued parameters. The optimizer accumulates inner products to compute a global DAdapt scale (`d0_`) that adapts the effective step size across updates.
+`DAdaptLion_e` is a Lion-style sign-based optimizer extended with DAdapt (data-dependent automatic scaling), optional orthogonal gradient projection, stochastic-noise momentum (PNM), Adaptive Gradient Clipping (AGC), cautious masking, and Lookahead-style slow/fast weight blending. It supports decoupled (multiplicative) or standard L2 weight decay, optional fixed-decay behavior. The optimizer accumulates inner products to compute a global DAdapt scale (`d0_`) that adapts the effective step size across updates.
 
 **Parameters**:
 
@@ -8607,8 +8607,6 @@ for epoch in range(epochs):
 * **`pnm`** *(bool, default=True)*: Enable stochastic-noise momentum (PNM) which uses alternating positive/negative momentum buffers for noise robustness; when `False` a standard exponential moving average is used.
 * **`agc`** *(bool, default=True)*: Apply Adaptive Gradient Clipping to stabilize large gradients relative to parameter norm.
 * **`cautious`** *(bool, default=True)*: Apply cautious masking that scales updates whose sign disagrees with raw gradients to reduce risky update steps.
-* **`subset_size`** *(int, default=-1)*: Subset size used for subset normalization (SN). A negative value enables the automatic heuristic (sqrt-based) selection.
-* **`sn`** *(bool, default=True)*: Enable subset normalization (block-wise second-moment / sign computations) which reduces memory and stabilizes large tensors.
 * **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard TensorFlow gradient clipping options forwarded to the base optimizer.
 * **`use_ema`** *(bool, default=False)*: Maintain an Exponential Moving Average (EMA) of model weights.
 * **`ema_momentum`** *(float, default=0.99)*: EMA momentum when `use_ema=True`.
@@ -8634,7 +8632,6 @@ optimizer = DAdaptLion_e(
     fixed_decay=False,
     orthograd=True,
     pnm=True,
-    sn=True,
     agc=True,
     cautious=True,
     lookahead=True,
