@@ -8589,27 +8589,31 @@ for epoch in range(epochs):
 
 **Overview**:
 
-`DAdaptLion_e` is a Lion-style sign-based optimizer extended with DAdapt (data-dependent automatic scaling), optional orthogonal gradient projection, stochastic-noise momentum (PNM), Adaptive Gradient Clipping (AGC), cautious masking, and Lookahead-style slow/fast weight blending. It supports decoupled (multiplicative) or standard L2 weight decay, optional fixed-decay behavior. The optimizer accumulates inner products to compute a global DAdapt scale (`d0_`) that adapts the effective step size across updates.
+`DAdaptLion_e` is a sign-based Lion-style optimizer extended with DAdapt (data-dependent automatic scaling). It combines a sign-update rule with an adaptive global scale (`d0_`) computed from per-parameter accumulators, and includes several stability and performance features: orthogonal gradient projection (Orthograd), stochastic-noise momentum (PNM), subset-normalization (SN) for large tensors, Adaptive Gradient Clipping (AGC), cautious masking (to reduce risky sign flips), and Lookahead-style slow/fast weight blending. The optimizer supports decoupled (multiplicative) or standard L2 weight decay, and optional fixed-decay behavior.
 
 **Parameters**:
 
-* **`learning_rate`** *(float, default=1.0)*: Base learning rate (used as a multiplicative factor with the adaptive DAdapt scale).
-* **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first-moment / momentum estimate.
-* **`beta2`** *(float, default=0.999)*: Exponential decay rate used internally for weighted accumulators in DAdapt.
-* **`weight_decay`** *(float, default=0.0)*: L2 weight decay coefficient applied to parameters. If `weight_decouple=True` decay is applied multiplicatively.
-* **`d0`** *(float, default=1e-6)*: Initial DAdapt base scale. DAdapt adjusts this value during training based on accumulated inner products.
-* **`weight_decouple`** *(bool, default=True)*: If `True`, apply decoupled multiplicative weight decay; otherwise add the L2 term to gradients.
-* **`fixed_decay`** *(bool, default=False)*: When `True`, multiplicative weight decay uses a fixed factor independent of the DAdapt scale; otherwise decay is scaled by the current DAdapt step (`d_lr`).
-* **`orthograd`** *(bool, default=True)*: If `True`, apply orthogonal gradient projection (removes the component of each gradient parallel to its parameter) before updates.
-* **`lookahead_merge_time`** *(int, default=5)*: Number of steps between lookahead synchronizations.
-* **`lookahead_blending_alpha`** *(float, default=0.5)*: Lookahead blending factor for slow weights.
-* **`lookahead`** *(bool, default=True)*: Enable Lookahead slow/fast blending.
-* **`pnm`** *(bool, default=True)*: Enable stochastic-noise momentum (PNM) which uses alternating positive/negative momentum buffers for noise robustness; when `False` a standard exponential moving average is used.
-* **`agc`** *(bool, default=True)*: Apply Adaptive Gradient Clipping to stabilize large gradients relative to parameter norm.
-* **`cautious`** *(bool, default=True)*: Apply cautious masking that scales updates whose sign disagrees with raw gradients to reduce risky update steps.
-* **`clipnorm`**, **`clipvalue`**, **`global_clipnorm`** *(optional)*: Standard TensorFlow gradient clipping options forwarded to the base optimizer.
+* **`learning_rate`** *(float, default=1.0)*: Base learning rate multiplier used together with the DAdapt scale.
+* **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first-moment / momentum estimate (used by sign aggregation).
+* **`beta2`** *(float, default=0.999)*: Exponential decay rate used for DAdapt weighted accumulators.
+* **`weight_decay`** *(float, default=0.0)*: L2 weight decay coefficient applied to parameters.
+* **`d0`** *(float, default=1e-6)*: Initial DAdapt base scale. The optimizer updates an internal `d0_` during training based on accumulated inner products to adapt step size.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, use decoupled (multiplicative) weight decay; otherwise add the L2 term to the gradients.
+* **`fixed_decay`** *(bool, default=False)*: If `True`, multiplicative decay uses a fixed factor independent of the DAdapt scale; otherwise decay is scaled by the current DAdapt step.
+* **`orthograd`** *(bool, default=True)*: Apply orthogonal gradient projection to remove the component of each gradient parallel to its parameter before updates (helps reduce interference).
+* **`lookahead_merge_time`** *(int, default=5)*: Steps between lookahead synchronizations (if `lookahead=True`).
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending factor used when updating lookahead (slow) weights.
+* **`lookahead`** *(bool, default=True)*: Enable Lookahead slow/fast weight blending.
+* **`pnm`** *(bool, default=True)*: Use stochastic-noise momentum (PNM) which alternates positive/negative momentum buffers for noise robustness; when `False` a standard EMA first moment is used.
+* **`agc`** *(bool, default=True)*: Apply Adaptive Gradient Clipping to stabilize large gradients relative to parameter norms.
+* **`cautious`** *(bool, default=True)*: Apply cautious masking to scale down updates whose sign disagrees with raw gradients.
+* **`subset_size`** *(int, default=-1)*: Subset size used by subset-normalization (SN). A negative value lets the optimizer choose a heuristic block size.
+* **`sn`** *(bool, default=True)*: Enable subset normalization for block-wise computations on large tensors.
+* **`clipnorm`** *(float, optional)*: Clip gradients by norm (forwarded to base optimizer).
+* **`clipvalue`** *(float, optional)*: Clip gradients by value (forwarded to base optimizer).
+* **`global_clipnorm`** *(float, optional)*: Clip gradients by global norm (forwarded to base optimizer).
 * **`use_ema`** *(bool, default=False)*: Maintain an Exponential Moving Average (EMA) of model weights.
-* **`ema_momentum`** *(float, default=0.99)*: EMA momentum when `use_ema=True`.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA when `use_ema=True`.
 * **`ema_overwrite_frequency`** *(int or None, default=None)*: Frequency to overwrite EMA weights if specified.
 * **`loss_scale_factor`** *(float or None, default=None)*: Optional static loss-scaling factor for mixed-precision training.
 * **`gradient_accumulation_steps`** *(int or None, default=None)*: Number of steps to accumulate gradients before applying an update.
@@ -8632,6 +8636,7 @@ optimizer = DAdaptLion_e(
     fixed_decay=False,
     orthograd=True,
     pnm=True,
+    sn=True,
     agc=True,
     cautious=True,
     lookahead=True,
