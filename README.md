@@ -8623,7 +8623,7 @@ for epoch in range(epochs):
 
 ```python
 import tensorflow as tf
-from optimizers.dadaptlion_e import DAdaptLion_e
+from optimizers.dadaptlion import DAdaptLion_e
 
 # Instantiate optimizer
 optimizer = DAdaptLion_e(
