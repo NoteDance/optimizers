@@ -8651,3 +8651,131 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=20)
 ```
+
+# Conda
+
+**Overview**:
+
+The `Conda` optimizer is a projector-augmented Adam-style optimizer that applies adaptive moment estimation together with optional low-rank projection for 2-D parameter matrices. For matrices, a `GaLoreProjector` can be used to project gradients and momentum into a low-rank subspace at configurable intervals (`update_proj_gap`) to reduce computation and enable structured updates. `Conda` uses bias-corrected first and second moments and supports standard options such as weight decay, maximization mode, and common gradient clipping hooks.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base step length used with Adam bias corrections.
+* **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment (momentum) estimate.
+* **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimate.
+* **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability when dividing by second moment.
+* **`weight_decay`** *(float, default=0.0)*: L2 weight decay coefficient (applied multiplicatively after the parameter update).
+* **`rank`** *(int or None, default=None)*: Rank/hyperparameter passed to the GaLoreProjector (kept `None` by default, projector may choose internally).
+* **`update_proj_gap`** *(int or None, default=None)*: If set and the variable is 2-D, how frequently (in steps) to update/use the low-rank projector; `None` disables projection.
+* **`scale`** *(float or None, default=None)*: Scale parameter passed to the projector (projector-specific).
+* **`projection_type`** *(str or None, default=None)*: Projection type passed into `GaLoreProjector` (projector-specific).
+* **`maximize`** *(bool, default=False)*: If `True`, the optimizer maximizes the objective (gradient is negated).
+* **`clipnorm`** *(float, optional)*: Clip gradients by norm (forwarded to base optimizer).
+* **`clipvalue`** *(float, optional)*: Clip gradients by value (forwarded to base optimizer).
+* **`global_clipnorm`** *(float, optional)*: Clip gradients by a global norm (forwarded to base optimizer).
+* **`use_ema`** *(bool, default=False)*: Maintain Exponential Moving Average (EMA) of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum used by EMA when enabled.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights, if used.
+* **`loss_scale_factor`** *(float, optional)*: Static loss scaling factor (useful for mixed precision).
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before applying an update.
+* **`name`** *(str, default="conda")*: Name of the optimizer instance.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.conda import Conda
+
+optimizer = Conda(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-8,
+    weight_decay=1e-4,
+    update_proj_gap=100,        # enable GaLore projection for 2-D parameters every 100 steps
+    scale=0.1,
+    projection_type="some_type",
+)
+
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# Conda_e
+
+**Overview**:
+
+`Conda_e` is an extended Conda variant that integrates additional features for robustness and adaptivity: stochastic-noise momentum (PNM), subset-normalization (SN) for block-wise second moment computation, Adaptive Gradient Clipping (AGC), cautious masking, an AEM-style slow momentum term, trust-ratio (layer-wise learning rate adaptation), and DAdapt — a global data-dependent adaptive scalar that rescales effective step sizes. It also supports the same low-rank `GaLoreProjector` mechanism for 2-D parameters. `Conda_e` aims to combine projector-based structured updates with advanced adaptive rescaling and stabilization methods for large-scale training.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: Base learning rate (referred to internally as `lr`).
+* **`beta1`** *(float, default=0.9)*: Decay for first-moment / momentum estimates.
+* **`beta2`** *(float, default=0.999)*: Decay for second-moment / variance estimates and DAdapt accumulators.
+* **`beta3`** *(float, default=0.9999)*: Decay used by the AEM slow momentum (if `aem=True`).
+* **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
+* **`weight_decay`** *(float, default=0.0)*: L2 weight decay coefficient (applied multiplicatively or as configured).
+* **`rank`** *(int or None, default=None)*: Rank parameter forwarded to `GaLoreProjector`.
+* **`update_proj_gap`** *(int or None, default=None)*: Projection update interval for 2-D parameters; `None` disables projection.
+* **`scale`** *(float or None, default=None)*: Scale passed to the projector.
+* **`projection_type`** *(str or None, default=None)*: Projection mode for `GaLoreProjector`.
+* **`maximize`** *(bool, default=False)*: If `True`, optimize to maximize the objective.
+* **`lookahead_merge_time`** *(int, default=5)*: Steps between Lookahead slow/fast syncs.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending factor for Lookahead slow weights.
+* **`lookahead`** *(bool, default=True)*: Enable Lookahead slow/fast blending.
+* **`pnm`** *(bool, default=True)*: Use stochastic-noise momentum (PNM) instead of standard EMA first-moment.
+* **`subset_size`** *(int, default=-1)*: Subset block size used by subset-normalization (SN). Negative means heuristic selection.
+* **`sn`** *(bool, default=True)*: Enable subset-normalization for block-wise stats on large tensors.
+* **`agc`** *(bool, default=True)*: Apply Adaptive Gradient Clipping.
+* **`cautious`** *(bool, default=True)*: Scale updates using cautious masking to avoid destructive sign flips.
+* **`aem`** *(bool, default=True)*: Enable AEM slow momentum (additional momentum term mixed into updates).
+* **`alpha`** *(float, default=5.0)*: Mixing coefficient used by AEM if enabled.
+* **`t_alpha_beta3`** *(int or None, default=None)*: Time horizon to schedule `alpha`/`beta3` (used by AEM scheduling).
+* **`d0`** *(float, default=1e-6)*: Initial DAdapt base scale.
+* **`growth_rate`** *(float, default=inf)*: Max growth factor for the DAdapt scaler per update (used to constrain updates).
+* **`DAdapt`** *(bool, default=True)*: Enable the DAdapt global adaptive scalar mechanism.
+* **`trust_ratio`** *(bool, default=False)*: Enable layer-wise trust-ratio adaptation (norm-based scaling).
+* **`trust_clip`** *(bool, default=False)*: Clip trust ratio to ≤ 1.0 when enabled.
+* **`clipnorm`** *(float, optional)*: Clip gradients by norm (forwarded).
+* **`clipvalue`** *(float, optional)*: Clip gradients by value (forwarded).
+* **`global_clipnorm`** *(float, optional)*: Clip gradients by global norm (forwarded).
+* **`use_ema`** *(bool, default=False)*: Maintain EMA of model weights.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum.
+* **`ema_overwrite_frequency`** *(int or None, default=None)*: EMA overwrite frequency.
+* **`loss_scale_factor`** *(float or None, default=None)*: Static loss-scaling factor.
+* **`gradient_accumulation_steps`** *(int or None, default=None)*: Number of steps to accumulate gradients.
+* **`name`** *(str, default="conda_e")*: Name of the optimizer instance.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.conda import Conda_e
+
+optimizer = Conda_e(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    beta3=0.9999,
+    epsilon=1e-8,
+    weight_decay=1e-4,
+    update_proj_gap=200,
+    scale=0.1,
+    projection_type="some_type",
+    pnm=True,
+    sn=True,
+    agc=True,
+    cautious=True,
+    aem=True,
+    alpha=5.0,
+    d0=1e-6,
+    DAdapt=True,
+    trust_ratio=False,
+    lookahead=True,
+    lookahead_merge_time=5,
+    lookahead_blending_alpha=0.5,
+)
+
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+model.fit(train_dataset, validation_data=val_dataset, epochs=20)
+```
