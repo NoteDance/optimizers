@@ -17382,7 +17382,6 @@ for epoch in range(epochs):
 * **`pnm`** *(bool, default=True)*: Use stochastic-noise momentum (PNM) variant of momentum buffers instead of a single EMA.
 * **`agc`** *(bool, default=True)*: Apply Adaptive Gradient Clipping to scale down oversized gradients per parameter unit.
 * **`cautious`** *(bool, default=True)*: Use cautious masking to reduce updates that conflict in sign with the gradient (stabilizes updates).
-* **`rank`** *(int or None, default=None)*: Rank forwarded to a projector when projector support is used for 2-D parameters (projector-specific).
 * **`update_proj_gap`** *(int or None, default=None)*: If set and a parameter is 2-D, how often to build/use the low-rank projector; `None` disables projection for that parameter.
 * **`scale`** *(float or None, default=None)*: Scale parameter forwarded to the projector (projector-specific).
 * **`projection_type`** *(str or None, default=None)*: Projection type forwarded to the projector (projector-specific).
@@ -17415,7 +17414,6 @@ optimizer = DAdaptLion_e(
     agc=True,
     cautious=True,
     update_proj_gap=200,    # enable projector for 2-D parameters every 200 steps
-    rank=64,
     scale=0.1,
     projection_type="some_type",
     lookahead=True,
@@ -17441,7 +17439,6 @@ The `Conda` optimizer is a projector-augmented Adam-style optimizer that applies
 * **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimate.
 * **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability when dividing by second moment.
 * **`weight_decay`** *(float, default=0.0)*: L2 weight decay coefficient (applied multiplicatively after the parameter update).
-* **`rank`** *(int or None, default=None)*: Rank/hyperparameter passed to the GaLoreProjector (kept `None` by default, projector may choose internally).
 * **`update_proj_gap`** *(int or None, default=None)*: If set and the variable is 2-D, how frequently (in steps) to update/use the low-rank projector; `None` disables projection.
 * **`scale`** *(float or None, default=None)*: Scale parameter passed to the projector (projector-specific).
 * **`projection_type`** *(str or None, default=None)*: Projection type passed into `GaLoreProjector` (projector-specific).
@@ -17491,7 +17488,6 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 * **`beta3`** *(float, default=0.9999)*: Decay used by the AEM slow momentum (if `aem=True`).
 * **`epsilon`** *(float, default=1e-8)*: Small constant for numerical stability.
 * **`weight_decay`** *(float, default=0.0)*: L2 weight decay coefficient (applied multiplicatively or as configured).
-* **`rank`** *(int or None, default=None)*: Rank parameter forwarded to `GaLoreProjector`.
 * **`update_proj_gap`** *(int or None, default=None)*: Projection update interval for 2-D parameters; `None` disables projection.
 * **`scale`** *(float or None, default=None)*: Scale passed to the projector.
 * **`projection_type`** *(str or None, default=None)*: Projection mode for `GaLoreProjector`.
