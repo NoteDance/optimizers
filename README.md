@@ -8583,42 +8583,40 @@ for epoch in range(epochs):
 
 **Overview**:
 
-`DAdaptLion_e` is a Lion-style sign-based optimizer extended with DAdapt (a data-dependent global adaptive scalar), optional orthogonal-gradient projection, projector support for 2-D parameters, stochastic-noise momentum (PNM), Adaptive Gradient Clipping (AGC), cautious masking, Lookahead, trust-ratio scaling, and several other stabilizing features. It performs sign-based updates (like Lion) while maintaining per-parameter accumulators (`s`) and global statistics used to automatically adapt an effective step size (`d0_`). This optimizer is designed for large-scale and structured training where global step-size adaptation, orthogonalization, and low-rank projection can improve stability and efficiency.
+`DAdaptLion_e` is a sign-based (Lion-style) optimizer extended with a data-dependent global scalar adaptation (DAdapt), optional orthogonal-gradient removal, optional low-rank projector support for 2-D parameters, Lookahead, stochastic-noise momentum (PNM) alternatives, Adaptive Gradient Clipping (AGC), cautious masking, trust-ratio layer-wise scaling, and an optional Muon-style orthogonalization step for projected updates. It is designed for stable large-scale training where a global adaptive step scalar and structured/orthogonal updates can improve convergence and robustness.
 
 **Parameters**:
 
-* **`learning_rate`** *(float, default=1.0)*: Base learning-rate scale used together with the adaptive DAdapt scalar.
-* **`beta1`** *(float, default=0.9)*: Exponential decay for the first-moment / momentum estimate (or used to construct PNM).
-* **`beta2`** *(float, default=0.999)*: Decay used for the second-stage accumulators and DAdapt weighting.
-* **`weight_decay`** *(float, default=0.0)*: L2 weight-decay coefficient applied either decoupled (multiplicative) or added to the gradient depending on `weight_decouple`.
-* **`d0`** *(float, default=1e-6)*: Initial base DAdapt scalar; the optimizer adapts `d0_` using global statistics.
-* **`weight_decouple`** *(bool, default=True)*: If `True`, apply decoupled multiplicative weight decay; otherwise add weight decay to the gradient.
-* **`fixed_decay`** *(bool, default=False)*: When `True`, use a fixed decay multiplier instead of scaling decay by the adaptive DAdapt scalar.
-* **`orthograd`** *(bool, default=True)*: If `True`, apply orthogonal-gradient transform (remove the component of the gradient parallel to the parameter) before updates.
-* **`lookahead_merge_time`** *(int, default=5)*: Frequency (in steps) to merge Lookahead slow weights into fast weights.
-* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending factor used when performing Lookahead slow/fast updates.
-* **`lookahead`** *(bool, default=True)*: Whether to enable Lookahead slow/fast blending.
-* **`pnm`** *(bool, default=True)*: Use stochastic-noise momentum (PNM) variant of momentum buffers instead of standard EMA.
-* **`agc`** *(bool, default=True)*: Apply Adaptive Gradient Clipping to clip gradient units by their unit-wise norm.
-* **`cautious`** *(bool, default=True)*: Apply cautious masking to reduce updates that conflict in sign with the gradient (stabilizes updates).
-* **`update_proj_gap`** *(int or None, default=None)*: If set and a parameter is 2-D, how often to build/use the low-rank projector; `None` disables projection.
-* **`scale`** *(float or None, default=None)*: Projector-specific scale passed to projector construction.
-* **`projection_type`** *(str or None, default=None)*: Projector-specific projection type used for 2-D parameters.
-* **`subset_size`** *(int, default=-1)*: Subset size used for sub-sampled second-moment estimation (used when `sn=True`).
-* **`sn`** *(bool, default=True)*: Enable structured/subset (stochastic-noise) normalization used for block-wise operations.
-* **`trust_ratio`** *(bool, default=False)*: Enable layer-wise trust ratio adaptation (scale updates by ‖w‖/‖g‖).
-* **`trust_clip`** *(bool, default=False)*: If `True`, clip the trust ratio to a max of 1.0.
-* **`muon_ortho`** *(bool, default=False)*: When True and using 2-D projector, apply a Muon-style orthogonalization step (zero-power Newton-Schulz) to the projected update.
-* **`muon_steps`** *(int, default=5)*: Number of Newton-Schulz steps for `muon_ortho` processing.
-* **`clipnorm`** *(float, optional)*: Clip gradients by norm (forwarded to base optimizer).
-* **`clipvalue`** *(float, optional)*: Clip gradients by value.
-* **`global_clipnorm`** *(float, optional)*: Clip gradients by a global norm across the model.
-* **`use_ema`** *(bool, default=False)*: Maintain an Exponential Moving Average (EMA) of model weights.
-* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
-* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights if EMA is enabled.
-* **`loss_scale_factor`** *(float, optional)*: Static loss-scaling factor (useful for mixed precision).
-* **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients before applying an update.
-* **`name`** *(str, default="dadaptlion_e")*: Name of the optimizer.
+* **`learning_rate`** *(float, default=1.0)*: Base learning-rate multiplier. The effective step often combines this with the adaptive DAdapt scalar.
+* **`beta1`** *(float, default=0.9)*: Decay rate for the first-moment / momentum estimate (used for EMA or PNM construction).
+* **`beta2`** *(float, default=0.999)*: Decay rate used for second-stage accumulators and for weighting in DAdapt statistics.
+* **`weight_decay`** *(float, default=0.0)*: L2 weight-decay coefficient. Applied either multiplicatively (decoupled) or added to gradients depending on `weight_decouple`.
+* **`d0`** *(float, default=1e-6)*: Initial base DAdapt scalar; adaptive algorithm updates `d0_` from global statistics to scale effective step sizes.
+* **`weight_decouple`** *(bool, default=True)*: If `True` apply decoupled multiplicative weight decay; if `False` weight decay is added to gradients.
+* **`fixed_decay`** *(bool, default=False)*: When `True`, use a fixed decay multiplier (unaffected by the adaptive DAdapt scalar); otherwise decay may be scaled by DAdapt.
+* **`orthograd`** *(bool, default=False)*: If `True`, remove the component of each gradient parallel to its parameter (orthogonal-gradient transform) before updates.
+* **`lookahead_merge_time`** *(int, default=5)*: Frequency (in steps) at which the slow (Lookahead) weights are blended into the fast weights.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending factor for Lookahead slow/fast weight merging.
+* **`lookahead`** *(bool, default=False)*: Enable Lookahead slow/fast blending when `True`.
+* **`pnm`** *(bool, default=False)*: Use stochastic-noise momentum (PNM) variant instead of standard EMA momentum buffers when `True`.
+* **`agc`** *(bool, default=False)*: Apply Adaptive Gradient Clipping (unit-wise gradient clipping) when enabled.
+* **`cautious`** *(bool, default=False)*: Apply cautious masking that down-weights update components that disagree in sign with the instantaneous gradient (stabilizes updates).
+* **`update_proj_gap`** *(int or None, default=None)*: If set and a variable is 2-D, build/use a low-rank projector every `update_proj_gap` steps; `None` disables projector behavior.
+* **`scale`** *(float or None, default=None)*: Scale parameter passed to projector construction (projector-specific).
+* **`projection_type`** *(str or None, default=None)*: Projection type passed to projector construction (projector-specific behaviour).
+* **`trust_ratio`** *(bool, default=False)*: When `True`, apply a layer-wise trust-ratio scaling (scale updates by ‖w‖/‖g‖) before applying the sign update.
+* **`trust_clip`** *(bool, default=False)*: If `True`, clip the computed trust ratio to a maximum of `1.0`.
+* **`muon_ortho`** *(bool, default=False)*: If `True` (and a projected 2-D variable is present), apply a Muon-style orthogonalization (zero-power Newton–Schulz) to the projected update.
+* **`muon_steps`** *(int, default=5)*: Number of Newton–Schulz steps to run for `muon_ortho` processing.
+* **`clipnorm`** *(float, optional)*: Clip gradients by per-variable norm (forwarded to the base optimizer).
+* **`clipvalue`** *(float, optional)*: Clip gradients by value (forwarded to the base optimizer).
+* **`global_clipnorm`** *(float, optional)*: Clip gradients by a global norm across all variables (forwarded to the base optimizer).
+* **`use_ema`** *(bool, default=False)*: Maintain an Exponential Moving Average (EMA) of model weights for evaluation/averaging.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum factor for EMA updates if `use_ema` is `True`.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) at which EMA weights may be overwritten (optional).
+* **`loss_scale_factor`** *(float, optional)*: Static loss-scaling multiplier (useful for mixed-precision training).
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before performing an optimizer update.
+* **`name`** *(str, default="dadaptlion_e")*: Name of the optimizer instance.
 
 **Example Usage**:
 
@@ -8626,6 +8624,7 @@ for epoch in range(epochs):
 import tensorflow as tf
 from optimizers.dadaptlion import DAdaptLion_e
 
+# Instantiate optimizer with default sensible settings
 optimizer = DAdaptLion_e(
     learning_rate=1.0,
     beta1=0.9,
@@ -8634,24 +8633,20 @@ optimizer = DAdaptLion_e(
     weight_decay=1e-4,
     weight_decouple=True,
     fixed_decay=False,
-    orthograd=True,
-    pnm=True,
-    agc=True,
-    cautious=True,
-    update_proj_gap=200,     # enable projector for large 2-D weights every 200 steps
+    orthograd=False,
+    lookahead=False,
+    pnm=False,
+    agc=False,
+    cautious=False,
+    update_proj_gap=None,   # enable projector only for large 2-D matrices
     scale=0.1,
-    projection_type="some_type",
-    subset_size=256,
-    sn=True,
+    projection_type="truncated",
     trust_ratio=False,
-    muon_ortho=True,
+    muon_ortho=False,
     muon_steps=5,
-    lookahead=True,
-    lookahead_merge_time=5,
-    lookahead_blending_alpha=0.5,
 )
 
-# Compile and train
+# Compile and train a model
 model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
