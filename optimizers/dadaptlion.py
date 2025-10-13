@@ -526,12 +526,10 @@ class DAdaptLion_e(optimizer.Optimizer):
                 "update_proj_gap": self.update_proj_gap,
                 "scale": self.scale,
                 "projection_type": self.projection_type,
-                "projector": self.projector,
                 "trust_ratio": self.trust_ratio,
                 "trust_clip": self.trust_clip,
                 "muon_ortho": self.muon_ortho,
                 "muon_steps": self.muon_steps,
-                "subset_size_": self.subset_size_,
             }
         )
         return config
