@@ -8776,3 +8776,104 @@ optimizer = Conda_e(
 model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
 model.fit(train_dataset, validation_data=val_dataset, epochs=20)
 ```
+
+# BCOS
+
+**Overview**:
+
+The `BCOS` optimizer is a custom optimization algorithm that provides flexible control over momentum and variance updates through distinct modes. It features mechanisms for weight decoupling, simple conditional variance updates, and optional maximization strategies, making it adaptable to various training scenarios where standard optimizers may not suffice.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+* **`beta`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates (momentum) or variance, depending on the mode.
+* **`beta2`** *(float, optional)*: Exponential decay rate for the second moment estimates. If `None`, it defaults based on `beta` or internal logic.
+* **`mode`** *(str, default='c')*: Operation mode determining how momentum and variance are computed. Options include `'g'`, `'m'`, and `'c'`.
+* **`simple_cond`** *(bool, default=False)*: Whether to use a simplified conditional update for variance computation.
+* **`weight_decay`** *(float, default=0.1)*: Coefficient for weight decay.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, applies decoupled weight decay (similar to AdamW). If `False`, applies standard L2 regularization.
+* **`epsilon`** *(float, default=1e-6)*: Small constant for numerical stability to avoid division by zero.
+* **`maximize`** *(bool, default=False)*: If `True`, the optimizer maximizes the objective function (gradient ascent) instead of minimizing it.
+* **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+* **`clipvalue`** *(float, optional)*: Clips gradients by value.
+* **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+* **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+* **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients.
+* **`name`** *(str, default="bcos")*: Name of the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.bcos import BCOS
+
+# Instantiate optimizer
+optimizer = BCOS(
+    learning_rate=1e-3,
+    beta=0.9,
+    mode='c',
+    weight_decay=0.01,
+    weight_decouple=True
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# BCOS_e
+
+**Overview**:
+
+`BCOS_e` is an extended version of the `BCOS` optimizer that incorporates subspace normalization (`sn`) and dynamic subset sizing. This variant is designed to handle optimization by reshaping gradients and normalizing updates based on calculated subset sizes, providing enhanced stability and performance for specific high-dimensional or complex parameter spaces.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+* **`beta`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates or variance.
+* **`beta2`** *(float, optional)*: Exponential decay rate for the second moment estimates.
+* **`mode`** *(str, default='c')*: Operation mode determining how momentum and variance are computed (`'g'`, `'m'`, `'c'`).
+* **`simple_cond`** *(bool, default=False)*: Whether to use a simplified conditional update for variance computation.
+* **`weight_decay`** *(float, default=0.1)*: Coefficient for weight decay.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, applies decoupled weight decay. If `False`, applies standard L2 regularization.
+* **`epsilon`** *(float, default=1e-6)*: Small constant for numerical stability.
+* **`subset_size`** *(int, default=-1)*: Target size for gradient subsetting. If `-1` (or other logic), it is dynamically calculated relative to variable size.
+* **`sn`** *(bool, default=True)*: Enables Subspace Normalization. When `True`, gradients and moments are reshaped and normalized over subsets.
+* **`maximize`** *(bool, default=False)*: If `True`, performs gradient ascent.
+* **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+* **`clipvalue`** *(float, optional)*: Clips gradients by value.
+* **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+* **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+* **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients.
+* **`name`** *(str, default="bcos_e")*: Name of the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.bcos import BCOS_e
+
+# Instantiate optimizer with subspace normalization
+optimizer = BCOS_e(
+    learning_rate=1e-3,
+    beta=0.9,
+    mode='m',
+    subset_size=32,
+    sn=True,
+    weight_decay=0.01
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
