@@ -8830,21 +8830,34 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 
 **Overview**:
 
-`BCOS_e` is an extended version of the `BCOS` optimizer that incorporates subspace normalization (`sn`) and dynamic subset sizing. This variant is designed to handle optimization by reshaping gradients and normalizing updates based on calculated subset sizes, providing enhanced stability and performance for specific high-dimensional or complex parameter spaces.
+The `BCOS_e` optimizer is an extended, highly configurable optimization algorithm designed for complex training scenarios. It builds upon the BCOS framework by integrating advanced techniques including Subspace Normalization (SN), Second-order optimization (Sophia), Trust Region methods, Cautious updates, and Lookahead mechanisms. This optimizer allows for fine-grained control over gradient reshaping, Hessian-based curvature estimation, and dynamic update smoothing.
 
 **Parameters**:
 
 * **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
-* **`beta`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates or variance.
-* **`beta2`** *(float, optional)*: Exponential decay rate for the second moment estimates.
+* **`beta`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates (momentum) or variance, depending on the mode.
+* **`beta2`** *(float, optional)*: Exponential decay rate for the second moment estimates (or Hessian moment in Sophia mode).
 * **`mode`** *(str, default='c')*: Operation mode determining how momentum and variance are computed (`'g'`, `'m'`, `'c'`).
 * **`simple_cond`** *(bool, default=False)*: Whether to use a simplified conditional update for variance computation.
 * **`weight_decay`** *(float, default=0.1)*: Coefficient for weight decay.
-* **`weight_decouple`** *(bool, default=True)*: If `True`, applies decoupled weight decay. If `False`, applies standard L2 regularization.
+* **`weight_decouple`** *(bool, default=True)*: If `True`, applies decoupled weight decay (similar to AdamW). If `False`, applies standard L2 regularization.
 * **`epsilon`** *(float, default=1e-6)*: Small constant for numerical stability.
-* **`subset_size`** *(int, default=-1)*: Target size for gradient subsetting. If `-1` (or other logic), it is dynamically calculated relative to variable size.
-* **`sn`** *(bool, default=True)*: Enables Subspace Normalization. When `True`, gradients and moments are reshaped and normalized over subsets.
-* **`maximize`** *(bool, default=False)*: If `True`, performs gradient ascent.
+* **`subset_size`** *(int, default=-1)*: Target size for gradient subsetting in Subspace Normalization. If `-1`, it is dynamically calculated based on variable size.
+* **`sn`** *(bool, default=True)*: Enables Subspace Normalization. When `True`, gradients are reshaped and normalized over subsets.
+* **`agc`** *(bool, default=False)*: Enables Adaptive Gradient Clipping to stabilize training.
+* **`gc`** *(bool, default=False)*: Enables Gradient Centralization, which centers gradients to have zero mean.
+* **`sophia`** *(bool, default=False)*: Enables Sophia (Second-order Clipping) optimization logic using Hutchinson's estimator for the Hessian.
+* **`p`** *(float, default=1e-2)*: Clipping parameter used when `sophia` is enabled.
+* **`update_period`** *(int, default=10)*: Frequency (in steps) of Hessian updates when `sophia` is enabled.
+* **`num_samples`** *(int, default=1)*: Number of samples used for Hutchinson's Hessian estimation.
+* **`hessian_distribution`** *(str, default='gaussian')*: Distribution used for Hessian estimation (`'gaussian'` or `'rademacher'`).
+* **`trust_ratio`** *(bool, default=False)*: Enables layer-wise learning rate adaptation based on the ratio of weight norms to update norms.
+* **`trust_clip`** *(bool, default=False)*: If `True`, clips the calculated trust ratio to be at most 1.0.
+* **`cautious`** *(bool, default=False)*: Enables Cautious updates, masking steps where the update direction opposes the gradient.
+* **`lookahead_merge_time`** *(int, default=5)*: Number of steps before merging the fast weights into the slow weights (Lookahead mechanism).
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: The interpolation factor for merging slow and fast weights.
+* **`lookahead`** *(bool, default=False)*: Enables the Lookahead mechanism.
+* **`maximize`** *(bool, default=False)*: If `True`, performs gradient ascent instead of descent.
 * **`clipnorm`** *(float, optional)*: Clips gradients by norm.
 * **`clipvalue`** *(float, optional)*: Clips gradients by value.
 * **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
@@ -8859,16 +8872,18 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 
 ```python
 import tensorflow as tf
-from optimizers.bcos import BCOS_e
+from optimizers import BCOS_e
 
-# Instantiate optimizer with subspace normalization
+# Instantiate optimizer with Sophia and Lookahead enabled
 optimizer = BCOS_e(
-    learning_rate=1e-3,
-    beta=0.9,
-    mode='m',
-    subset_size=32,
-    sn=True,
-    weight_decay=0.01
+    learning_rate=1e-3,
+    beta=0.965,
+    beta2=0.99,
+    mode='c',
+    sophia=True,
+    update_period=10,
+    lookahead=True,
+    weight_decay=0.05
 )
 
 # Compile a model
