@@ -8872,7 +8872,7 @@ The `BCOS_e` optimizer is an extended, highly configurable optimization algorith
 
 ```python
 import tensorflow as tf
-from optimizers import BCOS_e
+from optimizers.bcos import BCOS_e
 
 # Instantiate optimizer with Sophia and Lookahead enabled
 optimizer = BCOS_e(
@@ -8891,4 +8891,121 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# Ano
+
+**Overview**:
+
+The `Ano` optimizer is an Adam-style optimization algorithm that introduces a **sign-based second-moment adaptation mechanism**. Instead of directly tracking the exponential moving average of squared gradients, it updates the second moment using the **sign difference between the current squared gradient and the historical estimate**, enabling more responsive variance tracking under non-stationary or noisy gradients. This design emphasizes stability while preserving adaptive scaling behavior.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-4)*: The learning rate used to scale parameter updates.
+* **`beta1`** *(float, default=0.92)*: Exponential decay rate for the first-moment estimates.
+* **`beta2`** *(float, default=0.99)*: Exponential decay rate for the second-moment estimates.
+* **`epsilon`** *(float, default=1e-8)*: Small constant added for numerical stability.
+* **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay regularization.
+* **`weight_decouple`** *(bool, default=True)*: Enables decoupled weight decay instead of applying it directly to gradients.
+* **`fixed_decay`** *(bool, default=False)*: Applies fixed weight decay independent of the learning rate.
+* **`logarithmic_schedule`** *(bool, default=False)*: Dynamically adjusts `beta1` using a logarithmic schedule based on the optimization step.
+* **`maximize`** *(bool, default=False)*: Maximizes the objective instead of minimizing it.
+* **`clipnorm`** *(float, optional)*: Clips gradients by their norm.
+* **`clipvalue`** *(float, optional)*: Clips gradients by their value.
+* **`global_clipnorm`** *(float, optional)*: Clips gradients by the global norm.
+* **`use_ema`** *(bool, default=False)*: Applies an exponential moving average to model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum used for EMA updates.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency at which EMA weights overwrite model weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps for accumulating gradients.
+* **`name`** *(str, default="ano")*: Name of the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.ano import Ano
+
+optimizer = Ano(
+    learning_rate=1e-4,
+    weight_decay=1e-2,
+    logarithmic_schedule=True
+)
+
+model.compile(
+    optimizer=optimizer,
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+model.fit(train_dataset, epochs=10)
+```
+
+# Ano_e
+
+**Overview**:
+
+The `Ano_e` optimizer is an extended and highly modular variant of `Ano`, designed to support a wide range of advanced optimization techniques within a unified framework. It integrates optional components such as **subset-normalized second moments**, **adaptive gradient clipping**, **gradient centralization**, **Hessian-based updates (Sophia-style)**, **trust-ratio scaling**, **lookahead optimization**, and **D-Adaptation**. This optimizer is intended for research and experimentation with hybrid optimization strategies.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-4)*: Base learning rate for parameter updates.
+* **`beta1`** *(float, default=0.92)*: Exponential decay rate for first-moment estimates.
+* **`beta2`** *(float, default=0.99)*: Exponential decay rate for second-moment or Hessian-moment estimates.
+* **`epsilon`** *(float, default=1e-8)*: Numerical stability constant.
+* **`weight_decay`** *(float, default=0.0)*: Weight decay coefficient.
+* **`weight_decouple`** *(bool, default=True)*: Enables decoupled weight decay.
+* **`fixed_decay`** *(bool, default=False)*: Uses fixed decay instead of learning-rate-scaled decay.
+* **`logarithmic_schedule`** *(bool, default=False)*: Applies logarithmic scheduling to `beta1`.
+* **`subset_size`** *(int, default=-1)*: Size of subsets used for subset-normalized second-moment estimation.
+* **`sn`** *(bool, default=True)*: Enables subset-normalized second-moment computation.
+* **`agc`** *(bool, default=False)*: Enables adaptive gradient clipping based on unit-wise norms.
+* **`gc`** *(bool, default=False)*: Enables gradient centralization.
+* **`sophia`** *(bool, default=False)*: Enables Hessian-based updates using Hutchinson trace estimation.
+* **`p`** *(float, default=1e-2)*: Clipping threshold for Hessian-based or sign-based updates.
+* **`update_period`** *(int, default=10)*: Update frequency for Hessian estimation or delayed updates.
+* **`num_samples`** *(int, default=1)*: Number of samples used in Hutchinson Hessian estimation.
+* **`hessian_distribution`** *(str, default="gaussian")*: Distribution used for Hutchinson estimation.
+* **`trust_ratio`** *(bool, default=False)*: Enables layer-wise trust ratio scaling.
+* **`trust_clip`** *(bool, default=False)*: Clips the trust ratio to a maximum of 1.
+* **`cautious`** *(bool, default=False)*: Applies sign-consistency masking to updates.
+* **`lookahead_merge_time`** *(int, default=5)*: Number of steps between lookahead synchronization.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Interpolation factor for lookahead updates.
+* **`lookahead`** *(bool, default=False)*: Enables lookahead optimization.
+* **`DAdapt`** *(bool, default=False)*: Enables D-Adaptation for dynamic learning-rate scaling.
+* **`d0`** *(float, default=1e-6)*: Initial D-Adaptation scaling factor.
+* **`growth_rate`** *(float, default=inf)*: Maximum growth rate for D-Adaptation.
+* **`maximize`** *(bool, default=False)*: Maximizes the objective function.
+* **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+* **`clipvalue`** *(float, optional)*: Clips gradients by value.
+* **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+* **`use_ema`** *(bool, default=False)*: Applies exponential moving average to weights.
+* **`ema_momentum`** *(float, default=0.99)*: EMA momentum.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting model weights with EMA.
+* **`loss_scale_factor`** *(float, optional)*: Loss scaling factor.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of gradient accumulation steps.
+* **`name`** *(str, default="ano_e")*: Name of the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.ano import Ano_e
+
+optimizer = Ano_e(
+    learning_rate=3e-4,
+    sophia=True,
+    sn=True,
+    agc=True,
+    lookahead=True,
+    DAdapt=False
+)
+
+model.compile(
+    optimizer=optimizer,
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+model.fit(train_dataset, epochs=10)
 ```
