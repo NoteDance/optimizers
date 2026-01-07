@@ -8609,43 +8609,45 @@ model.fit(train_dataset, epochs=10)
 
 **Overview**:
 
-The `Optimizer` class is the abstract base class for all Keras optimizers. It provides a unified interface and common functionality including gradient clipping (local/global/by value), weight decay handling, exponential moving average (EMA) of weights, loss scaling for mixed precision, and gradient accumulation.
-
-Additionally, this implementation includes built-in helper methods to support advanced optimization techniques such as:
-- Adaptive Gradient Clipping (AGC)
-- Gradient Centralization (GC)
-- Subset-based Normalization (SN) for reduced-memory second-moment or Hessian estimation
-- Sophia-style Hutchinson trace estimation for diagonal Hessian approximation
-- Lookahead slow/fast weight merging
-- Trust ratio layer-wise adaptation
-- Cautious update masking
-
-To implement a custom optimizer, subclass `Optimizer` and override at least the `build` and `update_step` methods (and `get_config` for serialization).
+The `Optimizer` class is the comprehensive base class for all Keras optimizers, providing an extensive framework for implementing state-of-the-art gradient-based optimization algorithms. It supports advanced features including exponential moving average (EMA), gradient accumulation, multiple gradient clipping strategies, weight decay, adaptive learning rates (D-Adapt), orthogonal gradients, positive-negative momentum (PNM), Sophia-style Hessian estimation, lookahead optimization, and subset normalization for memory-efficient training.
 
 **Parameters**:
 
-* **`learning_rate`** *(float, LearningRateSchedule, or callable)*: The learning rate to use. Can be a constant float, a `LearningRateSchedule` instance, or a callable that takes the current iteration and returns a learning rate.
-* **`weight_decay`** *(float, default=None)*: Weight decay coefficient. Applied according to the optimizer's `_apply_weight_decay` implementation (typically decoupled or added to gradients).
-* **`clipnorm`** *(float, optional)*: If set, gradients are individually clipped so their norm does not exceed this value.
-* **`clipvalue`** *(float, optional)*: If set, gradients are clipped to the range `[-clipvalue, clipvalue]`.
-* **`global_clipnorm`** *(float, optional)*: If set, the global norm of all gradients is clipped to this value. Only one of `clipnorm`, `clipvalue`, or `global_clipnorm` can be set.
-* **`use_ema`** *(bool, default=False)*: Whether to maintain an exponential moving average of model weights.
-* **`ema_momentum`** *(float, default=0.99)*: Momentum value for the moving average when `use_ema=True`.
-* **`ema_overwrite_frequency`** *(int or None, default=None)*: If set, model weights are overwritten with their EMA every this many steps. If `None`, overwriting must be done manually via `finalize_variable_values()`.
-* **`loss_scale_factor`** *(float or None, default=None)*: Scales the loss before gradient computation and inversely scales gradients (useful for mixed precision).
-* **`gradient_accumulation_steps`** *(int or None, default=None)*: If set (>=2), gradients are accumulated over this many steps before applying an update.
-* **`name`** *(str, optional)*: Name of the optimizer instance (defaults to class name).
+* **`learning_rate`** *(float or LearningRateSchedule)*: The step size for parameter updates. Can be a constant float value, a `LearningRateSchedule` instance, or a callable that returns the learning rate based on the current iteration.
+* **`weight_decay`** *(float, optional)*: Coefficient for weight decay regularization. If set, applies weight decay to model parameters.
+* **`clipnorm`** *(float, optional)*: If set, gradients are individually clipped so that their norm does not exceed this value.
+* **`clipvalue`** *(float, optional)*: If set, gradients are clipped by value to be no higher than this threshold.
+* **`global_clipnorm`** *(float, optional)*: If set, the global norm of all gradients is clipped to not exceed this value.
+* **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights. When enabled, maintains a moving average of model weights for improved inference performance.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA computation. Only used when `use_ema=True`. Must be in the range [0, 1].
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for overwriting model variables with their moving average. Only used when `use_ema=True`. If `None`, variables are updated at the end of training.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation. Useful for preventing underflow in mixed precision training.
+* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before updating variables. Must be >= 2 if specified. Useful for simulating larger batch sizes with limited memory.
+* **`name`** *(str, optional)*: Name of the optimizer instance. If not provided, auto-generates a name based on the class name.
 
-**Advanced Features (set as attributes in subclasses)**:
+**Advanced Optimizer Features**:
 
-Subclasses can add custom parameters in their `__init__` and set corresponding attributes to enable the built-in helper methods:
+The base optimizer supports several advanced features that can be enabled in derived classes:
 
-* `sn` (bool): Enable subset-based normalization for second-moment/Hessian estimates.
-* `subset_size` (int): Target subset size for SN (negative values trigger automatic computation).
-* `agc` (bool): Enable adaptive gradient clipping via `self.agc()`.
-* `gc` (bool): Enable gradient centralization.
-* `sophia` (bool): Enable Sophia-style clipped Hessian approximation.
-* `update_period`, `num_samples`, `distribution` (`'gaussian'` or `'rademacher'`): Controls for Hutchinson Hessian estimation.
-* `lookahead` (bool), `lookahead_merge_time` (int), `lookahead_blending_alpha` (float): Lookahead parameters.
-* `trust_ratio` (bool), `trust_clip` (bool): Layer-wise trust ratio adaptation.
-* `cautious` (bool): Apply cautious masking to updates.
+* **`sn`** *(bool)*: Enables subset normalization for memory-efficient second moment estimation in high-dimensional parameters.
+* **`sophia`** *(bool)*: Enables Sophia-style Hessian estimation using Hutchinson's trace estimator for improved convergence.
+* **`lookahead`** *(bool)*: Enables lookahead optimization, maintaining slow-moving weights that provide stability.
+* **`DAdapt`** *(bool)*: Enables D-Adapt adaptive learning rate scheduling for automatic learning rate adjustment.
+* **`pnm`** *(bool)*: Enables Positive-Negative Momentum for improved optimization dynamics.
+* **`orthograd`** *(bool)*: Enables orthogonal gradient projection to maintain gradient orthogonality to parameters.
+
+**Key Methods**:
+
+* **`build(var_list)`**: Initialize optimizer variables for the given list of trainable variables. Automatically sets up state variables for enabled features (momentum, variance, Hessian, etc.).
+* **`update_step(gradient, variable, learning_rate)`**: Implement the core update logic for a single variable. Must be overridden in subclasses.
+* **`apply_gradients(grads_and_vars, tape=None)`**: Apply gradients to variables. Accepts a list of (gradient, variable) pairs and an optional GradientTape for Hessian computation.
+* **`exclude_from_weight_decay(var_list, var_names)`**: Exclude specific variables or variables matching name patterns from weight decay.
+* **`finalize_variable_values(var_list)`**: Finalize variable values, such as applying EMA averages. Called automatically at the end of training.
+* **`agc(p, grad, agc_eps, agc_clip_val, eps)`**: Apply Adaptive Gradient Clipping to prevent gradient explosion.
+* **`gc(grads, gradient, idx)`**: Apply gradient centralization to improve optimization stability.
+* **`apply_orthogonal_gradients(params, grads, eps)`**: Project gradients to be orthogonal to parameters.
+* **`apply_trust_ratio(variable, update)`**: Apply trust ratio scaling (as in LARS/LAMB optimizers).
+* **`apply_cautious(update, gradient)`**: Apply cautious update masking to filter out conflicting updates.
+* **`apply_pnm(gradient, step, idx)`**: Apply Positive-Negative Momentum update rule.
+* **`get_config()`**: Returns the optimizer configuration as a serializable dictionary.
+* **`set_weights(weights)`**: Set optimizer state from a list of weight arrays.
