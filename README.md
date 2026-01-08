@@ -8609,7 +8609,7 @@ model.fit(train_dataset, epochs=10)
 
 **Overview**:
 
-The `Optimizer` class is the comprehensive base class for all Keras optimizers, providing an extensive framework for implementing state-of-the-art gradient-based optimization algorithms. It supports advanced features including exponential moving average (EMA), gradient accumulation, multiple gradient clipping strategies, weight decay, adaptive learning rates (D-Adapt), orthogonal gradients, positive-negative momentum (PNM), Sophia-style Hessian estimation, lookahead optimization, and subset normalization for memory-efficient training.
+The `Optimizer` class is the most comprehensive and advanced base class for all Keras optimizers, providing a state-of-the-art framework for implementing cutting-edge gradient-based optimization algorithms. It supports an extensive array of advanced features including exponential moving average (EMA), gradient accumulation, multiple gradient clipping strategies, weight decay, adaptive learning rates (D-Adapt), orthogonal gradients, positive-negative momentum (PNM), Sophia-style Hessian estimation, lookahead optimization, subset normalization for memory-efficient training, GaLore (Gradient Low-Rank Projection) for memory-efficient training of large models, and Newton-Schulz iterations for matrix preconditioning.
 
 **Parameters**:
 
@@ -8627,27 +8627,39 @@ The `Optimizer` class is the comprehensive base class for all Keras optimizers, 
 
 **Advanced Optimizer Features**:
 
-The base optimizer supports several advanced features that can be enabled in derived classes:
+The base optimizer supports several cutting-edge features that can be enabled in derived classes:
 
 * **`sn`** *(bool)*: Enables subset normalization for memory-efficient second moment estimation in high-dimensional parameters.
-* **`sophia`** *(bool)*: Enables Sophia-style Hessian estimation using Hutchinson's trace estimator for improved convergence.
-* **`lookahead`** *(bool)*: Enables lookahead optimization, maintaining slow-moving weights that provide stability.
-* **`DAdapt`** *(bool)*: Enables D-Adapt adaptive learning rate scheduling for automatic learning rate adjustment.
-* **`pnm`** *(bool)*: Enables Positive-Negative Momentum for improved optimization dynamics.
+* **`sophia`** *(bool)*: Enables Sophia-style Hessian estimation using Hutchinson's trace estimator for improved convergence on language modeling tasks.
+* **`lookahead`** *(bool)*: Enables lookahead optimization, maintaining slow-moving weights that provide training stability.
+* **`DAdapt`** *(bool)*: Enables D-Adapt adaptive learning rate scheduling for automatic learning rate adjustment without hyperparameter tuning.
+* **`pnm`** *(bool)*: Enables Positive-Negative Momentum for improved optimization dynamics with alternating momentum buffers.
 * **`orthograd`** *(bool)*: Enables orthogonal gradient projection to maintain gradient orthogonality to parameters.
+* **`update_proj_gap`** *(int, optional)*: Frequency for updating GaLore projection matrices. When set, enables gradient low-rank projection for memory-efficient training of large models.
+* **`rank`** *(int)*: Rank for GaLore low-rank projection. Lower ranks save more memory at potential accuracy cost.
+* **`scale`** *(float)*: Scaling factor for GaLore projection.
+* **`projection_type`** *(str)*: Type of projection for GaLore ('left', 'right', 'full', 'std'). Different types offer trade-offs between memory efficiency and approximation quality.
 
 **Key Methods**:
 
-* **`build(var_list)`**: Initialize optimizer variables for the given list of trainable variables. Automatically sets up state variables for enabled features (momentum, variance, Hessian, etc.).
+* **`build(var_list)`**: Initialize optimizer variables for the given list of trainable variables. Automatically sets up state variables for all enabled features (momentum, variance, Hessian, GaLore projectors, etc.).
 * **`update_step(gradient, variable, learning_rate)`**: Implement the core update logic for a single variable. Must be overridden in subclasses.
 * **`apply_gradients(grads_and_vars, tape=None)`**: Apply gradients to variables. Accepts a list of (gradient, variable) pairs and an optional GradientTape for Hessian computation.
 * **`exclude_from_weight_decay(var_list, var_names)`**: Exclude specific variables or variables matching name patterns from weight decay.
 * **`finalize_variable_values(var_list)`**: Finalize variable values, such as applying EMA averages. Called automatically at the end of training.
-* **`agc(p, grad, agc_eps, agc_clip_val, eps)`**: Apply Adaptive Gradient Clipping to prevent gradient explosion.
-* **`gc(grads, gradient, idx)`**: Apply gradient centralization to improve optimization stability.
-* **`apply_orthogonal_gradients(params, grads, eps)`**: Project gradients to be orthogonal to parameters.
-* **`apply_trust_ratio(variable, update)`**: Apply trust ratio scaling (as in LARS/LAMB optimizers).
-* **`apply_cautious(update, gradient)`**: Apply cautious update masking to filter out conflicting updates.
-* **`apply_pnm(gradient, step, idx)`**: Apply Positive-Negative Momentum update rule.
+* **`agc(p, grad, agc_eps, agc_clip_val, eps)`**: Apply Adaptive Gradient Clipping to prevent gradient explosion based on parameter-wise norms.
+* **`gc(grads, gradient, idx)`**: Apply gradient centralization to improve optimization stability by centering gradients.
+* **`apply_orthogonal_gradients(params, grads, eps)`**: Project gradients to be orthogonal to parameters, preventing interference.
+* **`apply_trust_ratio(variable, update)`**: Apply trust ratio scaling (as in LARS/LAMB optimizers) to scale updates based on parameter magnitudes.
+* **`apply_cautious(update, gradient)`**: Apply cautious update masking to filter out conflicting updates that don't align with gradients.
+* **`apply_pnm(gradient, step, idx)`**: Apply Positive-Negative Momentum update rule with alternating buffers.
+* **`zero_power_via_newton_schulz_5(G, steps)`**: Compute the zero power of a matrix using 5th-order Newton-Schulz iteration. Useful for computing preconditioners efficiently.
+* **`closest_smaller_divisor_of_n_to_k(n, k)`**: Find the closest divisor of n that is smaller than or equal to k. Used for subset normalization to ensure efficient tensor reshaping.
+* **`get_second_moment_update(gradient, idx)`**: Compute second moment update with subset normalization if enabled.
+* **`compute_hutchinson_hessian(grads, num_samples, alpha, distribution)`**: Compute Hessian approximation using Hutchinson's trace estimator with random projections.
+* **`update_hessian_moment(hessian_moment, step, idx)`**: Update exponential moving average of Hessian estimates.
+* **`lookahead_merge(variable, step)`**: Merge fast and slow weights in lookahead optimization at specified intervals.
+* **`accumulate_numerator(s, gradient, de_nom, d_lr, idx)`**: Accumulate numerator for D-Adapt learning rate adjustment.
+* **`apply_weight_decay(variable, gradient, lr)`**: Apply weight decay with support for both coupled and decoupled variants.
 * **`get_config()`**: Returns the optimizer configuration as a serializable dictionary.
 * **`set_weights(weights)`**: Set optimizer state from a list of weight arrays.
