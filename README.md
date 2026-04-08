@@ -8663,3 +8663,118 @@ The base optimizer supports several cutting-edge features that can be enabled in
 * **`apply_weight_decay(variable, gradient, lr)`**: Apply weight decay with support for both coupled and decoupled variants.
 * **`get_config()`**: Returns the optimizer configuration as a serializable dictionary.
 * **`set_weights(weights)`**: Set optimizer state from a list of weight arrays.
+
+# SpectralSphere
+
+**Overview**:
+
+The `SpectralSphere` optimizer constrains 2D weight matrices to lie on a spectral sphere of fixed radius. It computes the leading singular triplet via power iteration, forms the rank-1 matrix Θ = uvᵀ, solves for the Lagrange multiplier λ such that the projected momentum satisfies the spectral constraint, and applies the matrix sign function (via Newton-Schulz iterations) to obtain the final update direction. This spectral control promotes stable feature learning, especially beneficial for large language models.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=3e-4)*: The step size for parameter updates.
+* **`momentum`** *(float, default=0.9)*: Momentum coefficient for the internal momentum buffer.
+* **`weight_decay`** *(float, default=1e-2)*: Coefficient for weight decay (L2 penalty).
+* **`weight_decouple`** *(bool, default=True)*: Enables decoupled weight decay (AdamW style).
+* **`nesterov`** *(bool, default=True)*: Whether to apply Nesterov momentum.
+* **`power_iteration_steps`** *(int, default=10)*: Number of power iteration steps for spectral norm and singular vectors.
+* **`msign_steps`** *(int, default=5)*: Number of Newton-Schulz iterations for the matrix sign function.
+* **`solver_tolerance_f`** *(float, default=1e-8)*: Tolerance for the bisection solver that finds λ.
+* **`solver_max_iterations`** *(int, default=100)*: Maximum iterations for the bisection solver.
+* **`maximize`** *(bool, default=False)*: If True, maximizes the objective (flips gradient sign).
+* **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+* **`clipvalue`** *(float, optional)*: Clips gradients by value.
+* **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+* **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+* **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients.
+* **`name`** *(str, default="spectralsphere")*: Name of the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.spectralsphere import SpectralSphere
+
+# Instantiate optimizer
+optimizer = SpectralSphere(
+    learning_rate=3e-4,
+    momentum=0.9,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    nesterov=True,
+    power_iteration_steps=10,
+    msign_steps=5
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# SpectralSphere_e
+
+**Overview**:
+
+The `SpectralSphere_e` optimizer is the enhanced version of SpectralSphere. It retains the core spectral sphere constraint on 2D weight matrices while integrating modern features from the BaseOptimizer framework, including adaptive gradient clipping (AGC), gradient orthogonalization, cautious updates, Lookahead, Positive-Negative Momentum (PNM), and layer-wise trust ratio adaptation. This combination provides spectral control together with improved gradient handling and stability for large-scale LLM training.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=3e-4)*: The step size for parameter updates.
+* **`momentum`** *(float, default=0.9)*: Momentum coefficient for the internal momentum buffer.
+* **`weight_decay`** *(float, default=1e-2)*: Coefficient for weight decay (L2 penalty).
+* **`weight_decouple`** *(bool, default=True)*: Enables decoupled weight decay (AdamW style).
+* **`fixed_decay`** *(bool, default=False)*: Uses fixed weight decay instead of scaling it by the learning rate.
+* **`nesterov`** *(bool, default=True)*: Whether to apply Nesterov momentum.
+* **`power_iteration_steps`** *(int, default=10)*: Number of power iteration steps for spectral norm and singular vectors.
+* **`msign_steps`** *(int, default=5)*: Number of Newton-Schulz iterations for the matrix sign function.
+* **`solver_tolerance_f`** *(float, default=1e-8)*: Tolerance for the bisection solver that finds λ.
+* **`solver_max_iterations`** *(int, default=100)*: Maximum iterations for the bisection solver.
+* **`maximize`** *(bool, default=False)*: If True, maximizes the objective.
+* **`orthograd`** *(bool, default=False)*: Enables orthogonalization of gradients.
+* **`lookahead`** *(bool, default=False)*: Enables Lookahead slow/fast weight merging.
+* **`lookahead_merge_time`** *(int, default=5)*: Steps between Lookahead merges.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Interpolation factor for Lookahead merge.
+* **`pnm`** *(bool, default=False)*: Enables Positive-Negative Momentum.
+* **`agc`** *(bool, default=False)*: Enables adaptive gradient clipping.
+* **`cautious`** *(bool, default=False)*: Enables cautious update masking.
+* **`trust_ratio`** *(bool, default=False)*: Enables layer-wise trust ratio adaptation.
+* **`trust_clip`** *(bool, default=False)*: Caps trust ratio at 1.0 when enabled.
+* **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+* **`clipvalue`** *(float, optional)*: Clips gradients by value.
+* **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+* **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+* **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients.
+* **`name`** *(str, default="spectralsphere_e")*: Name of the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.spectralsphere import SpectralSphere_e
+
+# Instantiate optimizer
+optimizer = SpectralSphere_e(
+    learning_rate=3e-4,
+    momentum=0.9,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    agc=True,
+    cautious=True,
+    lookahead=False,
+    pnm=False
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
