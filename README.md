@@ -8609,7 +8609,7 @@ model.fit(train_dataset, epochs=10)
 
 **Overview**:
 
-The `Optimizer` class is the most comprehensive and advanced base class for all Keras optimizers, providing a state-of-the-art framework for implementing cutting-edge gradient-based optimization algorithms. It supports an extensive array of advanced features including exponential moving average (EMA), gradient accumulation, multiple gradient clipping strategies, weight decay, adaptive learning rates (D-Adapt), orthogonal gradients, positive-negative momentum (PNM), Sophia-style Hessian estimation, lookahead optimization, subset normalization for memory-efficient training, GaLore (Gradient Low-Rank Projection) for memory-efficient training of large models, and Newton-Schulz iterations for matrix preconditioning.
+The `Optimizer` class is the most comprehensive and advanced base class for all Keras optimizers, providing a state-of-the-art framework for implementing cutting-edge gradient-based optimization algorithms. It supports an extensive array of advanced features including exponential moving average (EMA), gradient accumulation, multiple gradient clipping strategies, weight decay, adaptive learning rates (D-Adapt), orthogonal gradients, positive-negative momentum (PNM), Sophia-style Hessian estimation, lookahead optimization, subset normalization for memory-efficient training, GaLore (Gradient Low-Rank Projection) for memory-efficient training of large models, Shampoo preconditioning, and Newton-Schulz iterations for matrix preconditioning.
 
 **Parameters**:
 
@@ -8639,28 +8639,38 @@ The base optimizer supports several cutting-edge features that can be enabled in
 * **`rank`** *(int)*: Rank for GaLore low-rank projection. Lower ranks save more memory at potential accuracy cost.
 * **`scale`** *(float)*: Scaling factor for GaLore projection.
 * **`projection_type`** *(str)*: Type of projection for GaLore ('left', 'right', 'full', 'std'). Different types offer trade-offs between memory efficiency and approximation quality.
+* **`shampoo`** *(bool)*: Enables Shampoo preconditioning using matrix power inversion via Newton-Schulz iterations.
+* **`update_freq`** *(int, optional)*: Frequency for updating Shampoo preconditioners.
 
 **Key Methods**:
 
-* **`build(var_list)`**: Initialize optimizer variables for the given list of trainable variables. Automatically sets up state variables for all enabled features (momentum, variance, Hessian, GaLore projectors, etc.).
+* **`build(var_list)`**: Initialize optimizer variables for the given list of trainable variables. Automatically sets up state variables for all enabled features (momentum, variance, Hessian, GaLore projectors, Shampoo preconditioners, etc.).
 * **`update_step(gradient, variable, learning_rate)`**: Implement the core update logic for a single variable. Must be overridden in subclasses.
 * **`apply_gradients(grads_and_vars, tape=None)`**: Apply gradients to variables. Accepts a list of (gradient, variable) pairs and an optional GradientTape for Hessian computation.
 * **`exclude_from_weight_decay(var_list, var_names)`**: Exclude specific variables or variables matching name patterns from weight decay.
 * **`finalize_variable_values(var_list)`**: Finalize variable values, such as applying EMA averages. Called automatically at the end of training.
-* **`agc(p, grad, agc_eps, agc_clip_val, eps)`**: Apply Adaptive Gradient Clipping to prevent gradient explosion based on parameter-wise norms.
-* **`gc(grads, gradient, idx)`**: Apply gradient centralization to improve optimization stability by centering gradients.
-* **`apply_orthogonal_gradients(params, grads, eps)`**: Project gradients to be orthogonal to parameters, preventing interference.
-* **`apply_trust_ratio(variable, update)`**: Apply trust ratio scaling (as in LARS/LAMB optimizers) to scale updates based on parameter magnitudes.
-* **`apply_cautious(update, gradient)`**: Apply cautious update masking to filter out conflicting updates that don't align with gradients.
-* **`apply_pnm(gradient, step, idx)`**: Apply Positive-Negative Momentum update rule with alternating buffers.
-* **`zero_power_via_newton_schulz_5(G, steps)`**: Compute the zero power of a matrix using 5th-order Newton-Schulz iteration. Useful for computing preconditioners efficiently.
-* **`closest_smaller_divisor_of_n_to_k(n, k)`**: Find the closest divisor of n that is smaller than or equal to k. Used for subset normalization to ensure efficient tensor reshaping.
-* **`get_second_moment_update(gradient, idx)`**: Compute second moment update with subset normalization if enabled.
-* **`compute_hutchinson_hessian(grads, num_samples, alpha, distribution)`**: Compute Hessian approximation using Hutchinson's trace estimator with random projections.
-* **`update_hessian_moment(hessian_moment, step, idx)`**: Update exponential moving average of Hessian estimates.
-* **`lookahead_merge(variable, step)`**: Merge fast and slow weights in lookahead optimization at specified intervals.
-* **`accumulate_numerator(s, gradient, de_nom, d_lr, idx)`**: Accumulate numerator for D-Adapt learning rate adjustment.
+* **`agc(p, grad, agc_eps=1e-3, agc_clip_val=1e-2, eps=1e-6)`**: Apply Adaptive Gradient Clipping to prevent gradient explosion based on parameter-wise norms.
+* **`gc(grads, gradient, idx)`**: Apply gradient centralization (subtract mean and normalize).
+* **`apply_orthogonal_gradients(params, grads, eps=1e-16)`**: Project gradients to be orthogonal to parameters, preventing interference.
 * **`apply_weight_decay(variable, gradient, lr)`**: Apply weight decay with support for both coupled and decoupled variants.
+* **`accumulate_numerator(s, gradient, de_nom, d_lr, idx)`**: Accumulate numerator for D-Adapt learning rate adjustment.
+* **`closest_smaller_divisor_of_n_to_k(n, k)`**: Find the closest divisor of n that is smaller than or equal to k. Used for subset normalization.
+* **`get_second_moment_update(gradient, idx)`**: Compute second moment update with subset normalization if enabled.
+* **`compute_hutchinson_hessian(grads, num_samples=1, alpha=1.0, distribution='gaussian')`**: Compute Hessian approximation using Hutchinson's trace estimator.
+* **`update_hessian_moment(hessian_moment, step, idx)`**: Update exponential moving average of Hessian estimates.
+* **`zero_power_via_newton_schulz_5(G, steps)`**: Compute the zero power of a matrix using 5th-order Newton-Schulz iteration. Used for efficient preconditioning (e.g., Shampoo).
+* **`lookahead_merge(variable, step)`**: Merge fast and slow weights in lookahead optimization at specified intervals.
+* **`apply_trust_ratio(variable, update)`**: Apply trust ratio scaling (as in LARS/LAMB optimizers) to scale updates based on parameter magnitudes.
+* **`apply_cautious(update, gradient)`**: Apply cautious update masking to filter out conflicting updates.
+* **`apply_pnm(gradient, step, idx)`**: Apply Positive-Negative Momentum update rule with alternating buffers.
+* **`power_iteration(w, steps=50)`**: Compute leading singular triplet via bilateral power iteration.
+* **`msign(x, steps)`**: Compute matrix sign via Newton-Schulz with Polar-Express coefficients.
+* **`compute_f_tensor(x, theta, lambda_value, msign_steps=8)`**: Compute f(λ) = ⟨Θ, msign(G + λΘ)⟩ for spectral ball constraint.
+* **`find_bracket(x, theta, initial_guess=0.0, initial_step=1e-3, max_expansions=10, msign_steps=8, tolerance_f=1e-8)`**: Find bracket for bisection solver.
+* **`solve_lambda_with_bisection(x, theta, initial_guess=0.0, initial_step=1e-3, tolerance_f=1e-6, max_iterations=20, max_expansions=10, msign_steps=8)`**: Solve for Lagrange multiplier λ using bisection.
+* **`compute_spectral_ball_update(weight, momentum, power_iteration_steps, msign_steps, solver_tolerance_f, solver_max_iterations)`**: Compute spectral ball constrained update direction.
+* **`matrix_power(matrix, power)`**: Compute matrix power using SVD (used by Shampoo).
+* **`update_inv_precond(gradient, precond, inv_precond)`**: Update Shampoo preconditioner and its inverse.
 * **`get_config()`**: Returns the optimizer configuration as a serializable dictionary.
 * **`set_weights(weights)`**: Set optimizer state from a list of weight arrays.
 
@@ -8720,7 +8730,7 @@ model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 
 **Overview**:
 
-The `SpectralSphere_e` optimizer is the enhanced version of SpectralSphere. It retains the core spectral sphere constraint on 2D weight matrices while integrating modern features from the BaseOptimizer framework, including adaptive gradient clipping (AGC), gradient orthogonalization, cautious updates, Lookahead, Positive-Negative Momentum (PNM), and layer-wise trust ratio adaptation. This combination provides spectral control together with improved gradient handling and stability for large-scale LLM training.
+The `SpectralSphere_e` optimizer is the enhanced version of SpectralSphere. It constrains 2D weight matrices to lie on a spectral sphere of fixed radius via retraction and matrix sign projection while integrating advanced features from the BaseOptimizer framework, including orthogonal gradients, adaptive gradient clipping (AGC), cautious updates, Lookahead, Positive-Negative Momentum (PNM), layer-wise trust ratio adaptation, and Shampoo preconditioning.
 
 **Parameters**:
 
@@ -8744,6 +8754,8 @@ The `SpectralSphere_e` optimizer is the enhanced version of SpectralSphere. It r
 * **`cautious`** *(bool, default=False)*: Enables cautious update masking.
 * **`trust_ratio`** *(bool, default=False)*: Enables layer-wise trust ratio adaptation.
 * **`trust_clip`** *(bool, default=False)*: Caps trust ratio at 1.0 when enabled.
+* **`shampoo`** *(bool, default=False)*: Enables Shampoo preconditioning.
+* **`update_freq`** *(int, default=1)*: Frequency for Shampoo preconditioner updates.
 * **`clipnorm`** *(float, optional)*: Clips gradients by norm.
 * **`clipvalue`** *(float, optional)*: Clips gradients by value.
 * **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
@@ -8768,8 +8780,8 @@ optimizer = SpectralSphere_e(
     weight_decouple=True,
     agc=True,
     cautious=True,
-    lookahead=False,
-    pnm=False
+    shampoo=False,
+    update_freq=1
 )
 
 # Compile a model
