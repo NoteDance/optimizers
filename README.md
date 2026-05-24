@@ -8790,3 +8790,109 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# ROSE
+
+**Overview**:
+
+The `ROSE` (Range-Of-Slice Equilibration) optimizer normalizes gradients using the range (maximum - minimum) across slices/channels rather than traditional norm-based scaling. This approach provides stable, adaptive step sizes per feature dimension and works particularly well for stabilizing training in deep networks. It supports gradient centralization and a stabilization mechanism based on coefficient-of-variation trust gating.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+* **`weight_decay`** *(float, default=1e-4)*: Coefficient for weight decay (L2 penalty).
+* **`wd_schedule`** *(bool or float, default=False)*: Controls weight decay scheduling. If `True`, uses `lr / max_lr`. If a float, uses that value as reference learning rate.
+* **`weight_decouple`** *(bool, default=False)*: Use decoupled weight decay (AdamW style).
+* **`fixed_decay`** *(bool, default=False)*: Use fixed weight decay (not scaled by learning rate).
+* **`centralize`** *(bool, default=True)*: Apply gradient centralization for tensors with ndim >= 2.
+* **`stabilize`** *(bool, default=True)*: Enable coefficient-of-variation trust gating for more stable range normalization.
+* **`maximize`** *(bool, default=False)*: If True, maximizes the objective instead of minimizing.
+* **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+* **`clipvalue`** *(float, optional)*: Clips gradients by value.
+* **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+* **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+* **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients.
+* **`name`** *(str, default="rose")*: Name of the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.rose import ROSE
+
+# Instantiate optimizer
+optimizer = ROSE(
+    learning_rate=1e-3,
+    weight_decay=1e-4,
+    centralize=True,
+    stabilize=True,
+    weight_decouple=False
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# ROSE_e
+
+**Overview**:
+
+The `ROSE_e` optimizer is the enhanced version of ROSE. It retains the core Range-Of-Slice Equilibration mechanism while adding support for multiple modern techniques including Adaptive Gradient Clipping (AGC), orthogonal gradients, cautious updates, trust ratio adaptation, and Lookahead. This makes it a highly versatile and stable optimizer suitable for a wide range of deep learning tasks.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+* **`weight_decay`** *(float, default=1e-4)*: Coefficient for weight decay (L2 penalty).
+* **`wd_schedule`** *(bool or float, default=False)*: Controls weight decay scheduling. If `True`, uses `lr / max_lr`. If a float, uses that value as reference learning rate.
+* **`weight_decouple`** *(bool, default=True)*: Use decoupled weight decay (AdamW style).
+* **`fixed_decay`** *(bool, default=False)*: Use fixed weight decay (not scaled by learning rate).
+* **`centralize`** *(bool, default=True)*: Apply gradient centralization for tensors with ndim >= 2.
+* **`stabilize`** *(bool, default=True)*: Enable coefficient-of-variation trust gating for more stable range normalization.
+* **`orthograd`** *(bool, default=False)*: Enable orthogonal gradient projection.
+* **`agc`** *(bool, default=False)*: Enable Adaptive Gradient Clipping.
+* **`cautious`** *(bool, default=False)*: Enable cautious update masking.
+* **`trust_ratio`** *(bool, default=False)*: Enable layer-wise trust ratio adaptation.
+* **`trust_clip`** *(bool, default=True)*: Clip trust ratio at 1.0 when enabled.
+* **`lookahead`** *(bool, default=False)*: Enable Lookahead optimization.
+* **`lookahead_merge_time`** *(int, default=5)*: Steps between Lookahead merges.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending factor for Lookahead merge.
+* **`maximize`** *(bool, default=False)*: If True, maximizes the objective instead of minimizing.
+* **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+* **`clipvalue`** *(float, optional)*: Clips gradients by value.
+* **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+* **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+* **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients.
+* **`name`** *(str, default="rose_e")*: Name of the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.rose import ROSE_e
+
+# Instantiate optimizer
+optimizer = ROSE_e(
+    learning_rate=1e-3,
+    weight_decay=1e-4,
+    centralize=True,
+    stabilize=True,
+    agc=True,
+    cautious=True,
+    lookahead=False
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
