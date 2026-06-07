@@ -8649,7 +8649,7 @@ The base optimizer supports several cutting-edge features that can be enabled in
 * **`apply_gradients(grads_and_vars, tape=None)`**: Apply gradients to variables. Accepts a list of (gradient, variable) pairs and an optional GradientTape for Hessian computation.
 * **`exclude_from_weight_decay(var_list, var_names)`**: Exclude specific variables or variables matching name patterns from weight decay.
 * **`finalize_variable_values(var_list)`**: Finalize variable values, such as applying EMA averages. Called automatically at the end of training.
-* **`agc(p, grad, agc_eps=1e-3, agc_clip_val=1e-2, eps=1e-6)`**: Apply Adaptive Gradient Clipping to prevent gradient explosion based on parameter-wise norms.
+* **`apply_agc(p, grad, agc_eps=1e-3, agc_clip_val=1e-2, eps=1e-6)`**: Apply Adaptive Gradient Clipping to prevent gradient explosion based on parameter-wise norms.
 * **`gc(grads, gradient, idx)`**: Apply gradient centralization (subtract mean and normalize).
 * **`apply_orthogonal_gradients(params, grads, eps=1e-16)`**: Project gradients to be orthogonal to parameters, preventing interference.
 * **`apply_weight_decay(variable, gradient, lr)`**: Apply weight decay with support for both coupled and decoupled variants.
@@ -8888,6 +8888,123 @@ optimizer = ROSE_e(
     agc=True,
     cautious=True,
     lookahead=False
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# DualAdam
+
+**Overview**:
+
+The `DualAdam` optimizer combines standard Adam updates with an "inverse Adam" mechanism (multiplying by the denominator instead of dividing). It linearly decays the contribution of the inverse update during early training and gradually transitions to pure Adam. This dual behavior helps improve generalization and training stability, especially in the early phases of optimization.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+* **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment (momentum).
+* **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment (uncentered variance).
+* **`switch_rate`** *(float, default=1e-2)*: Controls the linear decay of the inverse Adam contribution. `inverse_adam_rate = max(0, 1 - step * switch_rate)`.
+* **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay (L2 penalty).
+* **`weight_decouple`** *(bool, default=False)*: Enables decoupled weight decay (AdamW style).
+* **`fixed_decay`** *(bool, default=False)*: Uses fixed weight decay instead of scaling it by the learning rate.
+* **`eps`** *(float, default=1e-8)*: Small constant added to the denominator for numerical stability.
+* **`maximize`** *(bool, default=False)*: If True, maximizes the objective instead of minimizing.
+* **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+* **`clipvalue`** *(float, optional)*: Clips gradients by value.
+* **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+* **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+* **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients.
+* **`name`** *(str, default="dual_adam")*: Name of the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.dual_adam import DualAdam
+
+# Instantiate optimizer
+optimizer = DualAdam(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    switch_rate=1e-2,
+    weight_decay=1e-2,
+    weight_decouple=True
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# DualAdam_e
+
+**Overview**:
+
+The `DualAdam_e` optimizer is the enhanced version of DualAdam. It retains the core dual (Adam + inverse Adam) mechanism with a decaying inverse contribution while integrating many advanced techniques from the BaseOptimizer framework, including orthogonal gradients, Adaptive Gradient Clipping (AGC), cautious updates, Lookahead, Positive-Negative Momentum (PNM), layer-wise trust ratio, and subset normalization (SN).
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+* **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment (momentum).
+* **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment (uncentered variance).
+* **`switch_rate`** *(float, default=1e-2)*: Controls the linear decay of the inverse Adam contribution. `inverse_adam_rate = max(0, 1 - step * switch_rate)`.
+* **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay (L2 penalty).
+* **`weight_decouple`** *(bool, default=False)*: Enables decoupled weight decay (AdamW style).
+* **`fixed_decay`** *(bool, default=False)*: Uses fixed weight decay instead of scaling it by the learning rate.
+* **`eps`** *(float, default=1e-8)*: Small constant added to the denominator for numerical stability.
+* **`maximize`** *(bool, default=False)*: If True, maximizes the objective instead of minimizing.
+* **`orthograd`** *(bool, default=False)*: Enables orthogonal gradient projection.
+* **`agc`** *(bool, default=False)*: Enables Adaptive Gradient Clipping.
+* **`agc_eps`** *(float, default=1e-3)*: Minimum weight norm floor for AGC.
+* **`agc_clip_val`** *(float, default=1e-2)*: Clipping ratio for AGC.
+* **`cautious`** *(bool, default=False)*: Enables cautious update masking.
+* **`lookahead`** *(bool, default=False)*: Enables Lookahead optimization.
+* **`lookahead_merge_time`** *(int, default=5)*: Steps between Lookahead merges.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Blending factor for Lookahead merge.
+* **`pnm`** *(bool, default=False)*: Enables Positive-Negative Momentum (replaces standard first moment).
+* **`trust_ratio`** *(bool, default=False)*: Enables layer-wise trust ratio adaptation.
+* **`trust_clip`** *(bool, default=False)*: Clips trust ratio at 1.0 when enabled.
+* **`sn`** *(bool, default=False)*: Enables subset normalization for memory-efficient second moment computation.
+* **`subset_size`** *(int, default=-1)*: Target subset size for SN (negative value triggers automatic computation).
+* **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+* **`clipvalue`** *(float, optional)*: Clips gradients by value.
+* **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+* **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+* **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients.
+* **`name`** *(str, default="dual_adam_e")*: Name of the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.dual_adam import DualAdam_e
+
+# Instantiate optimizer
+optimizer = DualAdam_e(
+    learning_rate=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    switch_rate=1e-2,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    agc=True,
+    cautious=True,
+    lookahead=False,
+    pnm=False
 )
 
 # Compile a model
