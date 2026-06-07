@@ -11,7 +11,7 @@ from keras.src.utils import tracking
 from keras.src.utils.naming import auto_name
 
 import tensorflow as tf
-from optimizers.galore_projector import GaLoreProjector
+from Note.nn.optimizer.galore_projector import GaLoreProjector
 import math
 from typing import Optional, Tuple, Union
 
@@ -300,18 +300,13 @@ class BaseOptimizer(KerasSaveable):
                     self.exp_avg_sq.append(self.add_variable_from_reference(
                             reference_variable=second_moment_update, name="exp_avg_sq"
                         ))
-            else:
-                if hasattr(self, 'sophia') and self.sophia:
-                    self.hessian[self._get_variable_index(variable)] =  self.add_variable_from_reference(
-                                                                reference_variable=variable, name="hessian"
-                                                            )
-                    self.hessian_moment.append(self.add_variable_from_reference(
-                        reference_variable=variable, name="hessian_moment"
-                                            ))
-                else:
-                    self.exp_avg_sq.append(self.add_variable_from_reference(
-                        reference_variable=variable, name="exp_avg_sq"
-                    ))
+            elif hasattr(self, 'sophia') and self.sophia:
+                self.hessian[self._get_variable_index(variable)] =  self.add_variable_from_reference(
+                                                            reference_variable=variable, name="hessian"
+                                                        )
+                self.hessian_moment.append(self.add_variable_from_reference(
+                    reference_variable=variable, name="hessian_moment"
+                                        ))
             
             if hasattr(self, 'lookahead') and self.lookahead:
                 self.slow_momentum.append(tf.Variable(variable))
@@ -334,7 +329,7 @@ class BaseOptimizer(KerasSaveable):
                     )
                 )
             
-            if self.update_proj_gap is not None and len(variable.shape) == 2:
+            if hasattr(self, 'update_proj_gap') and self.update_proj_gap is not None and len(variable.shape) == 2:
                 self.projector.append(GaLoreProjector(
                     rank=self.rank,
                     update_proj_gap=self.update_proj_gap,
@@ -354,7 +349,7 @@ class BaseOptimizer(KerasSaveable):
                                     reference_variable=ortho_matrix[1], name="ortho_matrix"
                                                         )))
                 self.projector[-1].ortho_matrix = self.ortho_matrix[-1]
-            else:
+            elif hasattr(self, 'update_proj_gap'):
                 self.projector.append(None)
                 self.ortho_matrix.append(None)
                 
@@ -367,7 +362,7 @@ class BaseOptimizer(KerasSaveable):
                     self._track_variable(self.precond[-1]["precond_{}".format(dim_id)])
                     self.inv_precond[-1]["inv_precond_{}".format(dim_id)] =  tf.Variable(tf.zeros((dim, dim), dtype=variable.dtype))
                     self._track_variable(self.inv_precond[-1]["inv_precond_{}".format(dim_id)])
-                    
+        
         self._trainable_variables = variables[:]
         self.built = True
 
@@ -598,7 +593,7 @@ class BaseOptimizer(KerasSaveable):
         """
         variable.assign_sub(value)
     
-    def agc(
+    def apply_agc(
         self, p, grad, agc_eps = 1e-3, agc_clip_val = 1e-2, eps = 1e-6
     ):
         r"""Clip gradient values in excess of the unit wise norm."""
@@ -694,6 +689,10 @@ class BaseOptimizer(KerasSaveable):
         reshaped_grad = tf.reshape(gradient, (size // self.subset_size_[idx], self.subset_size_[idx]))
         second_moment_update = tf.reduce_sum(reshaped_grad ** 2, axis=1, keepdims=True)
         return second_moment_update
+
+    def get_reshaped_exg_avg(self, exp_avg, gradient, idx):
+        size = tf.size(gradient)
+        return tf.reshape(exp_avg, (size // self.subset_size_[idx], self.subset_size_[idx]))
     
     def compute_hutchinson_hessian(
         self,
@@ -1009,7 +1008,7 @@ class BaseOptimizer(KerasSaveable):
         def false_fn():
             pass
         tf.cond(self.iterations % self.update_freq == 0, true_fn, false_fn)
-    
+
     def update_step(self, gradient, variable, learning_rate):
         raise NotImplementedError
 

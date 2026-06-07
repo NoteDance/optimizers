@@ -1,7 +1,7 @@
 import tensorflow as tf
 from typing import Union
 
-from optimizers import optimizer
+from Note.nn.optimizer import optimizer
 
 
 class ROSE(optimizer.Optimizer):
@@ -211,7 +211,7 @@ class ROSE_e(optimizer.Optimizer):
             self.apply_orthogonal_gradients([variable], [grad])
 
         if self.agc:
-            grad = self.agc(variable, grad)
+            grad = self.apply_agc(variable, grad)
 
         grad = self.apply_weight_decay(variable, grad, lr)
 

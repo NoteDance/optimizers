@@ -1,5 +1,5 @@
 import tensorflow as tf
-from optimizers import optimizer
+from Note.nn.optimizer import optimizer
 from typing import Optional, Tuple, Union
 
 
@@ -276,7 +276,7 @@ class SpectralSphere(optimizer.Optimizer):
             gradient = -gradient
 
         lr = tf.cast(learning_rate, variable.dtype)
-        
+
         gradient = self.apply_weight_decay(variable, gradient, lr)
 
         idx = self._get_variable_index(variable)
@@ -492,7 +492,7 @@ class SpectralSphere_e(optimizer.Optimizer):
             step = tf.cast(self.iterations + 1, p.dtype)
 
             if self.agc:
-                grads[self._get_variable_index(p)] = self.agc(p, grad)
+                grads[self._get_variable_index(p)] = self.apply_agc(p, grad)
                 grad = grads[self._get_variable_index(p)]
 
             grad = self.apply_weight_decay(p, grad, lr)
