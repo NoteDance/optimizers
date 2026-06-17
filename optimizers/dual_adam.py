@@ -1,5 +1,5 @@
 import tensorflow as tf
-from Note.nn.optimizer import optimizer
+from optimizers import optimizer
 
 
 class DualAdam(optimizer.Optimizer):
