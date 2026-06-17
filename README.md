@@ -9013,3 +9013,50 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# FlashAdamW
+
+**Overview**:
+
+The `FlashAdamW` optimizer is a memory-efficient variant of AdamW designed for large-scale deep learning models. It significantly reduces memory usage by storing optimizer states (the first and second moments) as compressed, grouped 8-bit values paired with float16 scale factors. Additionally, it supports full-precision parameter preservation when training with low-precision (float16/bfloat16) weights by using Error-Correcting Code (ECC) bits to form an effective 24-bit or 32-bit master weight without storing an isolated, raw float32 copy.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+* **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates.
+* **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+* **`eps`** *(float, default=1e-8)*: Small constant for numerical stability.
+* **`weight_decay`** *(float, default=1e-2)*: Decoupled weight-decay coefficient.
+* **`quantize`** *(bool, default=True)*: If enabled, compresses and stores the Adam moments as block-wise 8-bit tensors (signed int8 for `exp_avg`, unsigned uint8 for `exp_avg_sq`) alongside float16 scale factors to minimize memory footprints.
+* **`master_weight_bits`** *(int, optional, default=None)*: Effective master-weight precision for low-precision (`tf.float16` / `tf.bfloat16`) parameters. Supported choices are `None` (disabled), `24` (uses 8-bit ECC to match ~24-bit precision), and `32` (uses 16-bit ECC to match ~32-bit precision).
+* **`maximize`** *(bool, default=False)*: Maximizes the optimization objective instead of minimizing it.
+* **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+* **`clipvalue`** *(float, optional)*: Clips gradients by value.
+* **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+* **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+* **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients.
+* **`name`** *(str, default="FlashAdamW")*: Name of the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.flash_adamw import FlashAdamW
+
+# Instantiate optimizer with compressed states and enhanced master weights
+optimizer = FlashAdamW(
+    learning_rate=1e-3,
+    weight_decay=1e-2,
+    quantize=True,
+    master_weight_bits=24
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
