@@ -9060,3 +9060,67 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
 ```
+
+# FlashAdamW_e
+
+**Overview**:
+
+The `FlashAdamW_e` optimizer is an enhanced, highly feature-rich variant of FlashAdamW designed for large-scale and high-performance deep learning. It optimizes memory utilization by compressing Adam moments into block-wise 8-bit quantized representations alongside float16 scale factors. Beyond memory optimization via quantization and full-precision preservation using Error-Correcting Code (ECC) bits for low-precision parameters, it integrates an extensive suite of advanced optimization techniques. These include Positive-Negative Momentum (PNM), Cautious-Adam updates, Adaptive Gradient Clipping (AGC), Gradient Centralization (GC), LARS-style trust ratios, and Lookahead slow-weight interpolation.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+* **`beta1`** *(float, default=0.9)*: Exponential decay rate for the first moment estimates (bypassed if `pnm=True`).
+* **`beta2`** *(float, default=0.999)*: Exponential decay rate for the second moment estimates.
+* **`eps`** *(float, default=1e-8)*: Small constant for numerical stability.
+* **`weight_decay`** *(float, default=1e-2)*: Coefficient for weight decay.
+* **`weight_decouple`** *(bool, default=True)*: If enabled, applies weight decay multiplicatively directly to the full-precision master weights (AdamW-style) rather than additively into the gradients.
+* **`fixed_decay`** *(bool, default=False)*: When `weight_decouple=True`, applies the weight decay penalty without scaling it by the learning rate.
+* **`quantize`** *(bool, default=True)*: Compresses and stores the optimizer moments as block-wise 8-bit tensors (signed int8 for `exp_avg`, unsigned uint8 for `exp_avg_sq`) with float16 scales to drastically reduce memory usage.
+* **`compress_state_dict`** *(bool, default=True)*: Saves raw int8/uint8 and float16 scale tensors in checkpoints. Set to `False` to export uncompressed, portable float32 checkpoints.
+* **`master_weight_bits`** *(int, optional, default=None)*: Effective master-weight precision for low-precision (`tf.float16` / `tf.bfloat16`) parameters. Supported options are `None` (disabled), `24` (8-bit ECC correction), and `32` (16-bit ECC correction).
+* **`maximize`** *(bool, default=False)*: Maximizes the optimization objective instead of minimizing it.
+* **`orthograd`** *(bool, default=False)*: Orthogonalizes gradients with respect to their weights prior to the optimizer update step.
+* **`agc`** *(bool, default=False)*: Enables unit-wise Adaptive Gradient Clipping.
+* **`agc_clip_val`** *(float, default=1e-2)*: The maximum clipping ratio allowed when `agc=True`.
+* **`agc_eps`** *(float, default=1e-3)*: Minimum weight norm epsilon to prevent zero division in AGC.
+* **`use_gc`** *(bool, default=False)*: Enables Gradient Centralization by subtracting the per-filter mean from the gradients before updating.
+* **`pnm`** *(bool, default=False)*: Replaces the standard first-moment EMA with Positive-Negative Momentum, skipping the quantized `exp_avg` buffers entirely.
+* **`cautious`** *(bool, default=False)*: Enables Cautious-Adam updates, masking out momentum directions that do not structurally agree with the current gradient.
+* **`trust_ratio`** *(bool, default=False)*: Scales updates using a layer-wise norm ratio of weights to updates (LARS-style).
+* **`trust_clip`** *(bool, default=False)*: Caps the maximum computed trust ratio at 1.0.
+* **`lookahead`** *(bool, default=False)*: Incorporates the Lookahead mechanism to maintain a set of "slow weights" interpolated with fast tracking weights.
+* **`lookahead_merge_time`** *(int, default=5)*: Sync frequency (in steps) for the Lookahead mechanism.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Lookahead blend or slow-weight step size factor.
+* **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+* **`clipvalue`** *(float, optional)*: Clips gradients by value.
+* **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+* **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+* **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients.
+* **`name`** *(str, default="FlashAdamW_e")*: Name of the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.flash_adamw_e import FlashAdamW_e
+
+# Instantiate the comprehensive, memory-compressed optimizer
+optimizer = FlashAdamW_e(
+    learning_rate=1e-3,
+    weight_decay=1e-2,
+    quantize=True,
+    master_weight_bits=24,
+    use_gc=True,
+    cautious=True
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
