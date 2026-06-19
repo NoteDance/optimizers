@@ -8605,74 +8605,233 @@ model.compile(
 model.fit(train_dataset, epochs=10)
 ```
 
-# Optimizer
+# BaseOptimizer
 
-**Overview**:
+`BaseOptimizer` is an abstract base class for optimizers (inheriting from `KerasSaveable`). On top of the capabilities provided by the standard Keras `Optimizer` base class (variable tracking, gradient clipping, EMA, gradient accumulation, serialization, etc.), it extends a comprehensive set of advanced techniques commonly used in modern optimizer research — including Sophia, Lookahead, D-Adapt, PNM, GaLore, Shampoo, Orthogonal Gradients (OrthoGrad), AGC, Gradient Centralization, LARS/Trust Ratio, Cautious updates, Newton-Schulz orthogonalization, Spectral-Ball constraints, Subset-Norm, and state quantization / Error Correction Code (ECC) mechanisms for 8-bit quantized optimizers (such as `FlashAdamW`).
 
-The `Optimizer` class is the most comprehensive and advanced base class for all Keras optimizers, providing a state-of-the-art framework for implementing cutting-edge gradient-based optimization algorithms. It supports an extensive array of advanced features including exponential moving average (EMA), gradient accumulation, multiple gradient clipping strategies, weight decay, adaptive learning rates (D-Adapt), orthogonal gradients, positive-negative momentum (PNM), Sophia-style Hessian estimation, lookahead optimization, subset normalization for memory-efficient training, GaLore (Gradient Low-Rank Projection) for memory-efficient training of large models, Shampoo preconditioning, and Newton-Schulz iterations for matrix preconditioning.
+---
 
-**Parameters**:
+**1. Design Philosophy**
 
-* **`learning_rate`** *(float or LearningRateSchedule)*: The step size for parameter updates. Can be a constant float value, a `LearningRateSchedule` instance, or a callable that returns the learning rate based on the current iteration.
-* **`weight_decay`** *(float, optional)*: Coefficient for weight decay regularization. If set, applies weight decay to model parameters.
-* **`clipnorm`** *(float, optional)*: If set, gradients are individually clipped so that their norm does not exceed this value.
-* **`clipvalue`** *(float, optional)*: If set, gradients are clipped by value to be no higher than this threshold.
-* **`global_clipnorm`** *(float, optional)*: If set, the global norm of all gradients is clipped to not exceed this value.
-* **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights. When enabled, maintains a moving average of model weights for improved inference performance.
-* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA computation. Only used when `use_ema=True`. Must be in the range [0, 1].
-* **`ema_overwrite_frequency`** *(int, optional)*: Frequency (in steps) for overwriting model variables with their moving average. Only used when `use_ema=True`. If `None`, variables are updated at the end of training.
-* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation. Useful for preventing underflow in mixed precision training.
-* **`gradient_accumulation_steps`** *(int, optional)*: Number of steps to accumulate gradients before updating variables. Must be >= 2 if specified. Useful for simulating larger batch sizes with limited memory.
-* **`name`** *(str, optional)*: Name of the optimizer instance. If not provided, auto-generates a name based on the class name.
+`BaseOptimizer` uses a **"capability flags + centralized `build`"** design pattern:
 
-**Advanced Optimizer Features**:
+- Subclasses declare which techniques they enable by setting attributes in `__init__`, such as `self.sophia = True`, `self.lookahead = True`, `self.pnm = True`, `self.shampoo = True`, `self.DAdapt = True`, `self.sn = True` (subset-norm), `self.update_proj_gap = N` (GaLore), etc.
+- The `build()` method detects these flags via `hasattr(self, 'xxx') and self.xxx` and creates the corresponding optimizer state variables (momentum, second-order moments, projection matrices, preconditioners, etc.) as needed.
+- As a result, the same `build()` implementation can serve a wide variety of optimizer subclasses. Subclasses do not need to override `build()`; they only need to declare the flag attributes and implement `update_step()`.
 
-The base optimizer supports several cutting-edge features that can be enabled in derived classes:
+This pattern provides high reuse of state-creation logic. The trade-off is that subclasses must know the exact attribute names (spelling and type) expected by the base class.
 
-* **`sn`** *(bool)*: Enables subset normalization for memory-efficient second moment estimation in high-dimensional parameters.
-* **`sophia`** *(bool)*: Enables Sophia-style Hessian estimation using Hutchinson's trace estimator for improved convergence on language modeling tasks.
-* **`lookahead`** *(bool)*: Enables lookahead optimization, maintaining slow-moving weights that provide training stability.
-* **`DAdapt`** *(bool)*: Enables D-Adapt adaptive learning rate scheduling for automatic learning rate adjustment without hyperparameter tuning.
-* **`pnm`** *(bool)*: Enables Positive-Negative Momentum for improved optimization dynamics with alternating momentum buffers.
-* **`orthograd`** *(bool)*: Enables orthogonal gradient projection to maintain gradient orthogonality to parameters.
-* **`update_proj_gap`** *(int, optional)*: Frequency for updating GaLore projection matrices. When set, enables gradient low-rank projection for memory-efficient training of large models.
-* **`rank`** *(int)*: Rank for GaLore low-rank projection. Lower ranks save more memory at potential accuracy cost.
-* **`scale`** *(float)*: Scaling factor for GaLore projection.
-* **`projection_type`** *(str)*: Type of projection for GaLore ('left', 'right', 'full', 'std'). Different types offer trade-offs between memory efficiency and approximation quality.
-* **`shampoo`** *(bool)*: Enables Shampoo preconditioning using matrix power inversion via Newton-Schulz iterations.
-* **`update_freq`** *(int, optional)*: Frequency for updating Shampoo preconditioners.
+---
 
-**Key Methods**:
+**2. Constructor `__init__`**
 
-* **`build(var_list)`**: Initialize optimizer variables for the given list of trainable variables. Automatically sets up state variables for all enabled features (momentum, variance, Hessian, GaLore projectors, Shampoo preconditioners, etc.).
-* **`update_step(gradient, variable, learning_rate)`**: Implement the core update logic for a single variable. Must be overridden in subclasses.
-* **`apply_gradients(grads_and_vars, tape=None)`**: Apply gradients to variables. Accepts a list of (gradient, variable) pairs and an optional GradientTape for Hessian computation.
-* **`exclude_from_weight_decay(var_list, var_names)`**: Exclude specific variables or variables matching name patterns from weight decay.
-* **`finalize_variable_values(var_list)`**: Finalize variable values, such as applying EMA averages. Called automatically at the end of training.
-* **`apply_agc(p, grad, agc_eps=1e-3, agc_clip_val=1e-2, eps=1e-6)`**: Apply Adaptive Gradient Clipping to prevent gradient explosion based on parameter-wise norms.
-* **`gc(grads, gradient, idx)`**: Apply gradient centralization (subtract mean and normalize).
-* **`apply_orthogonal_gradients(params, grads, eps=1e-16)`**: Project gradients to be orthogonal to parameters, preventing interference.
-* **`apply_weight_decay(variable, gradient, lr)`**: Apply weight decay with support for both coupled and decoupled variants.
-* **`accumulate_numerator(s, gradient, de_nom, d_lr, idx)`**: Accumulate numerator for D-Adapt learning rate adjustment.
-* **`closest_smaller_divisor_of_n_to_k(n, k)`**: Find the closest divisor of n that is smaller than or equal to k. Used for subset normalization.
-* **`get_second_moment_update(gradient, idx)`**: Compute second moment update with subset normalization if enabled.
-* **`compute_hutchinson_hessian(grads, num_samples=1, alpha=1.0, distribution='gaussian')`**: Compute Hessian approximation using Hutchinson's trace estimator.
-* **`update_hessian_moment(hessian_moment, step, idx)`**: Update exponential moving average of Hessian estimates.
-* **`zero_power_via_newton_schulz_5(G, steps)`**: Compute the zero power of a matrix using 5th-order Newton-Schulz iteration. Used for efficient preconditioning (e.g., Shampoo).
-* **`lookahead_merge(variable, step)`**: Merge fast and slow weights in lookahead optimization at specified intervals.
-* **`apply_trust_ratio(variable, update)`**: Apply trust ratio scaling (as in LARS/LAMB optimizers) to scale updates based on parameter magnitudes.
-* **`apply_cautious(update, gradient)`**: Apply cautious update masking to filter out conflicting updates.
-* **`apply_pnm(gradient, step, idx)`**: Apply Positive-Negative Momentum update rule with alternating buffers.
-* **`power_iteration(w, steps=50)`**: Compute leading singular triplet via bilateral power iteration.
-* **`msign(x, steps)`**: Compute matrix sign via Newton-Schulz with Polar-Express coefficients.
-* **`compute_f_tensor(x, theta, lambda_value, msign_steps=8)`**: Compute f(λ) = ⟨Θ, msign(G + λΘ)⟩ for spectral ball constraint.
-* **`find_bracket(x, theta, initial_guess=0.0, initial_step=1e-3, max_expansions=10, msign_steps=8, tolerance_f=1e-8)`**: Find bracket for bisection solver.
-* **`solve_lambda_with_bisection(x, theta, initial_guess=0.0, initial_step=1e-3, tolerance_f=1e-6, max_iterations=20, max_expansions=10, msign_steps=8)`**: Solve for Lagrange multiplier λ using bisection.
-* **`compute_spectral_ball_update(weight, momentum, power_iteration_steps, msign_steps, solver_tolerance_f, solver_max_iterations)`**: Compute spectral ball constrained update direction.
-* **`matrix_power(matrix, power)`**: Compute matrix power using SVD (used by Shampoo).
-* **`update_inv_precond(gradient, precond, inv_precond)`**: Update Shampoo preconditioner and its inverse.
-* **`get_config()`**: Returns the optimizer configuration as a serializable dictionary.
-* **`set_weights(weights)`**: Set optimizer state from a list of weight arrays.
+```python
+BaseOptimizer(
+    learning_rate,
+    weight_decay=None,
+    clipnorm=None,
+    clipvalue=None,
+    global_clipnorm=None,
+    use_ema=False,
+    ema_momentum=0.99,
+    ema_overwrite_frequency=None,
+    loss_scale_factor=None,
+    gradient_accumulation_steps=None,
+    name=None,
+    **kwargs,
+)
+```
+
+| Parameter | Description |
+|-----------|-------------|
+| `learning_rate` | `float`, `LearningRateSchedule`, or callable (receives current step and returns learning rate). |
+| `weight_decay` | Weight decay coefficient. Whether it is L2 regularization or decoupled depends on whether the subclass sets `self.weight_decouple` (see `apply_weight_decay`). |
+| `clipnorm` / `clipvalue` / `global_clipnorm` | Mutually exclusive; setting more than one raises `ValueError`. |
+| `use_ema` / `ema_momentum` / `ema_overwrite_frequency` | Exponential Moving Average (EMA) configuration for model weights. `ema_momentum` must be in `[0, 1]`. |
+| `loss_scale_factor` | Loss scaling factor for mixed-precision training to prevent underflow. |
+| `gradient_accumulation_steps` | If set (must be ≥ 2), parameters are updated only every N steps; gradients are accumulated and averaged in between. |
+| `name` | Optimizer name; auto-generated by default. |
+| `**kwargs` | Only accepts the deprecated `decay` (issues a warning and ignores it). Other unknown keyword arguments raise `ValueError`. |
+
+The constructor creates and tracks two core variables: `self._iterations` (integer counter) and `self._learning_rate` (wrapped as a `backend.Variable` if the input is a plain float; otherwise the schedule/callable is stored directly).
+
+---
+
+**3. State Construction: `build(variables)`**
+
+`build()` is decorated with `@tracking.no_automatic_dependency_tracking` and is called the first time the optimizer receives a list of trainable variables (usually during the first `apply()`). It creates states on demand based on the capability flags declared by the subclass:
+
+| Flag Attribute | Created State | Purpose |
+|----------------|---------------|---------|
+| `self.sn` (subset-norm) | `self.subset_size_` (group size per variable, computed via `closest_smaller_divisor_of_n_to_k`) | Flatten parameters and maintain second-order moments per subset to reduce memory usage |
+| `self.sophia` | `self.hessian`, `self.hessian_moment` | Hessian diagonal estimate (possibly subsetted) and its EMA for Sophia |
+| `self.lookahead` | `self.slow_momentum` | "Slow weights" copy for Lookahead |
+| `self.DAdapt` | `self.s`, `self.sk_l1`, `self.numerator_acc`, `self.numerator_weighted`, `self.d0_` | Accumulated quantities for D-Adapt adaptive step-size estimation |
+| `self.pnm` | `self.pos_momentum`, `self.neg_momentum` | Positive-Negative Momentum |
+| `self.update_proj_gap` (GaLore) | `self.projector`, `self.ortho_matrix` | For 2D variables only: constructs `GaLoreProjector`, projects to low-rank subspace and stores orthogonal basis |
+| `self.shampoo` | `self.precond[i]["precond_d"]`, `self.inv_precond[i]["inv_precond_d"]` (per-tensor-dimension) | Shampoo per-dimension preconditioners and inverse roots |
+| `self.use_ema` | `self._model_variables_moving_average` | EMA shadow weights |
+| `self.gradient_accumulation_steps` | `self._accumulated_gradients` | Gradient accumulation buffers |
+
+Additionally, `build()` creates `self._trainable_variables_indices` (variable id → index mapping) for fast lookup via `self._get_variable_index(variable)`. It stores the input `variables` as `self._trainable_variables` and sets `self.built = True`.
+
+> **Note**: When both `sn` and `sophia` are enabled, second moments / Hessians are created in subset-grouped form. If only `sn` is enabled, a subsetted `exp_avg_sq` is created. If `sophia` is enabled without `sn`, Hessians use the original variable shapes.
+
+---
+
+**4. Variable Management Infrastructure**
+
+- **`_var_key(variable)`**: Uses `id(variable)` as a stable identifier.
+- **`variables` (property)**: Returns a shallow copy list of all tracked optimizer variables.
+- **`_get_variable_index(variable)`**: Fast lookup using the index map; used by nearly all per-variable state access.
+- **`add_variable(...)`**: Creates and tracks a new `backend.Variable`.
+- **`add_variable_from_reference(...)`**: Creates a state variable aligned in shape/dtype with a reference model variable.
+- **`add_optimizer_variables(...)`**: Batch creation of one or more state variables for a group of variables.
+- **`_check_variables_are_known(...)`**: Validates that variables are known from `build()`.
+- **`assign` / `assign_add` / `assign_sub`**: Thin wrappers around variable assignment for backend customization.
+
+---
+
+**5. Optimizer Technique Modules**
+
+The following methods each implement an independent technique and can be composed in a subclass's `update_step`.
+
+**5.1 Adaptive Gradient Clipping (AGC)**
+
+`apply_agc(self, p, grad, agc_eps=1e-3, agc_clip_val=1e-2, eps=1e-6)`
+
+Computes per-unit norm of the parameter and scales the gradient if it exceeds `max_norm = max(unit_norm(p), agc_eps) * agc_clip_val`.
+
+**5.2 Gradient Centralization**
+
+`gradient_centralize(self, g)`
+
+For gradients with dimension > 1, subtracts the mean along all axes except the first.
+
+**5.3 Orthogonal Gradients (OrthoGrad)**
+
+`apply_orthogonal_gradients(self, params, grads, eps=1e-16)`
+
+Projects each gradient onto the direction orthogonal to its parameter, then rescales to preserve the original gradient norm. Triggered automatically by the `self.orthograd` flag in `_backend_update_step`.
+
+**5.4 Weight Decay**
+
+`apply_weight_decay(self, variable, gradient, lr, ratio=None)`
+
+- If `self.weight_decouple` is True: decoupled weight decay (directly scales the parameter).
+- Otherwise: traditional L2 regularization (adds to the gradient).
+
+**5.5 D-Adapt Adaptive Step Size**
+
+`accumulate_numerator(self, s, gradient, de_nom, d_lr, idx)`
+
+Accumulates the numerator term required by D-Adapt (supports subset-norm reshaping).
+
+**5.6 Subset-Norm Utilities**
+
+- `closest_smaller_divisor_of_n_to_k(...)`: Finds the largest divisor of `n` that is ≤ `k`.
+- `get_second_moment_update(...)`, `get_reshaped_exg_avg(...)`: Helper functions for working with subset-grouped statistics.
+
+**5.7 Sophia (Hutchinson-based second-order optimizer)**
+
+`compute_hutchinson_hessian(...)` — Uses random vectors and Hessian-vector products to estimate the diagonal of the Hessian.
+
+`update_hessian_moment(...)` — EMA update of the Hessian estimate, performed periodically.
+
+**5.8 Lookahead**
+
+`lookahead_merge(self, variable, step)` — Periodically blends fast weights into slow weights.
+
+**5.9 Trust Ratio / LARS**
+
+`apply_trust_ratio(self, variable, update)` — Scales the update by the ratio of parameter norm to update norm.
+
+**5.10 Cautious Update**
+
+`apply_cautious(self, update, gradient)` — Keeps only update components that have the same sign as the gradient and renormalizes.
+
+**5.11 Positive-Negative Momentum (PNM)**
+
+`apply_pnm(self, gradient, step, idx)` — Alternates between positive and negative momentum buffers.
+
+**5.12 Newton-Schulz Orthogonalization & Matrix Sign Function**
+
+- `zero_power_via_newton_schulz_5(...)` — Quintic Newton-Schulz iteration for matrix orthogonalization (used in Muon-style optimizers).
+- `power_iteration(...)` — Power iteration for dominant singular vectors.
+- `msign(...)` — Higher-order Newton-Schulz for matrix sign function.
+
+**5.13 Spectral-Ball Constraint**
+
+A set of methods (`compute_f_tensor`, `find_bracket`, `solve_lambda_with_bisection`, `compute_spectral_ball_update`, etc.) that solve for a constrained update direction lying inside the spectral norm ball using bisection and matrix sign function.
+
+**5.14 Shampoo Preconditioning**
+
+- `matrix_power(...)` — Computes matrix powers via SVD (on CPU).
+- `update_inv_precond(...)` — Accumulates `grad @ grad.T` and periodically refreshes the inverse root preconditioner.
+
+---
+
+**6. 8-bit Quantized States & Error Correction (ECC)**
+
+Infrastructure for memory-efficient 8-bit optimizers.
+
+**6.1 Quantization / Dequantization**
+
+`quantize_state(...)`, `dequantize_state(...)` — Group-wise (default group_size=32) 8-bit quantization with optional square-root transform and softsign scaling.
+
+**6.2 State Access**
+
+`materialize(...)`, `store(...)` — Transparent read/write that handles quantization when enabled.
+
+**6.3 Master Weight ECC Reconstruction**
+
+`compute_ecc_bits(...)`, `get_param_fp32(...)`, `set_param_fp32(...)`, `reconstruct_fp32_param(...)` — Store narrow-precision parameters + small integer error codes to reconstruct near-full-precision master weights, mitigating long-term quantization drift.
+
+---
+
+**7. Main Update Flow**
+
+**7.1 `update_step` (Abstract)**
+
+Must be implemented by subclasses. Note: receives **lists** of gradients and variables (key difference from standard Keras optimizer API).
+
+**7.2 `apply_gradients` / `apply`**
+
+High-level entry points that handle tape saving (for Sophia), gradient filtering, loss scaling, etc., before calling the backend logic.
+
+**7.3 `_backend_apply_gradients`**
+
+Handles gradient accumulation (if enabled), clipping, weight decay, then calls `_backend_update_step`.
+
+**7.4 `_backend_update_step`**
+
+Performs pre-processing (Hessian update for Sophia, OrthoGrad projection) then calls the subclass `update_step`.
+
+---
+
+**8. Gradient Clipping**
+
+`_clip_gradients(...)` supports `clipnorm`, `global_clipnorm`, and `clipvalue` with careful NaN-safe implementations.
+
+---
+
+**9. Module-Level Helper Functions**
+
+- `unit_norm(...)`, `global_norm(...)`, `clip_by_global_norm(...)`
+- Quantization utilities, ULP scale, ECC reconstruction, etc.
+
+---
+
+**10. Subclass Implementation Checklist**
+
+When implementing a new subclass:
+
+1. Call `super().__init__()` and declare all required capability flags + hyperparameters.
+2. (For 8-bit) Configure quantization and ECC structures.
+3. Implement `update_step(self, gradient, variable, learning_rate)`.
+4. Override `get_config()` as needed for serialization.
+
+This completes the English translation of the `BaseOptimizer` documentation.
 
 # SpectralSphere
 
@@ -9084,7 +9243,7 @@ The `FlashAdamW_e` optimizer is an enhanced, highly feature-rich variant of Flas
 * **`agc`** *(bool, default=False)*: Enables unit-wise Adaptive Gradient Clipping.
 * **`agc_clip_val`** *(float, default=1e-2)*: The maximum clipping ratio allowed when `agc=True`.
 * **`agc_eps`** *(float, default=1e-3)*: Minimum weight norm epsilon to prevent zero division in AGC.
-* **`use_gc`** *(bool, default=False)*: Enables Gradient Centralization by subtracting the per-filter mean from the gradients before updating.
+* **`gc`** *(bool, default=False)*: Enables Gradient Centralization by subtracting the per-filter mean from the gradients before updating.
 * **`pnm`** *(bool, default=False)*: Replaces the standard first-moment EMA with Positive-Negative Momentum, skipping the quantized `exp_avg` buffers entirely.
 * **`cautious`** *(bool, default=False)*: Enables Cautious-Adam updates, masking out momentum directions that do not structurally agree with the current gradient.
 * **`trust_ratio`** *(bool, default=False)*: Scales updates using a layer-wise norm ratio of weights to updates (LARS-style).
@@ -9114,7 +9273,7 @@ optimizer = FlashAdamW_e(
     weight_decay=1e-2,
     quantize=True,
     master_weight_bits=24,
-    use_gc=True,
+    gc=True,
     cautious=True
 )
 
@@ -9123,4 +9282,134 @@ model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metri
 
 # Train the model
 model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+```
+
+# LoRARite
+
+**Overview**:
+
+The `LoRARite` optimizer implements Robust Invariant Transformation Equilibration specifically tailored for Low-Rank Adaptation (LoRA) parameter optimization. It expects alternating pairs of LoRA matrices ($A$ and $B$) and dynamically projects and tracks optimizer statistics within an evolving QR decomposition basis. This design helps maintain rotational and transformation invariance, offering features like RITE escape correction for stabilizing non-magnified covariance matrices, balancing mechanisms to combat scaling imbalances between paired factors, and outlier update rejection/capping routines to maintain optimization robustness during low-rank fine-tuning workflows.
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+* **`beta1`** *(float, default=0.9)*: Exponential moving average decay rate for the first-moment (rotated-basis) estimates.
+* **`beta2`** *(float, default=0.999)*: Exponential moving average decay rate for the second-moment and escape factor tracking.
+* **`eps`** *(float, default=1e-6)*: Stability constant added after the matrix square root computation to avoid division by zero.
+* **`relative_epsilon`** *(bool, default=False)*: When enabled, scales the inner `eps_root` floor dynamically by the largest eigenvalue of the second-moment matrix instead of using an absolute static baseline.
+* **`clip_unmagnified_grad`** *(float, default=1.0)*: Global gradient norm clipping threshold across all parameter pairs computed via unmagnified gradients. A value of `0.0` disables clipping.
+* **`update_capping`** *(float, default=0.0)*: Per-update root-mean-square (RMS) cap applied to the tracking first moment after preconditioning. A value of `0.0` disables capping.
+* **`update_skipping`** *(float, default=1.0)*: Outlier update rejection threshold. Zeroes out unmagnified updates entirely if their calculated RMS exceeds this value. A value of `0.0` disables skipping.
+* **`weight_decay`** *(float, default=0.0)*: Coefficient for coupled weight decay, applied directly to the unmagnified rotated updates before applying the learning rate.
+* **`apply_escape`** *(bool, default=False)*: Controls whether to apply the RITE escape correction term to counter the eigenvalue drop caused by rotating covariance metrics into a new basis.
+* **`lora_l_dim`** *(int, default=0)*: Matrix dimension/axis representing the inner LoRA intrinsic rank within the left side factor ($A$).
+* **`lora_r_dim`** *(int, default=-1)*: Matrix dimension/axis representing the inner LoRA intrinsic rank within the right side factor ($B$).
+* **`maybe_inf_to_nan`** *(bool, default=True)*: If enabled, transforms infinity entries into NaNs prior to calculating RMS checks, forcing clipping or skipping algorithms to flag them instead of bypassing as large finite elements.
+* **`balance_param`** *(bool, default=False)*: Enables a balancing routine that rescales paired tracking matrices geometrically post-update to ensure the norm of $A$ equals the norm of $B$, stabilizing the inner product formulation.
+* **`maximize`** *(bool, default=False)*: Maximizes the optimization objective instead of minimizing it.
+* **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+* **`clipvalue`** *(float, optional)*: Clips gradients by value.
+* **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+* **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+* **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients.
+* **`name`** *(str, default="LoRARite")*: Name of the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.lora_rite import LoRARite
+
+# Ensure trainable variables alternate strictly: [lora_a_1, lora_b_1, lora_a_2, lora_b_2...]
+lora_variables = [model.lora_a_1, model.lora_b_1, model.lora_a_2, model.lora_b_2]
+
+# Instantiate optimizer
+optimizer = LoRARite(
+    learning_rate=1e-3,
+    weight_decay=1e-4,
+    apply_escape=True,
+    balance_param=True
+)
+
+# Compile a model
+model.compile(optimizer=optimizer, loss="categorical_crossentropy", metrics=["accuracy"])
+# Train the model using structured variable tracking workflows
+# Alternately, run tape.gradient updates ensuring variables are passed in pairs
+```
+
+# LoRARite_e
+
+**Overview**:
+
+The `LoRARite_e` optimizer is an enhanced version of the `LoRARite` optimizer, integrating a comprehensive set of advanced training techniques from the `BaseOptimizer` pipeline. Designed specifically for pairs of Low-Rank Adaptation (LoRA) factors, it layers architectural robustness enhancements directly on top of the original QR-decomposition invariant transformation equilibration. These features include raw gradient preprocessing (Gradient Centralization, Adaptive Gradient Clipping, and Orthogonalization), directional tracking masks (Cautious updates), parameter-space momentum (Positive-Negative Momentum), layer-wise learning rate adjustments (LARS-style Trust Ratios), independent weight decay decoupling, and multi-step param integration loops (Lookahead optimization).
+
+**Parameters**:
+
+* **`learning_rate`** *(float, default=1e-3)*: The step size for parameter updates.
+* **`beta1`** *(float, default=0.9)*: Exponential moving average decay rate for the first-moment (rotated-basis) estimates.
+* **`beta2`** *(float, default=0.999)*: Exponential moving average decay rate for the second-moment and escape factor tracking.
+* **`eps`** *(float, default=1e-6)*: Small stability constant added after the matrix square root computation to avoid division by zero.
+* **`relative_epsilon`** *(bool, default=False)*: Scales the internal absolute stability floor by the largest second-moment matrix eigenvalue.
+* **`clip_unmagnified_grad`** *(float, default=1.0)*: Global gradient norm clipping threshold calculated over the combined unmagnified pair updates. A value of `0.0` disables clipping.
+* **`update_capping`** *(float, default=0.0)*: Per-update root-mean-square (RMS) ceiling limit applied to the tracking first moment within the rotated basis. A value of `0.0` disables capping.
+* **`update_skipping`** *(float, default=1.0)*: Outlier update rejection threshold that zeroes out updates whose unmagnified basis RMS exceeds this value. A value of `0.0` disables skipping.
+* **`weight_decay`** *(float, default=0.0)*: Coefficient for weight decay adjustments. Applied either coupled or decoupled based on `weight_decouple`.
+* **`weight_decouple`** *(bool, default=False)*: Enables decoupled weight decay applied directly to the factors prior to QR base calculations, matching AdamW behavior. When `False`, weight decay is added directly to the rotated update vectors.
+* **`fixed_decay`** *(bool, default=False)*: When `weight_decouple=True`, applies fixed weight decay without scaling the factor by the current learning rate.
+* **`apply_escape`** *(bool, default=False)*: Determines whether to use the RITE escape correction sequence to counterbalance eigenvalue loss inside newly rotated coordinate bases.
+* **`lora_l_dim`** *(int, default=0)*: Matrix dimension representing the inner LoRA rank axis within the left-side matrix ($A$).
+* **`lora_r_dim`** *(int, default=-1)*: Matrix dimension representing the inner LoRA rank axis within the right-side matrix ($B$).
+* **`maybe_inf_to_nan`** *(bool, default=True)*: If enabled, converts infinity values to NaNs before evaluating RMS checks, causing anomalies to trigger outlier routines.
+* **`balance_param`** *(bool, default=False)*: Enables post-update balancing routines to dynamically match the matrix geometric norms of $A$ and $B$.
+* **`maximize`** *(bool, default=False)*: Maximizes the optimization objective instead of minimizing it.
+* **`orthograd`** *(bool, default=False)*: Orthogonalizes each factor's raw gradient against its current weight matrix before basis projection.
+* **`gc`** *(bool, default=False)*: Applies Gradient Centralization to the raw gradients across their original tensors before coordinate rotation.
+* **`agc`** *(bool, default=False)*: Enables Adaptive Gradient Clipping on raw gradient arrays, scaled unit-wise relative to each factor parameter norm.
+* **`agc_clip_val`** *(float, default=1e-2)*: Adaptive Gradient Clipping norm limit scaling ratio.
+* **`agc_eps`** *(float, default=1e-3)*: Minimum baseline norm floor used for stability inside AGC calculations.
+* **`cautious`** *(bool, default=False)*: Applies Cautious-style masking on the rotated first-moment matrices, zeroing out elements that disagree in sign with the current unmagnified gradients.
+* **`trust_ratio`** *(bool, default=False)*: Enables LARS-style layer-wise step-size scaling on the finalized parameter deltas calculated in the original weight space.
+* **`trust_clip`** *(bool, default=False)*: Clips the calculated layer trust ratio to be less than or equal to `1.0`.
+* **`pnm`** *(bool, default=False)*: Layers Positive-Negative Momentum smoothing onto the parameter-space updates in addition to the base internal rotated moments.
+* **`lookahead`** *(bool, default=False)*: Enables Lookahead slow-weight tracking and blending mechanics across the LoRA matrices.
+* **`lookahead_merge_time`** *(int, default=5)*: Synchronization step interval sequence for merging Lookahead fast weights back into slow parameters.
+* **`lookahead_blending_alpha`** *(float, default=0.5)*: Interpolation blending fraction weight applied when updating slow Lookahead targets.
+* **`clipnorm`** *(float, optional)*: Clips gradients by norm.
+* **`clipvalue`** *(float, optional)*: Clips gradients by value.
+* **`global_clipnorm`** *(float, optional)*: Clips gradients by global norm.
+* **`use_ema`** *(bool, default=False)*: Whether to apply Exponential Moving Average to model weights.
+* **`ema_momentum`** *(float, default=0.99)*: Momentum for EMA.
+* **`ema_overwrite_frequency`** *(int, optional)*: Frequency for overwriting EMA weights.
+* **`loss_scale_factor`** *(float, optional)*: Factor for scaling the loss during gradient computation.
+* **`gradient_accumulation_steps`** *(int, optional)*: Steps for accumulating gradients.
+* **`name`** *(str, default="LoRARite_e")*: Name of the optimizer.
+
+**Example Usage**:
+
+```python
+import tensorflow as tf
+from optimizers.lora_rite_e import LoRARite_e
+
+# Trainable variables list must strictly follow alternating order: [a1, b1, a2, b2, ...]
+lora_variables = [model.lora_A, model.lora_B]
+
+# Instantiate optimizer with full performance tech stack
+optimizer = LoRARite_e(
+    learning_rate=1e-3,
+    weight_decay=1e-2,
+    weight_decouple=True,
+    apply_escape=True,
+    cautious=True,
+    trust_ratio=True,
+    lookahead=True
+)
+
+# Compile the model
+model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=5)
 ```
