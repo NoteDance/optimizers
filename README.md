@@ -8704,7 +8704,7 @@ Computes per-unit norm of the parameter and scales the gradient if it exceeds `m
 
 **5.2 Gradient Centralization**
 
-`gradient_centralize(self, g)`
+`apply_gc(self, g)`
 
 For gradients with dimension > 1, subtracts the mean along all axes except the first.
 
